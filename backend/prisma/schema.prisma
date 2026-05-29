@@ -1,0 +1,208 @@
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+model User {
+  id              String           @id @default(uuid())
+  email           String           @unique
+  passwordHash    String
+  name            String
+  phoneNumber     String?
+  role            Role
+  state           String
+  utilityType     String?
+  status          String           @default("PENDING")
+  createdAt       DateTime         @default(now())
+
+  // Updated relations with matching names
+  consumerContracts   Contract[]      @relation("ConsumerContracts")
+  supplierContracts   Contract[]      @relation("SupplierContracts")
+  supplierDocuments   SupplierDocument[]
+  
+  // Relations
+  consumerProfile ConsumerProfile?
+  supplierProfile SupplierProfile?
+  documents       Document[]
+  bids            Bid[]            @relation("UserBids")
+  payments        Payment[]
+}
+
+enum Role {
+  ADMIN
+  SUPPLIER
+  CONSUMER
+  TRADER
+}
+
+model ConsumerProfile {
+  id              String   @id @default(uuid())
+  userId          String   @unique
+  user            User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  phoneNumber     String? 
+  drawalPoint     String   // Grid substation
+  oaStatus        String   @default("INACTIVE") // ACTIVE, PENDING, INACTIVE
+}
+
+model SupplierProfile {
+  id                 String   @id @default(uuid())
+  userId             String   @unique
+  user               User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  phoneNumber     String? 
+  injectionPoint     String   // Grid pooling station injection Node
+  renewableType      String   // Solar, Wind, Hydro, Biomass, Mixed
+}
+
+model Bid {
+  id          String    @id @default(uuid())
+  userId      String
+  user        User      @relation("UserBids", fields: [userId], references: [id], onDelete: Cascade)
+  mw          Float     // Bid Capacity
+  price       Float     // Bid Price in ₹/unit
+  marketType  String    // DAM, RTM, GDAM, HPDAM, TAM
+  timeBlock   String    // e.g., "09:00-10:00"
+  status      String    @default("PENDING") // PENDING, MATCHED, WITHDRAWN
+  createdAt   DateTime  @default(now())
+}
+
+model Application {
+  id              String   @id @default(uuid())
+  consumerId      String
+  supplierId      String
+  mw              Float
+  type            String   @default("Green OA")
+  applicantName   String?
+  entityType      String?
+  legalIdentifier String?
+  discomConsumerNo String?
+  registeredAddress String?
+  state           String?
+  discom          String?
+  contactPerson   String?
+  contactEmail    String?
+  contactMobile   String?
+  voltageLevel    String?
+  renewableType   String?
+  scheduleType    String?
+  proposedStartDate String?
+  timeBlocks      String?
+  documentChecklist Json?
+  annexureCStatus String   @default("PENDING")
+  annexureDStatus String   @default("PENDING")
+  annexureEStatus String   @default("PENDING")
+  approvalStatus  String   @default("ADMIN_PENDING")
+  lossPercentage  Float    @default(3.5)
+  injectionPoint  String
+  drawalPoint     String
+  durationDays    Int      @default(365)
+  requestedPrice   Float?  
+  consumerName     String? 
+
+  // Workflow tracking
+  adminApproved        Boolean   @default(false)
+  supplierApproved     Boolean   @default(false)
+  contractGenerated    Boolean   @default(false)
+   
+  adminApprovedAt      DateTime?
+  supplierApprovedAt   DateTime?
+  contractGeneratedAt  DateTime?
+  rejectionReason      String?
+  contractId           String?
+  contractUrl          String?
+
+  // Document URLs
+  ppaUrl          String?
+  oaAppUrl        String?
+  bgUrl           String?
+  authLetterUrl   String?
+  createdAt       DateTime @default(now())
+
+  // Add this relation field
+  contract Contract? 
+}
+
+model Contract {
+  id                 String   @id
+  applicationId      String   @unique
+  consumerId         String
+  supplierId         String
+  contractNumber     String   @unique
+  startDate          DateTime
+  endDate            DateTime
+  mw                 Int
+  pricePerUnit       Float
+  totalValue         Float
+  status             String
+  signedByConsumer   Boolean  @default(false)
+  signedBySupplier   Boolean  @default(false)
+  signedAt           DateTime?
+  pdfUrl             String?
+  createdAt          DateTime @default(now())
+  
+  application        Application @relation(fields: [applicationId], references: [id])
+  consumer           User        @relation("ConsumerContracts", fields: [consumerId], references: [id])
+  supplier           User        @relation("SupplierContracts", fields: [supplierId], references: [id])
+}
+
+
+model SupplierDocument {
+  id             String   @id
+  supplierId     String
+  name           String
+  documentType   String
+  description    String?
+  filePath       String
+  fileSize       Int
+  mimeType       String
+  status         String   @default("PENDING")
+  verifiedAt     DateTime?
+  verifiedBy     String?
+  uploadedAt     DateTime @default(now())
+  
+  supplier       User     @relation(fields: [supplierId], references: [id])
+}
+
+
+model Schedule {
+  id             String   @id @default(uuid())
+  applicationId  String
+  supplierId     String
+  consumerId     String
+  mw             Float
+  timeBlock      String
+  gridStatus     String   @default("SCHEDULED") // SCHEDULED, RUNNING, COMPLETED, CONGESTED
+  createdAt      DateTime @default(now())
+}
+
+model Document {
+  id          String   @id @default(uuid())
+  title       String
+  category    String   // PPA, OA_APP, BG, AUTH_LETTER, RENEWABLE_CERT
+  fileUrl     String
+  status      String   @default("PENDING") // PENDING, VERIFIED, REJECTED
+  userId      String
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  createdAt   DateTime @default(now())
+}
+
+model Payment {
+  id         String   @id @default(uuid())
+  userId     String
+  user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  amount     Float
+  currency   String   @default("INR")
+  status     String   @default("PENDING") // PENDING, COMPLETED, FAILED
+  reference  String?
+  createdAt  DateTime @default(now())
+}
+
+model MarketPrice {
+  id      String @id @default(uuid())
+  market  String @unique
+  price   Float
+  change  String
+}

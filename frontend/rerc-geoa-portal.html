@@ -1,0 +1,1956 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>RERC Green Energy Open Access Portal</title>
+<link href="https://fonts.googleapis.com/css2?family=Sora:wght@400;500;600;700&family=DM+Sans:wght@300;400;500&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --green-dark: #0F6E56;
+    --green-mid: #1D9E75;
+    --green-light: #5DCAA5;
+    --green-pale: #E1F5EE;
+    --amber: #BA7517;
+    --amber-light: #FAEEDA;
+    --amber-mid: #EF9F27;
+    --blue-dark: #185FA5;
+    --blue-light: #E6F1FB;
+    --red: #A32D2D;
+    --red-light: #FCEBEB;
+    --gray-900: #2C2C2A;
+    --gray-700: #444441;
+    --gray-500: #5F5E5A;
+    --gray-300: #B4B2A9;
+    --gray-100: #F1EFE8;
+    --white: #ffffff;
+    --shadow-sm: 0 1px 3px rgba(0,0,0,0.08);
+    --shadow-md: 0 4px 16px rgba(0,0,0,0.1);
+    --radius-sm: 8px;
+    --radius-md: 12px;
+    --radius-lg: 16px;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    font-family: 'DM Sans', sans-serif;
+    background: #f4f7f5;
+    color: var(--gray-900);
+    min-height: 100vh;
+  }
+
+  /* NAV */
+  nav {
+    background: var(--white);
+    border-bottom: 1px solid #e0e8e4;
+    padding: 0 2rem;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    height: 64px;
+    position: sticky;
+    top: 0;
+    z-index: 100;
+    box-shadow: var(--shadow-sm);
+  }
+
+  .nav-brand {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+  }
+
+  .nav-logo {
+    width: 40px;
+    height: 40px;
+    background: var(--green-dark);
+    border-radius: 10px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  .nav-logo svg { width: 22px; height: 22px; fill: white; }
+
+  .nav-title {
+    font-family: 'Sora', sans-serif;
+    font-size: 16px;
+    font-weight: 700;
+    color: var(--green-dark);
+    line-height: 1.2;
+  }
+
+  .nav-subtitle {
+    font-size: 11px;
+    color: var(--gray-500);
+    font-weight: 400;
+    letter-spacing: 0.02em;
+  }
+
+  .nav-links {
+    display: flex;
+    gap: 4px;
+    align-items: center;
+  }
+
+  .nav-links a {
+    padding: 6px 14px;
+    font-size: 13px;
+    font-weight: 500;
+    color: var(--gray-700);
+    text-decoration: none;
+    border-radius: 6px;
+    transition: background 0.15s, color 0.15s;
+  }
+
+  .nav-links a:hover { background: var(--gray-100); color: var(--green-dark); }
+  .nav-links a.active { background: var(--green-pale); color: var(--green-dark); }
+
+  .nav-btn {
+    background: var(--green-dark);
+    color: white !important;
+    padding: 8px 18px !important;
+    border-radius: 8px !important;
+    font-weight: 600 !important;
+  }
+
+  .nav-btn:hover { background: var(--green-mid) !important; }
+
+  /* PAGES */
+  .page { display: none; }
+  .page.active { display: block; }
+
+  /* HERO */
+  .hero {
+    background: linear-gradient(135deg, var(--green-dark) 0%, #0a4f3a 60%, #063529 100%);
+    padding: 5rem 2rem 4rem;
+    text-align: center;
+    position: relative;
+    overflow: hidden;
+  }
+
+  .hero::before {
+    content: '';
+    position: absolute;
+    top: -80px; right: -80px;
+    width: 320px; height: 320px;
+    border-radius: 50%;
+    background: rgba(255,255,255,0.04);
+  }
+
+  .hero::after {
+    content: '';
+    position: absolute;
+    bottom: -60px; left: -60px;
+    width: 240px; height: 240px;
+    border-radius: 50%;
+    background: rgba(255,255,255,0.03);
+  }
+
+  .hero-badge {
+    display: inline-block;
+    background: rgba(255,255,255,0.12);
+    border: 1px solid rgba(255,255,255,0.2);
+    border-radius: 20px;
+    padding: 4px 14px;
+    font-size: 12px;
+    color: rgba(255,255,255,0.85);
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    font-weight: 500;
+    margin-bottom: 1.5rem;
+  }
+
+  .hero h1 {
+    font-family: 'Sora', sans-serif;
+    font-size: clamp(1.8rem, 4vw, 2.8rem);
+    font-weight: 700;
+    color: white;
+    max-width: 680px;
+    margin: 0 auto 1rem;
+    line-height: 1.25;
+  }
+
+  .hero p {
+    font-size: 16px;
+    color: rgba(255,255,255,0.72);
+    max-width: 540px;
+    margin: 0 auto 2.5rem;
+    line-height: 1.7;
+  }
+
+  .hero-actions {
+    display: flex;
+    gap: 12px;
+    justify-content: center;
+    flex-wrap: wrap;
+  }
+
+  .btn-primary {
+    background: white;
+    color: var(--green-dark);
+    padding: 12px 28px;
+    border-radius: 10px;
+    font-weight: 700;
+    font-size: 15px;
+    border: none;
+    cursor: pointer;
+    font-family: 'DM Sans', sans-serif;
+    transition: transform 0.15s, box-shadow 0.15s;
+  }
+
+  .btn-primary:hover { transform: translateY(-1px); box-shadow: 0 6px 20px rgba(0,0,0,0.2); }
+
+  .btn-secondary {
+    background: transparent;
+    color: white;
+    padding: 12px 28px;
+    border-radius: 10px;
+    font-weight: 500;
+    font-size: 15px;
+    border: 1.5px solid rgba(255,255,255,0.35);
+    cursor: pointer;
+    font-family: 'DM Sans', sans-serif;
+    transition: background 0.15s, border-color 0.15s;
+  }
+
+  .btn-secondary:hover { background: rgba(255,255,255,0.08); border-color: rgba(255,255,255,0.5); }
+
+  /* STATS BAR */
+  .stats-bar {
+    background: white;
+    border-bottom: 1px solid #e0e8e4;
+    padding: 1.25rem 2rem;
+    display: flex;
+    justify-content: center;
+    gap: 3rem;
+    flex-wrap: wrap;
+  }
+
+  .stat-item { text-align: center; }
+  .stat-num {
+    font-family: 'Sora', sans-serif;
+    font-size: 22px;
+    font-weight: 700;
+    color: var(--green-dark);
+  }
+  .stat-label { font-size: 12px; color: var(--gray-500); margin-top: 2px; }
+
+  /* MAIN LAYOUT */
+  .main-content {
+    max-width: 1100px;
+    margin: 0 auto;
+    padding: 3rem 2rem;
+  }
+
+  /* SECTION HEADINGS */
+  .section-head {
+    margin-bottom: 2rem;
+  }
+
+  .section-head h2 {
+    font-family: 'Sora', sans-serif;
+    font-size: 1.4rem;
+    font-weight: 700;
+    color: var(--gray-900);
+    margin-bottom: 6px;
+  }
+
+  .section-head p {
+    font-size: 14px;
+    color: var(--gray-500);
+  }
+
+  /* FEATURE CARDS */
+  .features-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+    gap: 20px;
+    margin-bottom: 3rem;
+  }
+
+  .feature-card {
+    background: white;
+    border-radius: var(--radius-md);
+    padding: 1.5rem;
+    border: 1px solid #e0e8e4;
+    cursor: pointer;
+    transition: box-shadow 0.2s, transform 0.15s, border-color 0.2s;
+    text-align: left;
+  }
+
+  .feature-card:hover {
+    box-shadow: var(--shadow-md);
+    transform: translateY(-2px);
+    border-color: var(--green-light);
+  }
+
+  .feature-icon {
+    width: 48px; height: 48px;
+    border-radius: 10px;
+    display: flex; align-items: center; justify-content: center;
+    margin-bottom: 1rem;
+    font-size: 22px;
+  }
+
+  .feature-icon.green { background: var(--green-pale); }
+  .feature-icon.amber { background: var(--amber-light); }
+  .feature-icon.blue { background: var(--blue-light); }
+
+  .feature-card h3 {
+    font-family: 'Sora', sans-serif;
+    font-size: 15px;
+    font-weight: 700;
+    margin-bottom: 6px;
+    color: var(--gray-900);
+  }
+
+  .feature-card p {
+    font-size: 13px;
+    color: var(--gray-500);
+    line-height: 1.6;
+  }
+
+  .feature-arrow {
+    display: inline-block;
+    margin-top: 12px;
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--green-dark);
+  }
+
+  /* PROCESS STEPS */
+  .process-section {
+    background: white;
+    border-radius: var(--radius-lg);
+    padding: 2rem;
+    border: 1px solid #e0e8e4;
+    margin-bottom: 3rem;
+  }
+
+  .steps-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+    gap: 0;
+    position: relative;
+    margin-top: 1.5rem;
+  }
+
+  .step {
+    text-align: center;
+    padding: 1rem;
+    position: relative;
+  }
+
+  .step::after {
+    content: '→';
+    position: absolute;
+    right: -8px;
+    top: 50%;
+    transform: translateY(-50%);
+    font-size: 18px;
+    color: var(--gray-300);
+  }
+
+  .step:last-child::after { display: none; }
+
+  .step-num {
+    width: 44px; height: 44px;
+    border-radius: 50%;
+    background: var(--green-pale);
+    color: var(--green-dark);
+    font-family: 'Sora', sans-serif;
+    font-size: 16px;
+    font-weight: 700;
+    display: flex; align-items: center; justify-content: center;
+    margin: 0 auto 10px;
+  }
+
+  .step h4 {
+    font-size: 13px;
+    font-weight: 700;
+    color: var(--gray-900);
+    margin-bottom: 4px;
+  }
+
+  .step p {
+    font-size: 12px;
+    color: var(--gray-500);
+    line-height: 1.5;
+  }
+
+  /* CHARGES TABLE */
+  .table-card {
+    background: white;
+    border-radius: var(--radius-md);
+    border: 1px solid #e0e8e4;
+    overflow: hidden;
+    margin-bottom: 2rem;
+  }
+
+  .table-card table {
+    width: 100%;
+    border-collapse: collapse;
+  }
+
+  .table-card th {
+    background: var(--green-dark);
+    color: white;
+    font-size: 12px;
+    font-weight: 600;
+    padding: 10px 14px;
+    text-align: left;
+    letter-spacing: 0.03em;
+    text-transform: uppercase;
+  }
+
+  .table-card td {
+    padding: 11px 14px;
+    font-size: 13px;
+    border-bottom: 1px solid #f0f4f2;
+    vertical-align: middle;
+  }
+
+  .table-card tr:last-child td { border-bottom: none; }
+  .table-card tr:nth-child(even) td { background: #f9fcfa; }
+
+  .badge {
+    display: inline-block;
+    padding: 2px 10px;
+    border-radius: 20px;
+    font-size: 11px;
+    font-weight: 600;
+  }
+
+  .badge-green { background: var(--green-pale); color: var(--green-dark); }
+  .badge-amber { background: var(--amber-light); color: var(--amber); }
+  .badge-red { background: var(--red-light); color: var(--red); }
+  .badge-blue { background: var(--blue-light); color: var(--blue-dark); }
+
+  /* ALERT */
+  .alert {
+    padding: 1rem 1.25rem;
+    border-radius: var(--radius-sm);
+    font-size: 13px;
+    display: flex;
+    gap: 10px;
+    align-items: flex-start;
+    margin-bottom: 1.5rem;
+  }
+
+  .alert-info { background: var(--blue-light); border: 1px solid #b5d4f4; color: var(--blue-dark); }
+  .alert-warn { background: var(--amber-light); border: 1px solid #fac775; color: var(--amber); }
+  .alert-success { background: var(--green-pale); border: 1px solid #9fe1cb; color: var(--green-dark); }
+
+  .alert-icon { font-size: 16px; flex-shrink: 0; margin-top: 1px; }
+
+  /* APPLICATION FORM PAGE */
+  .form-layout {
+    display: grid;
+    grid-template-columns: 340px 1fr;
+    gap: 24px;
+    align-items: start;
+  }
+
+  .form-sidebar {
+    background: white;
+    border-radius: var(--radius-md);
+    border: 1px solid #e0e8e4;
+    padding: 1.5rem;
+    position: sticky;
+    top: 84px;
+  }
+
+  .progress-steps { list-style: none; }
+
+  .progress-step {
+    display: flex;
+    align-items: flex-start;
+    gap: 12px;
+    padding: 10px 0;
+    border-bottom: 1px solid #f0f4f2;
+    cursor: pointer;
+  }
+
+  .progress-step:last-child { border-bottom: none; }
+
+  .ps-circle {
+    width: 28px; height: 28px; border-radius: 50%;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 12px; font-weight: 700; flex-shrink: 0;
+    transition: background 0.2s, color 0.2s;
+  }
+
+  .ps-circle.done { background: var(--green-dark); color: white; }
+  .ps-circle.active { background: var(--green-pale); color: var(--green-dark); border: 2px solid var(--green-mid); }
+  .ps-circle.pending { background: var(--gray-100); color: var(--gray-500); }
+
+  .ps-text h5 { font-size: 13px; font-weight: 600; color: var(--gray-900); }
+  .ps-text p { font-size: 12px; color: var(--gray-500); margin-top: 2px; }
+
+  .form-card {
+    background: white;
+    border-radius: var(--radius-md);
+    border: 1px solid #e0e8e4;
+    padding: 2rem;
+  }
+
+  .form-card h3 {
+    font-family: 'Sora', sans-serif;
+    font-size: 18px;
+    font-weight: 700;
+    margin-bottom: 4px;
+  }
+
+  .form-card .form-subtitle {
+    font-size: 13px;
+    color: var(--gray-500);
+    margin-bottom: 1.5rem;
+    padding-bottom: 1.5rem;
+    border-bottom: 1px solid #f0f4f2;
+  }
+
+  .form-row { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-bottom: 16px; }
+  .form-group { margin-bottom: 0; }
+  .form-group.full { grid-column: 1/-1; }
+
+  .form-group label {
+    display: block;
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--gray-700);
+    margin-bottom: 6px;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+  }
+
+  .required::after { content: ' *'; color: var(--red); }
+
+  .form-group input,
+  .form-group select,
+  .form-group textarea {
+    width: 100%;
+    border: 1.5px solid #dde5e1;
+    border-radius: 8px;
+    padding: 10px 14px;
+    font-size: 14px;
+    font-family: 'DM Sans', sans-serif;
+    color: var(--gray-900);
+    background: white;
+    transition: border-color 0.2s, box-shadow 0.2s;
+    outline: none;
+  }
+
+  .form-group input:focus,
+  .form-group select:focus,
+  .form-group textarea:focus {
+    border-color: var(--green-mid);
+    box-shadow: 0 0 0 3px rgba(29,158,117,0.12);
+  }
+
+  .form-group textarea { resize: vertical; min-height: 80px; }
+
+  .form-group select { appearance: none; background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8' viewBox='0 0 12 8'%3E%3Cpath d='M1 1l5 5 5-5' stroke='%235F5E5A' stroke-width='1.5' fill='none' stroke-linecap='round'/%3E%3C/svg%3E"); background-repeat: no-repeat; background-position: right 12px center; padding-right: 36px; }
+
+  .form-actions {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-top: 2rem;
+    padding-top: 1.5rem;
+    border-top: 1px solid #f0f4f2;
+  }
+
+  .btn-green {
+    background: var(--green-dark);
+    color: white;
+    border: none;
+    border-radius: 8px;
+    padding: 10px 24px;
+    font-size: 14px;
+    font-weight: 600;
+    font-family: 'DM Sans', sans-serif;
+    cursor: pointer;
+    transition: background 0.15s, transform 0.1s;
+  }
+
+  .btn-green:hover { background: var(--green-mid); }
+  .btn-green:active { transform: scale(0.98); }
+
+  .btn-outline {
+    background: transparent;
+    color: var(--gray-700);
+    border: 1.5px solid #dde5e1;
+    border-radius: 8px;
+    padding: 10px 24px;
+    font-size: 14px;
+    font-weight: 500;
+    font-family: 'DM Sans', sans-serif;
+    cursor: pointer;
+    transition: background 0.15s;
+  }
+
+  .btn-outline:hover { background: var(--gray-100); }
+
+  /* DASHBOARD PAGE */
+  .dashboard-header {
+    background: white;
+    padding: 1.5rem 2rem;
+    border-bottom: 1px solid #e0e8e4;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+  }
+
+  .welcome-text h2 {
+    font-family: 'Sora', sans-serif;
+    font-size: 20px;
+    font-weight: 700;
+    color: var(--gray-900);
+  }
+
+  .welcome-text p { font-size: 13px; color: var(--gray-500); margin-top: 2px; }
+
+  .metrics-grid {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 16px;
+    margin-bottom: 2rem;
+  }
+
+  .metric-card {
+    background: white;
+    border-radius: var(--radius-md);
+    border: 1px solid #e0e8e4;
+    padding: 1.25rem;
+  }
+
+  .metric-label {
+    font-size: 12px;
+    color: var(--gray-500);
+    font-weight: 500;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    margin-bottom: 6px;
+  }
+
+  .metric-val {
+    font-family: 'Sora', sans-serif;
+    font-size: 26px;
+    font-weight: 700;
+    color: var(--gray-900);
+    line-height: 1;
+  }
+
+  .metric-sub {
+    font-size: 12px;
+    color: var(--green-dark);
+    margin-top: 6px;
+  }
+
+  .metric-card.accent-green { border-top: 3px solid var(--green-mid); }
+  .metric-card.accent-amber { border-top: 3px solid var(--amber-mid); }
+  .metric-card.accent-blue { border-top: 3px solid #378ADD; }
+  .metric-card.accent-red { border-top: 3px solid #E24B4A; }
+
+  /* STATUS TRACKER */
+  .tracker-card {
+    background: white;
+    border-radius: var(--radius-md);
+    border: 1px solid #e0e8e4;
+    padding: 1.5rem;
+    margin-bottom: 2rem;
+  }
+
+  .tracker-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 1.5rem;
+  }
+
+  .tracker-header h3 {
+    font-family: 'Sora', sans-serif;
+    font-size: 16px;
+    font-weight: 700;
+  }
+
+  .app-id {
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--green-dark);
+    background: var(--green-pale);
+    padding: 4px 10px;
+    border-radius: 6px;
+  }
+
+  .tracker-timeline {
+    display: flex;
+    justify-content: space-between;
+    position: relative;
+    margin-bottom: 1rem;
+  }
+
+  .tracker-timeline::before {
+    content: '';
+    position: absolute;
+    top: 20px;
+    left: 36px; right: 36px;
+    height: 2px;
+    background: #e0e8e4;
+    z-index: 0;
+  }
+
+  .tracker-timeline::after {
+    content: '';
+    position: absolute;
+    top: 20px;
+    left: 36px;
+    width: 55%;
+    height: 2px;
+    background: var(--green-mid);
+    z-index: 0;
+  }
+
+  .tl-step {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 8px;
+    flex: 1;
+    position: relative;
+    z-index: 1;
+  }
+
+  .tl-dot {
+    width: 40px; height: 40px;
+    border-radius: 50%;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 15px;
+    border: 2px solid transparent;
+  }
+
+  .tl-dot.done { background: var(--green-dark); color: white; }
+  .tl-dot.active { background: white; border-color: var(--green-mid); color: var(--green-mid); }
+  .tl-dot.pending { background: var(--gray-100); color: var(--gray-300); border-color: #e0e8e4; }
+
+  .tl-label {
+    font-size: 11px;
+    color: var(--gray-500);
+    text-align: center;
+    font-weight: 500;
+    max-width: 80px;
+  }
+
+  .tl-label.done { color: var(--green-dark); font-weight: 600; }
+  .tl-label.active { color: var(--gray-900); font-weight: 700; }
+
+  /* DOCUMENT LIST */
+  .doc-list { display: flex; flex-direction: column; gap: 10px; }
+
+  .doc-item {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 12px 14px;
+    background: #f9fcfa;
+    border: 1px solid #e0e8e4;
+    border-radius: 8px;
+  }
+
+  .doc-icon {
+    width: 36px; height: 36px;
+    background: var(--green-pale);
+    border-radius: 7px;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 16px;
+    flex-shrink: 0;
+  }
+
+  .doc-name { font-size: 13px; font-weight: 600; flex: 1; }
+  .doc-size { font-size: 11px; color: var(--gray-500); margin-top: 2px; }
+
+  .doc-status { font-size: 12px; }
+
+  /* CALCULATOR PAGE */
+  .calc-layout {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 24px;
+    align-items: start;
+  }
+
+  .calc-input-card, .calc-result-card {
+    background: white;
+    border-radius: var(--radius-md);
+    border: 1px solid #e0e8e4;
+    padding: 1.5rem;
+  }
+
+  .calc-result-card { background: var(--green-dark); color: white; }
+
+  .calc-result-card h3 {
+    font-family: 'Sora', sans-serif;
+    font-size: 16px;
+    color: rgba(255,255,255,0.8);
+    margin-bottom: 1.5rem;
+  }
+
+  .result-row {
+    display: flex;
+    justify-content: space-between;
+    padding: 10px 0;
+    border-bottom: 1px solid rgba(255,255,255,0.1);
+    font-size: 14px;
+  }
+
+  .result-row:last-child { border-bottom: none; }
+  .result-label { color: rgba(255,255,255,0.7); }
+  .result-val { color: white; font-weight: 600; }
+
+  .result-total {
+    background: rgba(255,255,255,0.12);
+    border-radius: 8px;
+    padding: 14px 16px;
+    margin-top: 1.5rem;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+  }
+
+  .result-total-label { font-size: 13px; color: rgba(255,255,255,0.8); }
+  .result-total-val { font-family: 'Sora', sans-serif; font-size: 24px; font-weight: 700; color: #9fe1cb; }
+
+  /* REGULATIONS PAGE */
+  .reg-grid {
+    display: grid;
+    grid-template-columns: 260px 1fr;
+    gap: 24px;
+    align-items: start;
+  }
+
+  .reg-nav {
+    background: white;
+    border-radius: var(--radius-md);
+    border: 1px solid #e0e8e4;
+    padding: 1rem;
+    position: sticky;
+    top: 84px;
+  }
+
+  .reg-nav-label {
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    color: var(--gray-500);
+    font-weight: 600;
+    padding: 4px 8px;
+    margin-bottom: 4px;
+  }
+
+  .reg-nav-item {
+    display: block;
+    padding: 8px 10px;
+    border-radius: 6px;
+    font-size: 13px;
+    color: var(--gray-700);
+    cursor: pointer;
+    transition: background 0.15s;
+    text-decoration: none;
+    margin-bottom: 2px;
+  }
+
+  .reg-nav-item:hover { background: var(--gray-100); }
+  .reg-nav-item.active { background: var(--green-pale); color: var(--green-dark); font-weight: 600; }
+
+  .reg-content-area {
+    background: white;
+    border-radius: var(--radius-md);
+    border: 1px solid #e0e8e4;
+    padding: 2rem;
+  }
+
+  .reg-section { margin-bottom: 2.5rem; }
+
+  .reg-section h3 {
+    font-family: 'Sora', sans-serif;
+    font-size: 16px;
+    font-weight: 700;
+    color: var(--green-dark);
+    margin-bottom: 1rem;
+    padding-bottom: 8px;
+    border-bottom: 2px solid var(--green-pale);
+  }
+
+  .reg-section p {
+    font-size: 14px;
+    line-height: 1.75;
+    color: var(--gray-700);
+    margin-bottom: 0.75rem;
+  }
+
+  .reg-section ul {
+    margin: 0.5rem 0 1rem 1.25rem;
+  }
+
+  .reg-section li {
+    font-size: 13.5px;
+    color: var(--gray-700);
+    line-height: 1.7;
+    margin-bottom: 6px;
+  }
+
+  .reg-highlight {
+    background: var(--green-pale);
+    border-left: 3px solid var(--green-mid);
+    border-radius: 0 6px 6px 0;
+    padding: 12px 14px;
+    margin: 1rem 0;
+    font-size: 13.5px;
+    color: var(--green-dark);
+    line-height: 1.6;
+  }
+
+  /* FOOTER */
+  footer {
+    background: var(--gray-900);
+    color: rgba(255,255,255,0.6);
+    text-align: center;
+    padding: 2rem;
+    font-size: 13px;
+    margin-top: 4rem;
+  }
+
+  footer strong { color: white; }
+
+  /* MODAL SUCCESS */
+  .modal-overlay {
+    display: none;
+    position: fixed;
+    inset: 0;
+    background: rgba(0,0,0,0.5);
+    z-index: 1000;
+    justify-content: center;
+    align-items: center;
+  }
+
+  .modal-overlay.show { display: flex; }
+
+  .modal-box {
+    background: white;
+    border-radius: var(--radius-lg);
+    padding: 2.5rem;
+    max-width: 420px;
+    width: 90%;
+    text-align: center;
+    box-shadow: 0 20px 60px rgba(0,0,0,0.2);
+  }
+
+  .modal-icon {
+    width: 72px; height: 72px;
+    background: var(--green-pale);
+    border-radius: 50%;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 32px;
+    margin: 0 auto 1.5rem;
+  }
+
+  .modal-box h3 {
+    font-family: 'Sora', sans-serif;
+    font-size: 22px;
+    font-weight: 700;
+    margin-bottom: 0.75rem;
+  }
+
+  .modal-box p {
+    font-size: 14px;
+    color: var(--gray-500);
+    line-height: 1.6;
+    margin-bottom: 1.5rem;
+  }
+
+  .ref-num {
+    background: var(--green-pale);
+    border-radius: 8px;
+    padding: 10px 16px;
+    font-size: 13px;
+    color: var(--green-dark);
+    font-weight: 700;
+    margin-bottom: 1.5rem;
+    display: inline-block;
+  }
+
+  @media (max-width: 768px) {
+    .form-layout, .calc-layout, .reg-grid { grid-template-columns: 1fr; }
+    .metrics-grid { grid-template-columns: 1fr 1fr; }
+    .nav-links { display: none; }
+    .form-sidebar, .reg-nav { position: relative; top: 0; }
+  }
+</style>
+</head>
+<body>
+
+<!-- NAV -->
+<nav>
+  <div class="nav-brand">
+    <div class="nav-logo">
+      <svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+        <path d="M12 2L4 7v5c0 5.25 3.4 10.15 8 11.35C16.6 22.15 20 17.25 20 12V7l-8-5z"/>
+        <path d="M9 12l2 2 4-4" stroke="rgba(255,255,255,0.5)" stroke-width="1.5" fill="none" stroke-linecap="round" stroke-linejoin="round"/>
+      </svg>
+    </div>
+    <div>
+      <div class="nav-title">RERC GEOA Portal</div>
+      <div class="nav-subtitle">Green Energy Open Access · Rajasthan</div>
+    </div>
+  </div>
+  <div class="nav-links">
+    <a href="#" class="active" onclick="showPage('home')">Home</a>
+    <a href="#" onclick="showPage('regulations')">Regulations</a>
+    <a href="#" onclick="showPage('calculator')">Charges Calculator</a>
+    <a href="#" onclick="showPage('dashboard')">My Dashboard</a>
+    <a href="#" class="nav-btn" onclick="showPage('apply')">Apply for GEOA</a>
+  </div>
+</nav>
+
+<!-- ============ HOME PAGE ============ -->
+<div id="page-home" class="page active">
+
+  <div class="hero">
+    <div class="hero-badge">RERC GEOA Regulations, 2025</div>
+    <h1>Green Energy Open Access for Rajasthan</h1>
+    <p>Simplifying access to renewable energy under the Rajasthan Electricity Regulatory Commission (Terms and Conditions for Green Energy Open Access) Regulations, 2025.</p>
+    <div class="hero-actions">
+      <button class="btn-primary" onclick="showPage('apply')">Apply for Open Access</button>
+      <button class="btn-secondary" onclick="showPage('regulations')">Read Regulations</button>
+    </div>
+  </div>
+
+  <div class="stats-bar">
+    <div class="stat-item">
+      <div class="stat-num">100 kW</div>
+      <div class="stat-label">Minimum load eligibility</div>
+    </div>
+    <div class="stat-item">
+      <div class="stat-num">30 Days</div>
+      <div class="stat-label">Short-term access period</div>
+    </div>
+    <div class="stat-item">
+      <div class="stat-num">25 Years</div>
+      <div class="stat-label">Maximum long-term access</div>
+    </div>
+    <div class="stat-item">
+      <div class="stat-num">7 Days</div>
+      <div class="stat-label">BESS charge exemption period</div>
+    </div>
+    <div class="stat-item">
+      <div class="stat-num">2025</div>
+      <div class="stat-label">Regulations effective year</div>
+    </div>
+  </div>
+
+  <div class="main-content">
+
+    <div class="alert alert-success">
+      <span class="alert-icon">✅</span>
+      <span>RERC GEOA Regulations 2025 are now in effect. Petition No. 2264/2024 — Order dated 21.05.2025.</span>
+    </div>
+
+    <div class="section-head">
+      <h2>What you can do on this portal</h2>
+      <p>End-to-end digital management of your Green Energy Open Access application</p>
+    </div>
+
+    <div class="features-grid">
+      <div class="feature-card" onclick="showPage('apply')">
+        <div class="feature-icon green">📋</div>
+        <h3>Apply for Green Energy Open Access</h3>
+        <p>Submit your GEOA application online with document uploads. Applicable for consumers with contract demand of 100 kW or more.</p>
+        <span class="feature-arrow">Start application →</span>
+      </div>
+      <div class="feature-card" onclick="showPage('calculator')">
+        <div class="feature-icon amber">🧮</div>
+        <h3>Charges Calculator</h3>
+        <p>Estimate your transmission charges, wheeling charges, cross-subsidy surcharge, additional surcharge and standby charges.</p>
+        <span class="feature-arrow">Calculate charges →</span>
+      </div>
+      <div class="feature-card" onclick="showPage('dashboard')">
+        <div class="feature-icon blue">📊</div>
+        <h3>Track Your Application</h3>
+        <p>Monitor your application status in real-time through Nodal Agency (RVPN/Discom) processing stages.</p>
+        <span class="feature-arrow">View dashboard →</span>
+      </div>
+      <div class="feature-card" onclick="showPage('regulations')">
+        <div class="feature-icon green">📖</div>
+        <h3>Regulations Reference</h3>
+        <p>Quick access to key regulations — eligibility, categorization, charges, banking, green certificate and more.</p>
+        <span class="feature-arrow">Browse regulations →</span>
+      </div>
+    </div>
+
+    <!-- PROCESS -->
+    <div class="process-section">
+      <div class="section-head">
+        <h2>Application Process</h2>
+        <p>How your GEOA application moves from submission to approval</p>
+      </div>
+      <div class="steps-grid">
+        <div class="step">
+          <div class="step-num">1</div>
+          <h4>Apply Online</h4>
+          <p>Submit application to Nodal Agency with required documents</p>
+        </div>
+        <div class="step">
+          <div class="step-num">2</div>
+          <h4>Technical Check</h4>
+          <p>SLDC/STU evaluates grid capacity feasibility</p>
+        </div>
+        <div class="step">
+          <div class="step-num">3</div>
+          <h4>NOC & Agreement</h4>
+          <p>Obtain NOC from SLDC, execute open access agreement</p>
+        </div>
+        <div class="step">
+          <div class="step-num">4</div>
+          <h4>Security Deposit</h4>
+          <p>Deposit 3 months' charges with STU, Discom and SLDC</p>
+        </div>
+        <div class="step">
+          <div class="step-num">5</div>
+          <h4>Access Granted</h4>
+          <p>Open access approved; scheduling begins with SLDC</p>
+        </div>
+      </div>
+    </div>
+
+    <!-- CHARGES OVERVIEW TABLE -->
+    <div class="section-head">
+      <h2>Key Charges at a Glance</h2>
+      <p>Under Regulations 11 and 12 — subject to periodic revision by RERC</p>
+    </div>
+
+    <div class="table-card" style="margin-bottom:3rem">
+      <table>
+        <thead>
+          <tr>
+            <th>Charge Type</th>
+            <th>Applicable To</th>
+            <th>Exemption</th>
+            <th>Status</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td><strong>Transmission Charges</strong></td>
+            <td>All GEOA consumers using InSTS</td>
+            <td>100% for Solar/Wind (with BESS &gt;5%) for 7 years</td>
+            <td><span class="badge badge-green">Applicable</span></td>
+          </tr>
+          <tr>
+            <td><strong>Wheeling Charges</strong></td>
+            <td>All consumers using distribution system</td>
+            <td>100% for BESS standalone (peak/non-solar) for 7 yrs</td>
+            <td><span class="badge badge-green">Applicable</span></td>
+          </tr>
+          <tr>
+            <td><strong>Cross-Subsidy Surcharge</strong></td>
+            <td>Non-captive open access consumers</td>
+            <td>Partial exemption for green energy sources</td>
+            <td><span class="badge badge-amber">Partial</span></td>
+          </tr>
+          <tr>
+            <td><strong>Additional Surcharge</strong></td>
+            <td>GEOA consumers (non-fixed charge payers)</td>
+            <td>Not to exceed per-unit fixed cost of power purchase</td>
+            <td><span class="badge badge-amber">Conditional</span></td>
+          </tr>
+          <tr>
+            <td><strong>Standby Charges</strong></td>
+            <td>GEOA consumer drawing from Discom during outage</td>
+            <td>Nil if 1-day advance notice given to Discom</td>
+            <td><span class="badge badge-blue">25% of Energy Charges</span></td>
+          </tr>
+          <tr>
+            <td><strong>Banking Charges</strong></td>
+            <td>Consumers injecting surplus into grid</td>
+            <td>Surplus credited and drawn at applicable charges</td>
+            <td><span class="badge badge-green">Applicable</span></td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+
+  </div>
+</div>
+
+<!-- ============ APPLY PAGE ============ -->
+<div id="page-apply" class="page">
+  <div style="background: white; padding: 1.5rem 2rem; border-bottom: 1px solid #e0e8e4;">
+    <div style="max-width: 1100px; margin: 0 auto;">
+      <h2 style="font-family: 'Sora'; font-size: 20px; font-weight: 700;">Apply for Green Energy Open Access</h2>
+      <p style="font-size: 13px; color: var(--gray-500); margin-top: 4px;">Regulation 5 — Application to Nodal Agency (RVPN/Distribution Licensee)</p>
+    </div>
+  </div>
+
+  <div class="main-content">
+    <div class="alert alert-info">
+      <span class="alert-icon">ℹ️</span>
+      <span>Eligibility: Consumers with contract demand or sanctioned load of <strong>100 kW or more</strong> (single or aggregated across multiple connections in same electricity division) can apply. Captive consumers have no lower load limit.</span>
+    </div>
+
+    <div class="form-layout">
+      <!-- SIDEBAR -->
+      <div class="form-sidebar">
+        <p style="font-size:12px; font-weight:700; text-transform:uppercase; letter-spacing:0.05em; color:var(--gray-500); margin-bottom:12px;">Application Progress</p>
+        <ul class="progress-steps">
+          <li class="progress-step">
+            <div class="ps-circle done" id="ps1">✓</div>
+            <div class="ps-text">
+              <h5>Applicant Details</h5>
+              <p>Consumer & connection info</p>
+            </div>
+          </li>
+          <li class="progress-step">
+            <div class="ps-circle active" id="ps2">2</div>
+            <div class="ps-text">
+              <h5>Energy Details</h5>
+              <p>Source, capacity & duration</p>
+            </div>
+          </li>
+          <li class="progress-step">
+            <div class="ps-circle pending" id="ps3">3</div>
+            <div class="ps-text">
+              <h5>Documents Upload</h5>
+              <p>Identity, NOC, agreements</p>
+            </div>
+          </li>
+          <li class="progress-step">
+            <div class="ps-circle pending" id="ps4">4</div>
+            <div class="ps-text">
+              <h5>Declaration & Submit</h5>
+              <p>Review and submit</p>
+            </div>
+          </li>
+        </ul>
+
+        <div style="margin-top:1.5rem; padding-top:1.5rem; border-top:1px solid #f0f4f2;">
+          <p style="font-size:12px; font-weight:700; text-transform:uppercase; letter-spacing:0.05em; color:var(--gray-500); margin-bottom:10px;">Need Help?</p>
+          <p style="font-size:12px; color:var(--gray-500); line-height:1.6;">For queries, contact the Nodal Agency (RVPN for InSTS) or the Distribution Licensee for intra-division access.</p>
+          <p style="font-size:12px; color:var(--green-dark); font-weight:600; margin-top:8px;">helpdesk@rerc.rajasthan.gov.in</p>
+        </div>
+      </div>
+
+      <!-- FORM -->
+      <div class="form-card">
+        <h3>Energy Source & Access Details</h3>
+        <p class="form-subtitle">Provide details about the green energy source and the nature of open access required</p>
+
+        <div class="form-row">
+          <div class="form-group">
+            <label class="required">Type of Green Energy Open Access</label>
+            <select id="geoa-type">
+              <option value="">Select category</option>
+              <option>Long-term (12–25 years)</option>
+              <option>Medium-term (1–12 years)</option>
+              <option>Short-term (up to 1 year)</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label class="required">Nature of Access</label>
+            <select>
+              <option value="">Select type</option>
+              <option>Captive Generation (own use)</option>
+              <option>Third-party purchase</option>
+              <option>Power Exchange procurement</option>
+              <option>Green Energy Tariff (via Discom)</option>
+            </select>
+          </div>
+        </div>
+
+        <div class="form-row">
+          <div class="form-group">
+            <label class="required">Energy Source Type</label>
+            <select>
+              <option value="">Select source</option>
+              <option>Solar (ground-mounted)</option>
+              <option>Solar (rooftop)</option>
+              <option>Wind Energy</option>
+              <option>Solar + Wind Hybrid</option>
+              <option>Solar/Wind + BESS</option>
+              <option>Small Hydro</option>
+              <option>Biomass / Biogas</option>
+              <option>Green Hydrogen / Ammonia Plant</option>
+              <option>Other Renewable</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label class="required">Transmission System</label>
+            <select>
+              <option value="">Select system</option>
+              <option>InSTS (Intra-State Transmission)</option>
+              <option>Distribution System (Discom)</option>
+              <option>Both InSTS + Distribution</option>
+            </select>
+          </div>
+        </div>
+
+        <div class="form-row">
+          <div class="form-group">
+            <label class="required">Contracted Demand / Sanctioned Load (kW)</label>
+            <input type="number" placeholder="Minimum 100 kW" min="100">
+          </div>
+          <div class="form-group">
+            <label class="required">Applied Open Access Capacity (kW)</label>
+            <input type="number" placeholder="Enter capacity in kW">
+          </div>
+        </div>
+
+        <div class="form-row">
+          <div class="form-group">
+            <label class="required">Proposed Start Date</label>
+            <input type="date">
+          </div>
+          <div class="form-group">
+            <label class="required">Proposed End Date</label>
+            <input type="date">
+          </div>
+        </div>
+
+        <div class="form-group full" style="margin-bottom:16px;">
+          <label>Name of Generator / Power Producer</label>
+          <input type="text" placeholder="Enter name of RE generating entity">
+        </div>
+
+        <div class="form-row">
+          <div class="form-group">
+            <label>Generator Location (District)</label>
+            <select>
+              <option value="">Select district</option>
+              <option>Jaisalmer</option>
+              <option>Barmer</option>
+              <option>Bikaner</option>
+              <option>Jodhpur</option>
+              <option>Nagaur</option>
+              <option>Churu</option>
+              <option>Sikar</option>
+              <option>Jhunjhunu</option>
+              <option>Other</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label>Grid Connection Voltage Level</label>
+            <select>
+              <option value="">Select voltage</option>
+              <option>11 kV</option>
+              <option>33 kV</option>
+              <option>132 kV</option>
+              <option>220 kV</option>
+              <option>400 kV</option>
+            </select>
+          </div>
+        </div>
+
+        <div class="form-group full" style="margin-bottom:16px;">
+          <label>BESS Integration Details (if applicable)</label>
+          <textarea placeholder="Describe Battery Energy Storage System integration, capacity (% of RE capacity), and whether standalone or co-located..."></textarea>
+        </div>
+
+        <div class="form-group full" style="margin-bottom:0;">
+          <label>Additional Remarks / Special Conditions</label>
+          <textarea placeholder="Any other relevant information for the application..."></textarea>
+        </div>
+
+        <div class="form-actions">
+          <button class="btn-outline" onclick="showPage('home')">← Back to Home</button>
+          <div style="display:flex; gap:10px;">
+            <button class="btn-outline">Save Draft</button>
+            <button class="btn-green" onclick="submitApp()">Submit Application →</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ============ DASHBOARD PAGE ============ -->
+<div id="page-dashboard" class="page">
+  <div class="dashboard-header">
+    <div class="welcome-text">
+      <h2>My GEOA Dashboard</h2>
+      <p>Application ID: RERC-GEOA-2025-04821 · Submitted: 12 May 2025</p>
+    </div>
+    <button class="btn-green" onclick="showPage('apply')">+ New Application</button>
+  </div>
+
+  <div class="main-content">
+
+    <div class="metrics-grid">
+      <div class="metric-card accent-green">
+        <div class="metric-label">Applied Capacity</div>
+        <div class="metric-val">2.5 MW</div>
+        <div class="metric-sub">Solar + BESS · Long-term</div>
+      </div>
+      <div class="metric-card accent-amber">
+        <div class="metric-label">Estimated Monthly Charges</div>
+        <div class="metric-val">₹3.85L</div>
+        <div class="metric-sub">Transmission + Wheeling</div>
+      </div>
+      <div class="metric-card accent-blue">
+        <div class="metric-label">Processing Days</div>
+        <div class="metric-val">18</div>
+        <div class="metric-sub">Target: 30 days (Reg. 7)</div>
+      </div>
+      <div class="metric-card accent-red">
+        <div class="metric-label">Security Deposit Due</div>
+        <div class="metric-val">₹11.5L</div>
+        <div class="metric-sub">3-month equivalent charges</div>
+      </div>
+    </div>
+
+    <!-- STATUS TRACKER -->
+    <div class="tracker-card">
+      <div class="tracker-header">
+        <h3>Application Status</h3>
+        <span class="app-id">RERC-GEOA-2025-04821</span>
+      </div>
+
+      <div class="tracker-timeline">
+        <div class="tl-step">
+          <div class="tl-dot done">✓</div>
+          <div class="tl-label done">Application Submitted</div>
+        </div>
+        <div class="tl-step">
+          <div class="tl-dot done">✓</div>
+          <div class="tl-label done">Nodal Agency Review</div>
+        </div>
+        <div class="tl-step">
+          <div class="tl-dot active">⏳</div>
+          <div class="tl-label active">SLDC Feasibility Check</div>
+        </div>
+        <div class="tl-step">
+          <div class="tl-dot pending">4</div>
+          <div class="tl-label">NOC Issuance</div>
+        </div>
+        <div class="tl-step">
+          <div class="tl-dot pending">5</div>
+          <div class="tl-label">Agreement & Security</div>
+        </div>
+        <div class="tl-step">
+          <div class="tl-dot pending">6</div>
+          <div class="tl-label">Access Granted</div>
+        </div>
+      </div>
+
+      <div class="alert alert-warn" style="margin-bottom:0; margin-top:1rem;">
+        <span class="alert-icon">⚠️</span>
+        <span>SLDC is currently reviewing grid capacity at the proposed injection point. Expected decision within <strong>7 working days</strong>. You will be notified via registered email/SMS.</span>
+      </div>
+    </div>
+
+    <div style="display:grid; grid-template-columns:1fr 1fr; gap:20px;">
+      <!-- DOCUMENTS -->
+      <div class="tracker-card" style="margin-bottom:0">
+        <div class="tracker-header" style="margin-bottom:1rem;">
+          <h3>Submitted Documents</h3>
+          <span class="badge badge-green">4 of 6 verified</span>
+        </div>
+        <div class="doc-list">
+          <div class="doc-item">
+            <div class="doc-icon">📄</div>
+            <div>
+              <div class="doc-name">Identity & Ownership Proof</div>
+              <div class="doc-size">GST Certificate · 420 KB</div>
+            </div>
+            <div class="doc-status"><span class="badge badge-green">✓ Verified</span></div>
+          </div>
+          <div class="doc-item">
+            <div class="doc-icon">📄</div>
+            <div>
+              <div class="doc-name">Electricity Bill (Last 3 months)</div>
+              <div class="doc-size">PDF · 1.2 MB</div>
+            </div>
+            <div class="doc-status"><span class="badge badge-green">✓ Verified</span></div>
+          </div>
+          <div class="doc-item">
+            <div class="doc-icon">📄</div>
+            <div>
+              <div class="doc-name">PPA / Generator Agreement</div>
+              <div class="doc-size">PDF · 3.5 MB</div>
+            </div>
+            <div class="doc-status"><span class="badge badge-green">✓ Verified</span></div>
+          </div>
+          <div class="doc-item">
+            <div class="doc-icon">📄</div>
+            <div>
+              <div class="doc-name">Technical Single Line Diagram</div>
+              <div class="doc-size">PDF · 2.1 MB</div>
+            </div>
+            <div class="doc-status"><span class="badge badge-green">✓ Verified</span></div>
+          </div>
+          <div class="doc-item">
+            <div class="doc-icon">📄</div>
+            <div>
+              <div class="doc-name">Land Document of Generator</div>
+              <div class="doc-size">Not uploaded</div>
+            </div>
+            <div class="doc-status"><span class="badge badge-amber">⚠ Pending</span></div>
+          </div>
+          <div class="doc-item">
+            <div class="doc-icon">📄</div>
+            <div>
+              <div class="doc-name">Bank Guarantee / DD for Security</div>
+              <div class="doc-size">Not uploaded</div>
+            </div>
+            <div class="doc-status"><span class="badge badge-red">Required</span></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- RECENT ACTIVITY -->
+      <div class="tracker-card" style="margin-bottom:0">
+        <div class="tracker-header" style="margin-bottom:1rem;">
+          <h3>Activity Timeline</h3>
+        </div>
+        <div style="display:flex; flex-direction:column; gap:0;">
+          <div style="display:flex; gap:14px; padding:10px 0; border-bottom:1px solid #f0f4f2;">
+            <div style="width:36px;height:36px;background:var(--green-pale);border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:14px;flex-shrink:0;">📧</div>
+            <div>
+              <div style="font-size:13px;font-weight:600;">Forwarded to SLDC</div>
+              <div style="font-size:12px;color:var(--gray-500);">Nodal Agency forwarded your application to SLDC for feasibility check</div>
+              <div style="font-size:11px;color:var(--gray-300);margin-top:4px;">18 May 2025 · 10:32 AM</div>
+            </div>
+          </div>
+          <div style="display:flex; gap:14px; padding:10px 0; border-bottom:1px solid #f0f4f2;">
+            <div style="width:36px;height:36px;background:var(--green-pale);border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:14px;flex-shrink:0;">✅</div>
+            <div>
+              <div style="font-size:13px;font-weight:600;">Application Registered</div>
+              <div style="font-size:12px;color:var(--gray-500);">Application received and registered by Nodal Agency (RVPN)</div>
+              <div style="font-size:11px;color:var(--gray-300);margin-top:4px;">13 May 2025 · 09:15 AM</div>
+            </div>
+          </div>
+          <div style="display:flex; gap:14px; padding:10px 0; border-bottom:1px solid #f0f4f2;">
+            <div style="width:36px;height:36px;background:var(--amber-light);border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:14px;flex-shrink:0;">⚠️</div>
+            <div>
+              <div style="font-size:13px;font-weight:600;">Missing Document Notice</div>
+              <div style="font-size:12px;color:var(--gray-500);">Please upload land document for generator site within 7 days</div>
+              <div style="font-size:11px;color:var(--gray-300);margin-top:4px;">14 May 2025 · 11:00 AM</div>
+            </div>
+          </div>
+          <div style="display:flex; gap:14px; padding:10px 0;">
+            <div style="width:36px;height:36px;background:var(--green-pale);border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:14px;flex-shrink:0;">📋</div>
+            <div>
+              <div style="font-size:13px;font-weight:600;">Application Submitted</div>
+              <div style="font-size:12px;color:var(--gray-500);">GEOA application submitted successfully via RERC portal</div>
+              <div style="font-size:11px;color:var(--gray-300);margin-top:4px;">12 May 2025 · 04:48 PM</div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ============ CALCULATOR PAGE ============ -->
+<div id="page-calculator" class="page">
+  <div style="background: white; padding: 1.5rem 2rem; border-bottom: 1px solid #e0e8e4;">
+    <div style="max-width: 1100px; margin: 0 auto;">
+      <h2 style="font-family: 'Sora'; font-size: 20px; font-weight: 700;">Open Access Charges Estimator</h2>
+      <p style="font-size: 13px; color: var(--gray-500); margin-top: 4px;">Based on RERC GEOA Regulations 2025, Regulation 11 — Indicative estimate only</p>
+    </div>
+  </div>
+
+  <div class="main-content">
+    <div class="alert alert-warn">
+      <span class="alert-icon">⚠️</span>
+      <span>This is an <strong>indicative calculator</strong>. Actual charges are determined by RERC orders and applicable tariff regulations. Actual bills may vary.</span>
+    </div>
+
+    <div class="calc-layout">
+      <div class="calc-input-card">
+        <h3 style="font-family:'Sora';font-size:17px;font-weight:700;margin-bottom:1.5rem;">Input Parameters</h3>
+
+        <div class="form-group" style="margin-bottom:14px;">
+          <label>Contract Demand / Load (kW)</label>
+          <input type="number" id="c-demand" value="1000" min="100" oninput="calcCharges()">
+        </div>
+
+        <div class="form-group" style="margin-bottom:14px;">
+          <label>Open Access Capacity (kW)</label>
+          <input type="number" id="c-capacity" value="800" oninput="calcCharges()">
+        </div>
+
+        <div class="form-group" style="margin-bottom:14px;">
+          <label>Energy Source Type</label>
+          <select id="c-source" onchange="calcCharges()">
+            <option value="solar">Solar (without BESS)</option>
+            <option value="solarbess">Solar with BESS (&gt;5%)</option>
+            <option value="wind">Wind Energy</option>
+            <option value="hybrid">Solar + Wind Hybrid</option>
+            <option value="bess">Standalone BESS</option>
+            <option value="hydro">Small Hydro</option>
+            <option value="biomass">Biomass / Biogas</option>
+          </select>
+        </div>
+
+        <div class="form-group" style="margin-bottom:14px;">
+          <label>Transmission System</label>
+          <select id="c-system" onchange="calcCharges()">
+            <option value="insts">InSTS (RVPN)</option>
+            <option value="discom">Distribution (Discom)</option>
+          </select>
+        </div>
+
+        <div class="form-group" style="margin-bottom:14px;">
+          <label>Consumer Category</label>
+          <select id="c-category" onchange="calcCharges()">
+            <option value="hv">HV Industrial (HV-2/HV-3)</option>
+            <option value="mv">MV Commercial</option>
+            <option value="captive">Captive Consumer</option>
+          </select>
+        </div>
+
+        <div class="form-group" style="margin-bottom:14px;">
+          <label>Units Consumed per Month (kWh)</label>
+          <input type="number" id="c-units" value="400000" oninput="calcCharges()">
+        </div>
+
+        <div class="form-group" style="margin-bottom:0;">
+          <label>Duration of GEOA (years)</label>
+          <select id="c-duration" onchange="calcCharges()">
+            <option value="short">Short-term (≤1 year)</option>
+            <option value="medium" selected>Medium-term (1–12 years)</option>
+            <option value="long">Long-term (12–25 years)</option>
+          </select>
+        </div>
+      </div>
+
+      <div class="calc-result-card">
+        <h3>Estimated Monthly Charges</h3>
+        <div class="result-row">
+          <span class="result-label">Transmission Charges (InSTS)</span>
+          <span class="result-val" id="r-transmission">₹ 96,000</span>
+        </div>
+        <div class="result-row">
+          <span class="result-label">Wheeling Charges (Distribution)</span>
+          <span class="result-val" id="r-wheeling">₹ 0</span>
+        </div>
+        <div class="result-row">
+          <span class="result-label">Cross-Subsidy Surcharge</span>
+          <span class="result-val" id="r-css">₹ 1,20,000</span>
+        </div>
+        <div class="result-row">
+          <span class="result-label">Additional Surcharge</span>
+          <span class="result-val" id="r-as">₹ 40,000</span>
+        </div>
+        <div class="result-row">
+          <span class="result-label">SLDC / Scheduling Charges</span>
+          <span class="result-val" id="r-sldc">₹ 12,000</span>
+        </div>
+        <div class="result-row">
+          <span class="result-label">Transmission Losses (%)</span>
+          <span class="result-val" id="r-losses">3.5%</span>
+        </div>
+
+        <div class="result-total">
+          <div>
+            <div class="result-total-label">Total Estimated Monthly</div>
+            <div style="font-size:12px;color:rgba(255,255,255,0.5);margin-top:2px;">Excl. energy cost of green power</div>
+          </div>
+          <div class="result-total-val" id="r-total">₹ 2,68,000</div>
+        </div>
+
+        <div style="margin-top:1rem; padding:12px; background:rgba(255,255,255,0.08); border-radius:8px;">
+          <p style="font-size:12px; color:rgba(255,255,255,0.6); line-height:1.6;">
+            <strong style="color:rgba(255,255,255,0.85);">Exemptions applied:</strong> Solar sources get T&W charge exemptions as per Reg. 11.3. Long-term GEOA consumers may qualify for additional concessions. Actual rates set by RERC tariff orders.
+          </p>
+        </div>
+
+        <div style="margin-top:1rem;">
+          <div class="result-row">
+            <span class="result-label">Annualised Charge Estimate</span>
+            <span class="result-val" id="r-annual">₹ 32.2 L/yr</span>
+          </div>
+          <div class="result-row" style="border:none;">
+            <span class="result-label">Security Deposit (3 months)</span>
+            <span class="result-val" id="r-security">₹ 8.04 L</span>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ============ REGULATIONS PAGE ============ -->
+<div id="page-regulations" class="page">
+  <div style="background: white; padding: 1.5rem 2rem; border-bottom: 1px solid #e0e8e4;">
+    <div style="max-width: 1100px; margin: 0 auto;">
+      <h2 style="font-family: 'Sora'; font-size: 20px; font-weight: 700;">RERC GEOA Regulations 2025 — Reference</h2>
+      <p style="font-size: 13px; color: var(--gray-500); margin-top: 4px;">Rajasthan Electricity Regulatory Commission (Terms and Conditions for Green Energy Open Access) Regulations, 2025 · Petition No. 2264/2024</p>
+    </div>
+  </div>
+
+  <div class="main-content">
+    <div class="reg-grid">
+      <div class="reg-nav">
+        <div class="reg-nav-label">Key Regulations</div>
+        <a class="reg-nav-item active" onclick="showReg(this,'reg-1')">Reg. 1 — Title & Scope</a>
+        <a class="reg-nav-item" onclick="showReg(this,'reg-2')">Reg. 2 — Definitions</a>
+        <a class="reg-nav-item" onclick="showReg(this,'reg-3')">Reg. 3 — Eligibility</a>
+        <a class="reg-nav-item" onclick="showReg(this,'reg-4')">Reg. 4 — Categorization</a>
+        <a class="reg-nav-item" onclick="showReg(this,'reg-5')">Reg. 5 — Application Process</a>
+        <a class="reg-nav-item" onclick="showReg(this,'reg-7')">Reg. 7 — Nodal Agency</a>
+        <a class="reg-nav-item" onclick="showReg(this,'reg-8')">Reg. 8 — Allotment Priority</a>
+        <a class="reg-nav-item" onclick="showReg(this,'reg-11')">Reg. 11 — Charges</a>
+        <a class="reg-nav-item" onclick="showReg(this,'reg-12')">Reg. 12 — Banking</a>
+        <a class="reg-nav-item" onclick="showReg(this,'reg-16')">Reg. 16 — Scheduling</a>
+        <a class="reg-nav-item" onclick="showReg(this,'reg-21')">Reg. 21 — Green Energy Tariff</a>
+        <a class="reg-nav-item" onclick="showReg(this,'reg-23')">Reg. 23 — Green Certificate</a>
+      </div>
+
+      <div class="reg-content-area">
+
+        <div class="reg-section" id="reg-1">
+          <h3>Regulation 1 — Short Title, Commencement and Extent</h3>
+          <p>These Regulations shall be called the <strong>Rajasthan Electricity Regulatory Commission (Terms and Conditions for Green Energy Open Access) Regulations, 2025</strong>.</p>
+          <p>These Regulations apply to the whole state of Rajasthan and govern Open Access to electricity generated from Renewable Energy Sources, both captive and third-party, for use of Intra-State Transmission System (InSTS) and/or distribution systems of licensees.</p>
+          <div class="reg-highlight">These Regulations shall prevail over any other Commission regulation in force for allowing Open Access to green energy. They come into force from the date the Commission notifies.</div>
+        </div>
+
+        <div class="reg-section" id="reg-2" style="display:none">
+          <h3>Regulation 2 — Key Definitions</h3>
+          <ul>
+            <li><strong>Banking:</strong> Surplus green energy injected into the grid and credited with the distribution licensee by GEOA consumers, to be drawn along with applicable charges to compensate additional costs.</li>
+            <li><strong>Green Energy Open Access Consumer (GEOA Consumer):</strong> Any person with contract demand/sanctioned load of 100 kW or more (single or aggregated across multiple connections in the same electricity division) eligible to take green energy through open access.</li>
+            <li><strong>Nodal Agency:</strong> RVPN for InSTS access; Distribution Licensee of the area for access within distribution system or for intra-division consumers.</li>
+            <li><strong>Open Access:</strong> Non-discriminatory provision for use of transmission lines or distribution systems or associated facilities with such lines or systems by any licensee or consumer.</li>
+            <li><strong>Obligated Entity:</strong> Entities mandated under Section 86(1)(e) of the Electricity Act, 2003 to fulfil the Renewable Purchase Obligation (RPO).</li>
+            <li><strong>BESS:</strong> Battery Energy Storage System used for storage and supply of electricity.</li>
+          </ul>
+        </div>
+
+        <div class="reg-section" id="reg-3" style="display:none">
+          <h3>Regulation 3 — Eligibility</h3>
+          <p>The following persons/entities are eligible for Green Energy Open Access:</p>
+          <ul>
+            <li>Any person with contract demand or sanctioned load of <strong>100 kW or more</strong>, either through a single connection or through multiple connections aggregating 100 kW or more, located in the same electricity division of a distribution licensee.</li>
+            <li>Captive consumers have no lower load limit — they may apply for GEOA regardless of load size.</li>
+            <li>Consumers may elect to purchase green energy either up to a certain percentage of their consumption or for their entire consumption.</li>
+            <li>Any consumer may requisition for green energy from their distribution licensee for solar and/or non-solar Green Energy separately.</li>
+          </ul>
+          <div class="reg-highlight">Green energy purchased from distribution licensee or from Renewable Energy sources in excess of the Renewable Purchase Obligation (RPO) of the obligated entity, if not utilized by them, shall be counted towards RPO compliance of the distribution licensee.</div>
+        </div>
+
+        <div class="reg-section" id="reg-4" style="display:none">
+          <h3>Regulation 4 — Categorization of GEOA</h3>
+          <p>GEOA consumers are classified based on the duration of use of the intra-state transmission and/or distribution system:</p>
+          <ul>
+            <li><strong>Long-term GEOA:</strong> Duration of 12 years to 25 years</li>
+            <li><strong>Medium-term GEOA:</strong> Duration of 1 year to 12 years</li>
+            <li><strong>Short-term GEOA:</strong> Duration up to 1 year (minimum 1 month)</li>
+          </ul>
+          <p>For consumers sourcing power through a distribution licensee under the Green Energy Tariff, the minimum requisition period is one year and the quantum of green energy must be pre-specified for at least one year.</p>
+        </div>
+
+        <div class="reg-section" id="reg-5" style="display:none">
+          <h3>Regulation 5 — Application Process</h3>
+          <p>An application for Green Energy Open Access shall be submitted to the Nodal Agency with the following:</p>
+          <ul>
+            <li>Details of the applicant — name, address, consumer number</li>
+            <li>Nature and quantum of open access required (capacity in kW/MW)</li>
+            <li>Period for which open access is sought and proposed start date</li>
+            <li>Source/point of injection and drawal</li>
+            <li>Voltage level of connection</li>
+            <li>Name of the green energy generator / RE developer</li>
+            <li>Nature of energy sourcing (captive, third-party, power exchange, Green Energy Tariff)</li>
+            <li>Details of BESS if applicable</li>
+          </ul>
+          <div class="reg-highlight">The application is to be submitted on a one-time basis for long-term and medium-term access. Short-term access applications may be submitted as required for each period.</div>
+        </div>
+
+        <div class="reg-section" id="reg-7" style="display:none">
+          <h3>Regulation 7 — Role of Nodal Agency</h3>
+          <p>The Nodal Agency (RVPN or Distribution Licensee) shall:</p>
+          <ul>
+            <li>Receive applications from GEOA consumers and check completeness</li>
+            <li>Forward the application to SLDC for technical feasibility check</li>
+            <li>Communicate SLDC's decision to the applicant within <strong>30 days</strong> of receipt of complete application</li>
+            <li>Issue the Open Access order and facilitate execution of agreements</li>
+            <li>Maintain a register of all GEOA consumers</li>
+          </ul>
+          <p>SLDC shall check the availability of spare transmission/distribution capacity and furnish its report to the Nodal Agency within the stipulated time.</p>
+        </div>
+
+        <div class="reg-section" id="reg-8" style="display:none">
+          <h3>Regulation 8 — Allotment Priority</h3>
+          <p>Priority for grant of open access shall be as follows:</p>
+          <ul>
+            <li><strong>1st Priority:</strong> Distribution Licensees (highest priority)</li>
+            <li><strong>2nd Priority:</strong> GEOA consumers over normal Open Access consumers</li>
+            <li><strong>3rd Priority:</strong> Long-term GEOA consumers over Medium-term, which takes priority over Short-term, at any given time, subject to availability of spare T&D capacity margins.</li>
+          </ul>
+          <div class="reg-highlight">The decision to allow green energy open access shall be based on a first-come, first-served basis within the same priority category.</div>
+        </div>
+
+        <div class="reg-section" id="reg-11" style="display:none">
+          <h3>Regulation 11 — Charges Applicable to GEOA Consumers</h3>
+          <p>The following charges apply to Green Energy Open Access consumers:</p>
+          <ul>
+            <li><strong>11.1 Transmission Charges:</strong> Standard InSTS charges applicable. Solar/Wind plants (with/without BESS &gt;5% of RE capacity) are exempt from 100% T&W charges for 7 years from COD.</li>
+            <li><strong>11.2 BESS Incentives:</strong> Standalone BESS exempt from 100% T&W charges on power supplied during peak/non-solar hours for 7 years. BESS connected at 11kV/33kV sub-stations exempt from 100% T&W charges.</li>
+            <li><strong>11.3 Cross-Subsidy Surcharge (CSS):</strong> Applicable to non-captive GEOA consumers as determined by RERC. Partial exemptions may apply for qualifying green energy categories.</li>
+            <li><strong>11.4 Additional Surcharge:</strong> May be levied on GEOA consumers where the fixed charge gap exists. Shall not exceed the per-unit fixed cost of power purchase of the distribution licensee concerned. To be phased out within 4 years as per Electricity (Amendment) Rules, 2024.</li>
+            <li><strong>11.5 SLDC/Scheduling Charges:</strong> As determined by RERC from time to time.</li>
+            <li><strong>11.6 Standby Charges:</strong> 25% of applicable energy charges when GEOA consumer draws from Discom due to generator outage. Not applicable if 1-day advance notice is given.</li>
+            <li><strong>11.7 Green Hydrogen/Ammonia Plants:</strong> 50% waiver of InSTS T&W charges for solar/wind plants (with/without storage) supplying Green Hydrogen/Ammonia plants set up by 2030.</li>
+          </ul>
+        </div>
+
+        <div class="reg-section" id="reg-12" style="display:none">
+          <h3>Regulation 12 — Banking of Green Energy</h3>
+          <p>Banking of surplus green energy is permitted for GEOA consumers under the following terms:</p>
+          <ul>
+            <li>Surplus green energy injected by a GEOA consumer is credited to their account with the distribution licensee</li>
+            <li>The banked energy may be drawn by the consumer along with applicable banking charges</li>
+            <li>Banking charges are determined by the Commission and may include compensation for additional costs incurred by the licensee</li>
+            <li>Banking is permitted on a monthly basis; unutilized banked energy at month-end may lapse or be settled as per Commission orders</li>
+          </ul>
+          <div class="reg-highlight">Green energy in excess of Renewable Purchase Obligation (RPO) of the obligated entity — if not utilized by them in any manner — shall be counted towards RPO compliance of the distribution licensee.</div>
+        </div>
+
+        <div class="reg-section" id="reg-16" style="display:none">
+          <h3>Regulation 16 — Scheduling of Power</h3>
+          <p>GEOA consumers must comply with SLDC scheduling requirements:</p>
+          <ul>
+            <li>Day-ahead scheduling of injection and drawal must be submitted to SLDC as per prescribed format</li>
+            <li>Deviations from schedule are subject to deviation settlement mechanism (DSM) charges</li>
+            <li>GEOA consumer failing to utilize allocated capacity more than 4 times in a month (each under-utilization exceeding 4 hours) may have their open access cancelled after due notice</li>
+            <li>Surplus capacity arising from surrendered or cancelled short-term access may be reallocated to other short-term consumers in order of pending applications</li>
+          </ul>
+        </div>
+
+        <div class="reg-section" id="reg-21" style="display:none">
+          <h3>Regulation 21 — Green Energy Tariff</h3>
+          <p>Consumers may procure green energy through their distribution licensee under the Green Energy Tariff route:</p>
+          <ul>
+            <li>Consumer places a requisition with the distribution licensee for the desired quantum of green energy</li>
+            <li>Minimum requisition period: <strong>one year</strong></li>
+            <li>The quantum of green energy must be pre-specified for at least one year</li>
+            <li>Consumer may give separate requisition for solar and non-solar Green Energy</li>
+            <li>The distribution licensee shall procure such quantity of green energy and supply it to the consumer</li>
+          </ul>
+          <div class="reg-highlight">Eligibility criteria for Green Energy Open Access Power Purchases and Green Power Purchases through the respective Distribution Licensee through the Green Power Tariff may be defined separately under this regulation.</div>
+        </div>
+
+        <div class="reg-section" id="reg-23" style="display:none">
+          <h3>Regulation 23 — Green Certificate</h3>
+          <p>The distribution licensee shall issue a <strong>Green Certificate</strong> on a yearly basis to consumers for the green energy supplied:</p>
+          <ul>
+            <li>Certificate is issued for green energy supplied by the licensee to the consumer on their request</li>
+            <li>Certificate is issued for green energy beyond the Renewable Purchase Obligation (RPO) of the consumer</li>
+            <li>The certificate enables entities to fulfil their commitments such as RE-100, Net-Zero goals, and global SBTi standards</li>
+            <li>The base value, validity period, and redemption process of the Green Certificate shall be well-defined and follow Commission guidelines</li>
+          </ul>
+        </div>
+
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- SUCCESS MODAL -->
+<div class="modal-overlay" id="successModal">
+  <div class="modal-box">
+    <div class="modal-icon">✅</div>
+    <h3>Application Submitted!</h3>
+    <p>Your Green Energy Open Access application has been successfully submitted to the Nodal Agency (RVPN). You will receive updates on your registered email and mobile number.</p>
+    <div class="ref-num">Reference: RERC-GEOA-2025-04822</div>
+    <p style="font-size:12px;color:var(--gray-300);">The Nodal Agency will communicate SLDC's feasibility decision within <strong>30 days</strong> of receipt of your complete application.</p>
+    <button class="btn-green" onclick="document.getElementById('successModal').classList.remove('show'); showPage('dashboard');" style="width:100%;margin-top:0.5rem;">View Dashboard →</button>
+  </div>
+</div>
+
+<footer>
+  <strong>RERC Green Energy Open Access Portal</strong> · Rajasthan Electricity Regulatory Commission<br>
+  <span style="margin-top:6px;display:block;">Based on RERC GEOA Regulations 2025 (Petition No. 2264/2024) · Order dated 21.05.2025 · MVP Demo Version</span>
+</footer>
+
+<script>
+  function showPage(id) {
+    document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+    document.getElementById('page-' + id).classList.add('active');
+    window.scrollTo(0, 0);
+    document.querySelectorAll('.nav-links a').forEach(a => a.classList.remove('active'));
+  }
+
+  function showReg(el, id) {
+    document.querySelectorAll('.reg-section').forEach(s => s.style.display = 'none');
+    document.getElementById(id).style.display = 'block';
+    document.querySelectorAll('.reg-nav-item').forEach(a => a.classList.remove('active'));
+    el.classList.add('active');
+  }
+
+  function submitApp() {
+    document.getElementById('successModal').classList.add('show');
+  }
+
+  function fmt(n) {
+    if (n >= 100000) return '₹ ' + (n/100000).toFixed(2) + ' L';
+    return '₹ ' + Math.round(n).toLocaleString('en-IN');
+  }
+
+  function calcCharges() {
+    const demand = parseFloat(document.getElementById('c-demand').value) || 1000;
+    const capacity = parseFloat(document.getElementById('c-capacity').value) || 800;
+    const source = document.getElementById('c-source').value;
+    const system = document.getElementById('c-system').value;
+    const units = parseFloat(document.getElementById('c-units').value) || 400000;
+    const duration = document.getElementById('c-duration').value;
+
+    // Simplified rate assumptions (indicative)
+    const tcRate = system === 'insts' ? 0.12 : 0;  // ₹/kWh transmission
+    const wcRate = system === 'discom' ? 0.10 : 0;  // ₹/kWh wheeling
+    let cssRate = 0.30;  // ₹/kWh cross-subsidy
+    let asRate = 0.10;   // ₹/kWh additional surcharge
+    let losses = 3.5;
+
+    // Exemptions
+    if (source === 'solar' || source === 'solarbess' || source === 'wind' || source === 'hybrid') {
+      // Assume within 7-year exemption window
+      // Transmission exempt; show reduced
+      losses = 3.2;
+    }
+    if (source === 'bess') {
+      asRate = 0.05;
+    }
+    if (duration === 'long') {
+      cssRate *= 0.85; // slight relief for long-term
+    }
+
+    const tc = Math.round(units * tcRate);
+    const wc = Math.round(units * wcRate);
+    const css = Math.round(units * cssRate);
+    const as_ = Math.round(units * asRate);
+    const sldc = Math.round(capacity * 15); // ₹15/kW/month indicative
+
+    const total = tc + wc + css + as_ + sldc;
+    const annual = total * 12;
+    const security = total * 3;
+
+    document.getElementById('r-transmission').textContent = fmt(tc);
+    document.getElementById('r-wheeling').textContent = fmt(wc);
+    document.getElementById('r-css').textContent = fmt(css);
+    document.getElementById('r-as').textContent = fmt(as_);
+    document.getElementById('r-sldc').textContent = fmt(sldc);
+    document.getElementById('r-losses').textContent = losses + '%';
+    document.getElementById('r-total').textContent = fmt(total);
+    document.getElementById('r-annual').textContent = fmt(annual) + '/yr';
+    document.getElementById('r-security').textContent = fmt(security);
+  }
+
+  // Init
+  calcCharges();
+  document.getElementById('reg-1').style.display = 'block';
+</script>
+</body>
+</html>

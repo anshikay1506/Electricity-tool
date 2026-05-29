@@ -1,0 +1,178 @@
+{
+  "users": [
+    {
+      "id": "admin-id",
+      "email": "admin@goar.gov.in",
+      "passwordHash": "$2a$10$XmB0vT7dZk2s0X5U9P3Qze1n5y5nQz5m1C2B3A4F5E6G7H8I9J0Ka",
+      "name": "NLDC System Operator",
+      "role": "ADMIN",
+      "state": "Delhi",
+      "status": "VERIFIED",
+      "createdAt": "2026-05-20T09:03:58.352Z"
+    },
+    {
+      "id": "supplier-id",
+      "email": "solar@greengen.com",
+      "passwordHash": "$2a$10$XmB0vT7dZk2s0X5U9P3Qze1n5y5nQz5m1C2B3A4F5E6G7H8I9J0Ka",
+      "name": "SolarGen Renewables Corp",
+      "role": "SUPPLIER",
+      "state": "Rajasthan",
+      "status": "VERIFIED",
+      "createdAt": "2026-05-20T09:03:58.354Z"
+    },
+    {
+      "id": "consumer-id",
+      "email": "tata.steel@tata.com",
+      "passwordHash": "$2a$10$XmB0vT7dZk2s0X5U9P3Qze1n5y5nQz5m1C2B3A4F5E6G7H8I9J0Ka",
+      "name": "Tata Steel Limited",
+      "role": "CONSUMER",
+      "state": "Odisha",
+      "status": "VERIFIED",
+      "createdAt": "2026-05-20T09:03:58.354Z"
+    },
+    {
+      "id": "u-1779348624357",
+      "email": "anshika.yadav@skilltect.com",
+      "passwordHash": "$2b$10$dU0wmuztAxRmvWIIUFkXauypqjTPbSmrnDA/xrGYCDJpFmQx2TJIS",
+      "name": "Skilltect",
+      "role": "SUPPLIER",
+      "state": "Rajasthan",
+      "status": "VERIFIED",
+      "createdAt": "2026-05-21T07:30:24.357Z"
+    }
+  ],
+  "consumerProfiles": [
+    {
+      "id": "cons-prof-id",
+      "userId": "consumer-id",
+      "loadRequirement": 50,
+      "drawalPoint": "400kV Jajpur Substation",
+      "oaStatus": "ACTIVE"
+    }
+  ],
+  "supplierProfiles": [
+    {
+      "id": "supp-prof-id",
+      "userId": "supplier-id",
+      "generationCapacity": 120,
+      "injectionPoint": "765kV Bhadla Pooling Station",
+      "renewableType": "Solar"
+    },
+    {
+      "id": "sp-1779348624363",
+      "userId": "u-1779348624357",
+      "generationCapacity": 120,
+      "injectionPoint": "765kV Bhadla Pooling Station",
+      "renewableType": "Solar"
+    }
+  ],
+  "bids": [
+    {
+      "id": "bid-1",
+      "userId": "supplier-id",
+      "mw": 20,
+      "price": 4.2,
+      "marketType": "G-DAM",
+      "timeBlock": "10:00-11:00",
+      "status": "MATCHED",
+      "createdAt": "2026-05-20T09:03:58.354Z"
+    },
+    {
+      "id": "bid-2",
+      "userId": "consumer-id",
+      "mw": 20,
+      "price": 4.3,
+      "marketType": "G-DAM",
+      "timeBlock": "10:00-11:00",
+      "status": "MATCHED",
+      "createdAt": "2026-05-20T09:03:58.354Z"
+    }
+  ],
+  "applications": [
+    {
+      "id": "app-1",
+      "consumerId": "consumer-id",
+      "supplierId": "supplier-id",
+      "mw": 20,
+      "type": "Green OA",
+      "annexureCStatus": "ISSUED",
+      "annexureDStatus": "ISSUED",
+      "annexureEStatus": "PENDING",
+      "approvalStatus": "NOC_APPROVED",
+      "lossPercentage": 3.2,
+      "injectionPoint": "765kV Bhadla Pooling Station",
+      "drawalPoint": "400kV Jajpur Substation",
+      "durationDays": 365,
+      "ppaUrl": "/uploads/ppa_tata_solargen.pdf",
+      "oaAppUrl": "/uploads/oa_app_tata.pdf",
+      "bgUrl": "/uploads/bank_guarantee_tata.pdf",
+      "authLetterUrl": "/uploads/auth_letter_tata.pdf",
+      "createdAt": "2026-05-20T09:03:58.354Z"
+    }
+  ],
+  "schedules": [
+    {
+      "id": "sch-1",
+      "applicationId": "app-1",
+      "supplierId": "supplier-id",
+      "consumerId": "consumer-id",
+      "mw": 20,
+      "timeBlock": "10:00-11:00",
+      "gridStatus": "SCHEDULED",
+      "createdAt": "2026-05-20T09:03:58.354Z"
+    }
+  ],
+  "documents": [
+    {
+      "id": "doc-1",
+      "title": "Power Purchase Agreement",
+      "category": "PPA",
+      "fileUrl": "/uploads/ppa_tata_solargen.pdf",
+      "status": "VERIFIED",
+      "userId": "consumer-id",
+      "createdAt": "2026-05-20T09:03:58.355Z"
+    },
+    {
+      "id": "doc-2",
+      "title": "Open Access Application Form",
+      "category": "OA_APP",
+      "fileUrl": "/uploads/oa_app_tata.pdf",
+      "status": "VERIFIED",
+      "userId": "consumer-id",
+      "createdAt": "2026-05-20T09:03:58.355Z"
+    }
+  ],
+  "payments": [
+    {
+      "id": "pay-1",
+      "userId": "consumer-id",
+      "amount": 450000,
+      "currency": "INR",
+      "status": "COMPLETED",
+      "reference": "txn_stripe_4829103",
+      "createdAt": "2026-05-20T09:03:58.355Z"
+    }
+  ],
+  "marketPrices": [
+    {
+      "market": "DAM",
+      "price": 4.5,
+      "change": "+0.2"
+    },
+    {
+      "market": "RTM",
+      "price": 5.2,
+      "change": "-0.1"
+    },
+    {
+      "market": "G-DAM",
+      "price": 4.8,
+      "change": "+0.5"
+    },
+    {
+      "market": "HP-DAM",
+      "price": 8.1,
+      "change": "0.0"
+    }
+  ]
+}
