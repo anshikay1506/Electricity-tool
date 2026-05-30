@@ -661,7 +661,7 @@ export const ConsumerDashboard: React.FC<ConsumerDashboardProps> = ({ activeTab,
     return (
       <div className="space-y-8 animate-fadeIn">
         <div className="pb-4 border-b border-[#e0e8e4]">
-          <h2 className="font-sora text-[22px] font-bold text-gray-900">Open Access Marketplace</h2>
+          <h2 className="font-sora text-[22px] font-bold text-gray-900">Suppliers Marketplace</h2>
           <p className="text-gray-500 text-[13px] mt-1">Browse only admin approved renewable suppliers.</p>
         </div>
         {openContractWarning && <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg text-sm">{openContractWarning}</div>}
@@ -680,80 +680,6 @@ export const ConsumerDashboard: React.FC<ConsumerDashboardProps> = ({ activeTab,
           <div className="text-[12px] text-gray-500 flex items-center">{filteredSuppliers.length} verified suppliers available</div>
         </div>
 
-        {isRequestFormOpen && currentSupplier && (
-          <div className="bg-white rounded-[var(--radius-md)] border border-[#e0e8e4] p-6 shadow-sm">
-            <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4 mb-5">
-              <div>
-                <h3 className="font-sora text-[18px] font-bold text-gray-900">Apply for Open Access</h3>
-                <p className="text-gray-500 text-[13px] mt-1">Send Open Access request to <strong>{currentSupplier.name}</strong>.</p>
-              </div>
-              <button type="button" onClick={() => setIsRequestFormOpen(false)} className="btn-outline text-[12px] px-4 py-2 flex items-center gap-1.5"><X className="w-3.5 h-3.5" />Cancel</button>
-            </div>
-            <form onSubmit={submitContractRequest} className="space-y-5">
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
-                <div className="form-group">
-                  <label className="required">Supplier</label>
-                  <input type="text" value={currentSupplier.name} readOnly className="form-control bg-gray-50" />
-                </div>
-                <div className="form-group">
-                  <label className="required">Consumer Name</label>
-                  <input type="text" value={consumerName} onChange={(e) => setConsumerName(e.target.value)} required className="form-control" />
-                </div>
-                <div className="form-group">
-                  <label className="required">Offered Price (₹/unit)</label>
-                  <input type="number" value={requestedPrice} onChange={(e) => setRequestedPrice(Number(e.target.value))} min={0.1} step="0.01" required className="form-control" />
-                  <p className="text-[11px] text-gray-400 mt-1">Supplier base: ₹{currentSupplier.price?.toFixed(2)}</p>
-                </div>
-              </div>
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
-                <div className="form-group">
-                  <label className="required">Required MW</label>
-                  <input type="number" value={requestMw} onChange={(e) => setRequestMw(Number(e.target.value))} min={1} required className="form-control" />
-                </div>
-                <div className="form-group">
-                  <label className="required">Duration (Days)</label>
-                  <input type="number" value={requestDuration} onChange={(e) => setRequestDuration(Number(e.target.value))} min={30} required className="form-control" />
-                </div>
-                <div className="form-group">
-                  <label className="required">Start Date</label>
-                  <input type="date" value={requestStartDate} onChange={(e) => setRequestStartDate(e.target.value)} required className="form-control" />
-                </div>
-              </div>
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
-                <div className="form-group">
-                  <label>Contact Mobile <span className="text-gray-400 text-[11px]">(10 digits only)</span></label>
-                  <input type="text" value={contactMobile} onChange={(e) => setContactMobile(e.target.value.replace(/\D/g, '').slice(0,10))} placeholder="9876543210" maxLength={10} className={`form-control ${validationErrors.mobile ? 'border-red-500' : ''}`} />
-                  {validationErrors.mobile && <p className="text-red-500 text-[11px] mt-1">{validationErrors.mobile}</p>}
-                </div>
-                <div className="form-group">
-                  <label>CIN / GSTIN <span className="text-gray-400 text-[11px]">(10 chars)</span></label>
-                  <input type="text" value={legalIdentifier} onChange={(e) => setLegalIdentifier(e.target.value.toUpperCase())} placeholder="ABC123XYZ9" maxLength={10} className={`form-control ${validationErrors.legalIdentifier ? 'border-red-500' : ''}`} />
-                  {validationErrors.legalIdentifier && <p className="text-red-500 text-[11px] mt-1">{validationErrors.legalIdentifier}</p>}
-                </div>
-                <div className="form-group">
-                  <label>DISCOM Consumer No. <span className="text-gray-400 text-[11px]">(10 digits)</span></label>
-                  <input type="text" value={discomConsumerNo} onChange={(e) => setDiscomConsumerNo(e.target.value.replace(/\D/g, '').slice(0,10))} placeholder="1234567890" maxLength={10} className={`form-control ${validationErrors.discomConsumerNo ? 'border-red-500' : ''}`} />
-                  {validationErrors.discomConsumerNo && <p className="text-red-500 text-[11px] mt-1">{validationErrors.discomConsumerNo}</p>}
-                </div>
-              </div>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
-                <div className="form-group">
-                  <label className="required">Preferred Time Blocks</label>
-                  <input type="text" value={requestTimeBlocks} onChange={(e) => setRequestTimeBlocks(e.target.value)} required className="form-control" placeholder="e.g. 10:00-18:00" />
-                </div>
-                <div className="form-group">
-                  <label className="required">Delivery State</label>
-                  <input type="text" value={requestDeliveryState} onChange={(e) => setRequestDeliveryState(e.target.value)} required className="form-control" />
-                </div>
-              </div>
-              <div className="form-group">
-                <label>Notes (Optional)</label>
-                <textarea value={requestNotes} onChange={(e) => setRequestNotes(e.target.value)} rows={2} className="form-control" placeholder="Optional message for supplier" />
-              </div>
-              <button type="submit" className="btn-green py-3 px-8 text-[14px]">Submit Application</button>
-            </form>
-          </div>
-        )}
 
         <div className="bg-white rounded-[var(--radius-md)] border border-[#e0e8e4] overflow-hidden">
           <table className="w-full text-left border-collapse">
@@ -776,7 +702,6 @@ export const ConsumerDashboard: React.FC<ConsumerDashboardProps> = ({ activeTab,
                   <td className="py-3.5 px-5 text-gray-700 text-[12px] max-w-[140px] truncate">{s.injectionPoint || 'Bhadla'}</td>
                   <td className="py-3.5 px-5 flex gap-2 justify-end">
                     <button type="button" onClick={() => openSupplierProfile(s.id)} className="px-3 py-1.5 rounded-md bg-white border border-[#e0e8e4] text-gray-700 text-[12px] font-semibold hover:bg-gray-50">Profile</button>
-                    <button type="button" onClick={() => { setSelectedSupplierId(s.id); setIsRequestFormOpen(true); setRequestedPrice(s.price || 4.5); setOpenContractWarning(''); }} className="px-3 py-1.5 rounded-md bg-[#2d6a4f] text-white text-[12px] font-semibold hover:bg-[#1b4d3e]">Request</button>
                   </td>
                 </tr>
               )) : (

@@ -73,7 +73,5 @@ if (fs.existsSync(frontendDist)) {
 app.listen(PORT, () => {
   console.log(`========================================`);
   console.log(` GOAR / NOAR Grid Server Running on :${PORT}`);
-  console.log(` Mode: Local Fallback JSON DB Active`);
-  console.log(` Upload Server: Serving folder ${uploadsDir}`);
   console.log(`========================================`);
 });
