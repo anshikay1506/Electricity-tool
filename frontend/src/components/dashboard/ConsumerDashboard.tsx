@@ -3,9 +3,8 @@ import { useAuth } from '../../context/AuthContext';
 import {
   Zap, ShieldAlert, Award, Clock,
   Search, ArrowRight, Upload, DollarSign, BarChart2, Settings,
-  FileText, CheckCircle, ChevronRight, ClipboardList, AlertCircle, X, Eye
+  FileText, CheckCircle, ChevronRight, ClipboardList, AlertCircle, X, Eye, Save
 } from 'lucide-react';
-
 
 interface DraftApplication {
   id: string;
@@ -29,7 +28,6 @@ interface ConsumerDashboardProps {
   setTab: (tab: string) => void;
 }
 
-// ─── GEOA types ──────────────────────────────────────────────────────────────
 interface GeoaDocField {
   key: string;
   label: string;
@@ -56,6 +54,9 @@ interface GeoaApplication {
   docs: GeoaDocField[];
 }
 
+// ─── GEOA Draft storage key ───────────────────────────────────────────────────
+const GEOA_DRAFT_KEY = 'geoa_form_draft';
+
 export const ConsumerDashboard: React.FC<ConsumerDashboardProps> = ({ activeTab, setTab }) => {
   const { user, token } = useAuth();
   const [profile, setProfile] = useState<any>(null);
@@ -66,7 +67,7 @@ export const ConsumerDashboard: React.FC<ConsumerDashboardProps> = ({ activeTab,
   const [drafts, setDrafts] = useState<DraftApplication[]>([]);
 
   // Consumer workflow state
-  const [consumerName, setConsumerName] = useState(profile?.name || user?.name || '');
+  const [consumerName, setConsumerName] = useState('');
   const [selectedSupplierId, setSelectedSupplierId] = useState<string | null>(null);
   const [supplierDetails, setSupplierDetails] = useState<any | null>(null);
   const [requestMw, setRequestMw] = useState(10);
@@ -80,17 +81,12 @@ export const ConsumerDashboard: React.FC<ConsumerDashboardProps> = ({ activeTab,
   const [isRequestFormOpen, setIsRequestFormOpen] = useState(false);
   const [requestedPrice, setRequestedPrice] = useState(4.5);
   const [selectedApplication, setSelectedApplication] = useState<any>(null);
-
   const [contactMobile, setContactMobile] = useState('');
   const [legalIdentifier, setLegalIdentifier] = useState('');
   const [discomConsumerNo, setDiscomConsumerNo] = useState('');
-
-  // Add these with your other state declarations (around line 30)
-const [validationErrors, setValidationErrors] = useState<{
-  mobile?: string;
-  legalIdentifier?: string;
-  discomConsumerNo?: string;
-}>({});
+  const [validationErrors, setValidationErrors] = useState<{
+    mobile?: string; legalIdentifier?: string; discomConsumerNo?: string;
+  }>({});
 
   // Filter states
   const [searchQuery, setSearchQuery] = useState('');
@@ -105,7 +101,7 @@ const [validationErrors, setValidationErrors] = useState<{
     { id: 'bill-2', supplier: 'SolarGen Corp', month: 'May 2026', amount: 380000, status: 'UNPAID' }
   ]);
 
-  // Regulatory document upload state
+  // Documents
   const [uploadedDocs, setUploadedDocs] = useState([
     { id: 'doc-1', name: 'PPA Agreement', category: 'PPA', status: 'VERIFIED', date: '2026-05-10' },
     { id: 'doc-2', name: 'Open Access application.pdf', category: 'OA_APP', status: 'VERIFIED', date: '2026-05-11' },
@@ -114,208 +110,10 @@ const [validationErrors, setValidationErrors] = useState<{
   const [docName, setDocName] = useState('');
   const [docCat, setDocCat] = useState('PPA');
 
-
-  useEffect(() => {
-    const savedDrafts = localStorage.getItem('openAccessDrafts');
-    if (savedDrafts) {
-      setDrafts(JSON.parse(savedDrafts));
-    }
-  }, []);
-
-  // Save drafts to localStorage
-  const saveDraftsToStorage = (updatedDrafts: DraftApplication[]) => {
-    localStorage.setItem('openAccessDrafts', JSON.stringify(updatedDrafts));
-    setDrafts(updatedDrafts);
-  };
-
-  const validateMobileNumber = (mobile: string): boolean => {
-  if (!mobile) return true; 
-  const mobileRegex = /^\+91[0-9]{10}$/;
-  return mobileRegex.test(mobile);
-};
-
-const validateLegalIdentifier = (identifier: string): boolean => {
-  if (!identifier) return true; 
-  const cinRegex = /^[A-Za-z0-9]{10}$/;
-  return cinRegex.test(identifier);
-};
-
-const validateDiscomConsumerNo = (consumerNo: string): boolean => {
-  const consumerNoRegex = /^\d{10}$/;
-  return consumerNoRegex.test(consumerNo);
-};
-
-
-const validateAllFields = (): boolean => {
-    const errors: { mobile?: string; legalIdentifier?: string; discomConsumerNo?: string } = {};
-    
-    if (!contactMobile) {
-      errors.mobile = 'Mobile number is required';
-    } else if (!validateMobileNumber(contactMobile)) {
-      errors.mobile = 'Mobile number must be exactly 10 digits (numbers only, no +91 or spaces)';
-    }
-    
-    if (!legalIdentifier) {
-      errors.legalIdentifier = 'CIN / GSTIN / Registration No. is required';
-    } else if (!validateLegalIdentifier(legalIdentifier)) {
-      errors.legalIdentifier = 'CIN must be 21 characters or GSTIN must be 15 characters (alphanumeric)';
-    }
-
-
-    if (!legalIdentifier) {
-      errors.legalIdentifier = 'CIN / GSTIN / Registration No. is required';
-    } else if (!validateLegalIdentifier(legalIdentifier)) {
-      errors.legalIdentifier = 'CIN must be 21 characters or GSTIN must be 15 characters (alphanumeric)';
-    }
-    
-    // DISCOM Consumer No validation - MANDATORY
-    if (!discomConsumerNo) {
-      errors.discomConsumerNo = 'DISCOM Consumer No. is required';
-    } else if (!validateDiscomConsumerNo(discomConsumerNo)) {
-      errors.discomConsumerNo = 'DISCOM Consumer No. must be exactly 10 digits (numbers only)';
-    }
-    
-    setValidationErrors(errors);
-    return Object.keys(errors).length === 0;
-  };
-
-  const saveAsDraft = () => {
-    if (!currentSupplier) {
-      setOpenContractWarning('Select a supplier first');
-      return;
-    }
-    
-    const newDraft: DraftApplication = {
-      id: `draft-${Date.now()}`,
-      supplierId: currentSupplier.id,
-      supplierName: currentSupplier.name,
-      mw: requestMw,
-      duration: requestDuration,
-      startDate: requestStartDate,
-      price: requestedPrice,
-      timeBlocks: requestTimeBlocks,
-      deliveryState: requestDeliveryState,
-      notes: requestNotes,
-      contactMobile: contactMobile,
-      legalIdentifier: legalIdentifier,
-      discomConsumerNo: discomConsumerNo,
-      savedAt: new Date().toLocaleString()
-    };
-
-    const updatedDrafts = [newDraft, ...drafts];
-    saveDraftsToStorage(updatedDrafts);
-    alert('Application saved as draft!');
-    setIsRequestFormOpen(false);
-  };
-
-  const loadDraft = (draft: DraftApplication) => {
-    setSelectedSupplierId(draft.supplierId);
-    setRequestMw(draft.mw);
-    setRequestDuration(draft.duration);
-    setRequestStartDate(draft.startDate);
-    setRequestedPrice(draft.price);
-    setRequestTimeBlocks(draft.timeBlocks);
-    setRequestDeliveryState(draft.deliveryState);
-    setRequestNotes(draft.notes);
-    setContactMobile(draft.contactMobile);
-    setLegalIdentifier(draft.legalIdentifier);
-    setDiscomConsumerNo(draft.discomConsumerNo);
-    setIsRequestFormOpen(true);
-    setTab('open-access');
-  };
-
-  const deleteDraft = (draftId: string) => {
-    const updatedDrafts = drafts.filter(d => d.id !== draftId);
-    saveDraftsToStorage(updatedDrafts);
-  };
-
-  const submitApplication = (e: React.FormEvent) => {
-    e.preventDefault();
-    
-    // Validate all fields before submission
-    if (!validateAllFields()) {
-      return;
-    }
-    
-    if (!currentSupplier) { 
-      setOpenContractWarning('Select a supplier to proceed.'); 
-      return; 
-    }
-
-    (async () => {
-      try {
-        const body = {
-          supplierId: currentSupplier.id,
-          mw: requestMw,
-          injectionPoint: currentSupplier.injectionPoint || requestDeliveryState,
-          drawalPoint: requestDeliveryState || profile?.drawalPoint || '400kV Jajpur Substation',
-          durationDays: requestDuration,
-          requestedPrice: requestedPrice,
-          consumerName: consumerName || profile?.name || user?.name || 'Consumer',
-          applicantName: consumerName || profile?.name,
-          entityType: 'Industrial',
-          legalIdentifier: legalIdentifier,
-          discomConsumerNo: discomConsumerNo,
-          registeredAddress: profile?.address || '',
-          state: profile?.state || 'Rajasthan',
-          discom: 'JVVNL',
-          contactPerson: consumerName || profile?.name,
-          contactEmail: profile?.email || user?.email,
-          contactMobile: contactMobile,
-          voltageLevel: '33kV',
-          renewableType: currentSupplier.renewableType || 'Solar',
-          scheduleType: requestScheduleType,
-          proposedStartDate: requestStartDate,
-          timeBlocks: requestTimeBlocks,
-          documentChecklist: []
-        };
-        
-        const res = await fetch(`${API_BASE}/api/applications`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
-          body: JSON.stringify(body)
-        });
-        
-        if (!res.ok) { 
-          const error = await res.json();
-          setOpenContractWarning(error.error || 'Unable to send request to supplier.');
-          return; 
-        }
-        
-        const data = await res.json();
-        const newApp = mapBackendApplication({
-          ...data.application,
-          consumerName: consumerName || profile?.name || user?.name || 'Consumer',
-          supplierName: currentSupplier.name,
-          supplierState: currentSupplier.state,
-          basePrice: currentSupplier.price,
-          oaCharges: calculateOaCharges(currentSupplier),
-          finalPrice: getFinalDeliveredPrice(currentSupplier),
-          duration: `${requestDuration} Days`,
-          requestStatus: 'Pending',
-        });
-        
-        setApplications([newApp, ...applications]);
-        setIsRequestFormOpen(false);
-        setTab('my-applications');
-        loadApplications();
-        setContactMobile('');
-        setLegalIdentifier('');
-        setDiscomConsumerNo('');
-        setValidationErrors({});
-        
-        alert('Application submitted successfully!');
-        
-      } catch (error) {
-        setOpenContractWarning('Unable to send request to supplier.');
-      }
-    })();
-  };
-
-
-  // ─── GEOA Application state ───────────────────────────────────────────────
+  // ─── GEOA state ───────────────────────────────────────────────────────────
   const [docView, setDocView] = useState<'landing' | 'geoa-form' | 'doc-upload'>('landing');
   const [geoaStep, setGeoaStep] = useState(1);
+  const [geoaDraftSaved, setGeoaDraftSaved] = useState(false);
   const [geoaApplications, setGeoaApplications] = useState<GeoaApplication[]>([
     {
       id: 'geoa-1',
@@ -342,8 +140,8 @@ const validateAllFields = (): boolean => {
     }
   ]);
 
-  // GEOA form fields – Step 1: Applicant Details
-  const [geoaApplicantName, setGeoaApplicantName] = useState(profile?.name || '');
+  // Step 1 fields
+  const [geoaApplicantName, setGeoaApplicantName] = useState('');
   const [geoaEntityType, setGeoaEntityType] = useState('Industrial');
   const [geoaCin, setGeoaCin] = useState('');
   const [geoaAddress, setGeoaAddress] = useState('');
@@ -354,9 +152,13 @@ const validateAllFields = (): boolean => {
   const [geoaEmail, setGeoaEmail] = useState('');
   const [geoaMobile, setGeoaMobile] = useState('');
 
-  // GEOA form fields – Step 2: Technical Details
+  // Step 1 validation errors
+  const [step1Errors, setStep1Errors] = useState<Record<string, string>>({});
+
+  // Step 2 fields
   const [geoaLoadMw, setGeoaLoadMw] = useState(10);
-  const [geoaInjectionPoint, setGeoaInjectionPoint] = useState('Bhadla Pooling Station, 765kV');
+  const [geoaSelectedSupplierId, setGeoaSelectedSupplierId] = useState('');
+  const [geoaInjectionPoint, setGeoaInjectionPoint] = useState('');
   const [geoaDrawalPoint, setGeoaDrawalPoint] = useState('400kV Jajpur Substation');
   const [geoaScheduleType, setGeoaScheduleType] = useState('RTC');
   const [geoaDurationDays, setGeoaDurationDays] = useState(365);
@@ -364,8 +166,9 @@ const validateAllFields = (): boolean => {
   const [geoaTimeBlocks, setGeoaTimeBlocks] = useState('10:00-18:00');
   const [geoaVoltageLevel, setGeoaVoltageLevel] = useState('33kV');
   const [geoaRenewableType, setGeoaRenewableType] = useState('Solar');
+  const [step2Errors, setStep2Errors] = useState<Record<string, string>>({});
 
-  // GEOA form fields – Step 3: Document uploads (simulated)
+  // Step 3 documents
   const [geoaDocs, setGeoaDocs] = useState<GeoaDocField[]>([
     { key: 'ppa', label: 'Power Purchase Agreement (PPA)', required: true, fileName: '', status: 'pending' },
     { key: 'bg', label: 'Bank Guarantee / Security Deposit', required: true, fileName: '', status: 'pending' },
@@ -377,8 +180,6 @@ const validateAllFields = (): boolean => {
     { key: 'id_proof', label: 'Authorised Signatory ID Proof', required: true, fileName: '', status: 'pending' },
   ]);
 
-  const [geoaStep1Valid, setGeoaStep1Valid] = useState(false);
-  const [geoaStep2Valid, setGeoaStep2Valid] = useState(false);
   const [geoaSubmitSuccess, setGeoaSubmitSuccess] = useState(false);
 
   const GEOA_STEPS = [
@@ -389,28 +190,112 @@ const validateAllFields = (): boolean => {
   ];
 
   const API_BASE = (import.meta as any)?.env?.VITE_API_URL || 'http://localhost:5000';
-
   const currentSupplier = suppliers.find((item) => item.id === selectedSupplierId) || null;
 
-  // Pre-fill GEOA name from profile
+  // ── Auto-fill supplier injection point when selected in Step 2 ─────────────
+  useEffect(() => {
+    if (geoaSelectedSupplierId) {
+      const sup = suppliers.find(s => s.id === geoaSelectedSupplierId);
+      if (sup) {
+        setGeoaInjectionPoint(sup.injectionPoint || `${sup.state} Grid Injection Point`);
+        setGeoaRenewableType(sup.renewableType || 'Solar');
+      }
+    }
+  }, [geoaSelectedSupplierId, suppliers]);
+
+  // ── Pre-fill GEOA from profile ─────────────────────────────────────────────
   useEffect(() => {
     if (profile?.name && !geoaApplicantName) setGeoaApplicantName(profile.name);
     if (profile?.name && !consumerName) setConsumerName(profile.name);
     if (profile?.email && !geoaEmail) setGeoaEmail(profile.email);
-    if (profile?.state) setGeoaState(profile.state);
-  }, [profile, geoaApplicantName, geoaEmail, consumerName]);
+    if (profile?.state) { setGeoaState(profile.state); setRequestDeliveryState(profile.state); }
+  }, [profile]);
 
-  // Validate step 1
+  // ── Load draft from localStorage on mount ─────────────────────────────────
   useEffect(() => {
-    setGeoaStep1Valid(!!(geoaApplicantName && geoaEntityType && geoaState && geoaContactPerson && geoaEmail && geoaMobile));
-  }, [geoaApplicantName, geoaEntityType, geoaState, geoaContactPerson, geoaEmail, geoaMobile]);
+    const saved = localStorage.getItem(GEOA_DRAFT_KEY);
+    if (saved) {
+      try {
+        const d = JSON.parse(saved);
+        if (d.geoaApplicantName) setGeoaApplicantName(d.geoaApplicantName);
+        if (d.geoaEntityType) setGeoaEntityType(d.geoaEntityType);
+        if (d.geoaCin) setGeoaCin(d.geoaCin);
+        if (d.geoaAddress) setGeoaAddress(d.geoaAddress);
+        if (d.geoaState) setGeoaState(d.geoaState);
+        if (d.geoaDiscom) setGeoaDiscom(d.geoaDiscom);
+        if (d.geoaConsumerNo) setGeoaConsumerNo(d.geoaConsumerNo);
+        if (d.geoaContactPerson) setGeoaContactPerson(d.geoaContactPerson);
+        if (d.geoaEmail) setGeoaEmail(d.geoaEmail);
+        if (d.geoaMobile) setGeoaMobile(d.geoaMobile);
+        if (d.geoaLoadMw) setGeoaLoadMw(d.geoaLoadMw);
+        if (d.geoaSelectedSupplierId) setGeoaSelectedSupplierId(d.geoaSelectedSupplierId);
+        if (d.geoaInjectionPoint) setGeoaInjectionPoint(d.geoaInjectionPoint);
+        if (d.geoaDrawalPoint) setGeoaDrawalPoint(d.geoaDrawalPoint);
+        if (d.geoaScheduleType) setGeoaScheduleType(d.geoaScheduleType);
+        if (d.geoaDurationDays) setGeoaDurationDays(d.geoaDurationDays);
+        if (d.geoaStartDate) setGeoaStartDate(d.geoaStartDate);
+        if (d.geoaTimeBlocks) setGeoaTimeBlocks(d.geoaTimeBlocks);
+        if (d.geoaVoltageLevel) setGeoaVoltageLevel(d.geoaVoltageLevel);
+        if (d.geoaRenewableType) setGeoaRenewableType(d.geoaRenewableType);
+      } catch { /* ignore */ }
+    }
+    const savedOaDrafts = localStorage.getItem('openAccessDrafts');
+    if (savedOaDrafts) setDrafts(JSON.parse(savedOaDrafts));
+  }, []);
 
-  // Validate step 2
-  useEffect(() => {
-    setGeoaStep2Valid(!!(geoaLoadMw && geoaInjectionPoint && geoaDrawalPoint && geoaScheduleType && geoaDurationDays && geoaStartDate && geoaVoltageLevel));
-  }, [geoaLoadMw, geoaInjectionPoint, geoaDrawalPoint, geoaScheduleType, geoaDurationDays, geoaStartDate, geoaVoltageLevel]);
+  // ── Save GEOA draft helper ─────────────────────────────────────────────────
+  const saveGeoaDraft = () => {
+    const draft = {
+      geoaApplicantName, geoaEntityType, geoaCin, geoaAddress, geoaState,
+      geoaDiscom, geoaConsumerNo, geoaContactPerson, geoaEmail, geoaMobile,
+      geoaLoadMw, geoaSelectedSupplierId, geoaInjectionPoint, geoaDrawalPoint,
+      geoaScheduleType, geoaDurationDays, geoaStartDate, geoaTimeBlocks,
+      geoaVoltageLevel, geoaRenewableType, savedAt: new Date().toISOString()
+    };
+    localStorage.setItem(GEOA_DRAFT_KEY, JSON.stringify(draft));
+    setGeoaDraftSaved(true);
+    setTimeout(() => setGeoaDraftSaved(false), 2500);
+  };
 
-  // Fetch supplier details when viewing profile
+  // ── Step 1 validation (all 3 new fields mandatory) ────────────────────────
+  const validateStep1 = (): boolean => {
+    const errs: Record<string, string> = {};
+    if (!geoaApplicantName.trim()) errs.applicantName = 'Company name is required';
+    if (!geoaContactPerson.trim()) errs.contactPerson = 'Contact person is required';
+    if (!geoaEmail.trim()) errs.email = 'Email is required';
+    if (!geoaMobile.trim()) {
+      errs.mobile = 'Mobile number is required';
+    } else if (!/^\d{10}$/.test(geoaMobile.trim())) {
+      errs.mobile = 'Mobile must be exactly 10 digits (numbers only)';
+    }
+    if (!geoaCin.trim()) {
+      errs.cin = 'CIN / GSTIN / Registration No. is required';
+    } else if (!/^[A-Za-z0-9]{10,21}$/.test(geoaCin.trim())) {
+      errs.cin = 'Must be 10–21 alphanumeric characters (CIN: 21, GSTIN: 15)';
+    }
+    if (!geoaConsumerNo.trim()) {
+      errs.consumerNo = 'DISCOM Consumer No. is required';
+    } else if (!/^\d{10}$/.test(geoaConsumerNo.trim())) {
+      errs.consumerNo = 'Must be exactly 10 digits (numbers only)';
+    }
+    if (!geoaAddress.trim()) errs.address = 'Registered address is required';
+    setStep1Errors(errs);
+    return Object.keys(errs).length === 0;
+  };
+
+  // ── Step 2 validation ─────────────────────────────────────────────────────
+  const validateStep2 = (): boolean => {
+    const errs: Record<string, string> = {};
+    if (!geoaSelectedSupplierId) errs.supplier = 'Please select a supplier';
+    if (!geoaLoadMw || geoaLoadMw < 1) errs.loadMw = 'Load must be at least 1 MW';
+    if (!geoaDrawalPoint.trim()) errs.drawalPoint = 'Drawal point is required';
+    if (!geoaDurationDays || geoaDurationDays < 30) errs.duration = 'Duration must be at least 30 days';
+    if (!geoaStartDate) errs.startDate = 'Start date is required';
+    setStep2Errors(errs);
+    return Object.keys(errs).length === 0;
+  };
+
+  // ── Fetch supplier details for supplier-profile tab ───────────────────────
   useEffect(() => {
     if (activeTab === 'supplier-profile' && selectedSupplierId) {
       (async () => {
@@ -419,22 +304,13 @@ const validateAllFields = (): boolean => {
             headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` }
           });
           if (!res.ok) { setSupplierDetails(null); return; }
-          const data = await res.json();
-          setSupplierDetails(data);
+          setSupplierDetails(await res.json());
         } catch { setSupplierDetails(null); }
       })();
     } else {
       setSupplierDetails(null);
     }
   }, [activeTab, selectedSupplierId, token]);
-
-  const viewApplicationDetails = (applicationId: string) => {
-  const app = applications.find(a => a.id === applicationId);
-  if (app) {
-    setSelectedApplication(app);
-    setTab('application-details');
-  }
-};
 
   const calculateOaCharges = (supplier: any) => {
     const consumerState = profile?.state || 'Rajasthan';
@@ -450,18 +326,11 @@ const validateAllFields = (): boolean => {
     return Number((supplier.price + calculateOaCharges(supplier)).toFixed(2));
   };
 
-
-
   const mapBackendApplication = (app: any) => {
     const statusLabel = app.approvalStatus || 'SUBMITTED';
-    const contractStatus = statusLabel === 'APPROVED'
-      ? 'Active Contract'
-      : statusLabel === 'REJECTED'
-      ? 'Rejected'
-      : statusLabel === 'SUBMITTED'
-      ? 'Supplier Review'
-      : statusLabel;
-
+    const contractStatus = statusLabel === 'APPROVED' ? 'Active Contract'
+      : statusLabel === 'REJECTED' ? 'Rejected'
+      : statusLabel === 'SUBMITTED' ? 'Supplier Review' : statusLabel;
     return {
       ...app,
       requestedMw: app.mw || 0,
@@ -470,8 +339,8 @@ const validateAllFields = (): boolean => {
       oaCharges: app.oaCharges ?? 1.1,
       finalPrice: app.finalPrice ?? 5.3,
       requestedPrice: app.requestedPrice || 0,
-      requestStatus: app.requestStatus || statusLabel,
-      // contractStatus: app.contractStatus || contractStatus,
+      requestStatus: app.approvalStatus || statusLabel,
+      contractStatus: app.contractStatus || contractStatus,
       requestDate: app.requestDate || app.createdAt?.split('T')[0] || '',
       supplierName: app.supplierName || 'Supplier',
       supplierState: app.supplierState || app.state || '',
@@ -490,163 +359,72 @@ const validateAllFields = (): boolean => {
       if (!res.ok) return;
       const data = await res.json();
       setApplications(data.map(mapBackendApplication));
-    } catch {
-      // keep existing applications if fetch fails
-    }
+    } catch { }
   };
 
- 
-const refreshApplications = async () => {
-  if (!token) return;
-  try {
-    const res = await fetch(`${API_BASE}/api/applications`, {
-      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` }
-    });
-    if (!res.ok) return;
-    const data = await res.json();
-    setApplications(data.map(mapBackendApplication));
-  } catch (error) {
-    console.error("Failed to refresh applications:", error);
-  }
-};
+  const refreshApplications = async () => {
+    if (!token) return;
+    try {
+      const res = await fetch(`${API_BASE}/api/applications`, {
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` }
+      });
+      if (!res.ok) return;
+      const data = await res.json();
+      setApplications(data.map(mapBackendApplication));
+    } catch { }
+  };
 
-
-
-// Add this to load applications initially and when tab changes
-useEffect(() => {
-  if (activeTab === 'my-applications') {
-    refreshApplications();
-  }
-}, [activeTab]);
+  useEffect(() => {
+    if (activeTab === 'my-applications') refreshApplications();
+  }, [activeTab]);
 
   const openSupplierProfile = (supplierId: string) => { setSelectedSupplierId(supplierId); setTab('supplier-profile'); };
 
-
   const submitContractRequest = (e: React.FormEvent) => {
-  e.preventDefault();
-  
-  setValidationErrors({});
-  
-  const errors: { mobile?: string; legalIdentifier?: string; discomConsumerNo?: string } = {};
-  
-  if (contactMobile && !validateMobileNumber(contactMobile)) {
-    errors.mobile = 'Mobile number must start with +91 followed by exactly 10 digits (e.g., +919876543210)';
-  }
-  
-  if (legalIdentifier && !validateLegalIdentifier(legalIdentifier)) {
-    errors.legalIdentifier = 'CIN / GSTIN / Registration No. must be exactly 10 alphanumeric characters (e.g., ABC123XYZ9)';
-  }
-  
-  if (discomConsumerNo && !validateDiscomConsumerNo(discomConsumerNo)) {
-    errors.discomConsumerNo = 'DISCOM Consumer No. must be exactly 10 digits (only numbers 0-9)';
-  }
-  
-  if (Object.keys(errors).length > 0) {
-    setValidationErrors(errors);
-    return;
-  }
-  
-  if (!currentSupplier) { 
-    setOpenContractWarning('Select a supplier to proceed.'); 
-    return; 
-  }
-  
-  (async () => {
-    try {
-      const body = {
-        supplierId: currentSupplier.id,
-        mw: requestMw,
-        injectionPoint: currentSupplier.injectionPoint || requestDeliveryState,
-        drawalPoint: requestDeliveryState || profile?.drawalPoint || '400kV Jajpur Substation',
-        durationDays: requestDuration,
-        requestedPrice: requestedPrice,
-        consumerName: consumerName || profile?.name || user?.name || 'Consumer',
-        applicantName: consumerName || profile?.name,
-        entityType: 'Industrial',
-        legalIdentifier: legalIdentifier || undefined,
-        discomConsumerNo: discomConsumerNo || undefined,
-        registeredAddress: profile?.address || '',
-        state: profile?.state || 'Rajasthan',
-        discom: 'JVVNL',
-        contactPerson: consumerName || profile?.name,
-        contactEmail: profile?.email || user?.email,
-        contactMobile: contactMobile || undefined,
-        voltageLevel: '33kV',
-        renewableType: currentSupplier.renewableType || 'Solar',
-        scheduleType: requestScheduleType,
-        proposedStartDate: requestStartDate,
-        timeBlocks: requestTimeBlocks,
-        documentChecklist: []
-      };
-      
-      const res = await fetch(`${API_BASE}/api/applications`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
-        body: JSON.stringify(body)
-      });
-      
-      if (!res.ok) { 
-        const error = await res.json();
-        setOpenContractWarning(error.error || 'Unable to send request to supplier.');
-        return; 
-      }
-      
-      const data = await res.json();
-      const newApp = mapBackendApplication({
-        ...data.application,
-        consumerName: consumerName || profile?.name || user?.name || 'Consumer',
-        supplierName: currentSupplier.name,
-        supplierState: currentSupplier.state,
-        basePrice: currentSupplier.price,
-        oaCharges: calculateOaCharges(currentSupplier),
-        finalPrice: getFinalDeliveredPrice(currentSupplier),
-        duration: `${requestDuration} Days`,
-        requestStatus: 'Pending',
-      });
-      
-      setApplications([newApp, ...applications]);
-      setIsRequestFormOpen(false);
-      setTab('my-applications');
-      loadApplications();
-      
-      // Reset form fields
-      setContactMobile('');
-      setLegalIdentifier('');
-      setDiscomConsumerNo('');
-      setValidationErrors({});
-      
-    } catch (error) {
-      setOpenContractWarning('Unable to send request to supplier.');
-    }
-  })();
-};
+    e.preventDefault();
+    setValidationErrors({});
+    const errors: { mobile?: string; legalIdentifier?: string; discomConsumerNo?: string } = {};
+    if (contactMobile && !/^\d{10}$/.test(contactMobile)) errors.mobile = 'Mobile must be exactly 10 digits (numbers only)';
+    if (legalIdentifier && !/^[A-Za-z0-9]{10}$/.test(legalIdentifier)) errors.legalIdentifier = 'Must be exactly 10 alphanumeric characters';
+    if (discomConsumerNo && !/^\d{10}$/.test(discomConsumerNo)) errors.discomConsumerNo = 'Must be exactly 10 digits (numbers only)';
+    if (Object.keys(errors).length > 0) { setValidationErrors(errors); return; }
+    if (!currentSupplier) { setOpenContractWarning('Select a supplier to proceed.'); return; }
+    (async () => {
+      try {
+        const body = {
+          supplierId: currentSupplier.id, mw: requestMw,
+          injectionPoint: currentSupplier.injectionPoint || requestDeliveryState,
+          drawalPoint: requestDeliveryState || '400kV Jajpur Substation',
+          durationDays: requestDuration, requestedPrice, consumerName: consumerName || profile?.name || 'Consumer',
+          contactMobile: contactMobile || undefined, legalIdentifier: legalIdentifier || undefined,
+          discomConsumerNo: discomConsumerNo || undefined, state: profile?.state || 'Rajasthan', discom: 'JVVNL',
+          scheduleType: requestScheduleType, proposedStartDate: requestStartDate, timeBlocks: requestTimeBlocks
+        };
+        const res = await fetch(`${API_BASE}/api/applications`, {
+          method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+          body: JSON.stringify(body)
+        });
+        if (!res.ok) { const err = await res.json(); setOpenContractWarning(err.error || 'Unable to send request.'); return; }
+        const data = await res.json();
+        const newApp = mapBackendApplication({ ...data.application, supplierName: currentSupplier.name, supplierState: currentSupplier.state, basePrice: currentSupplier.price, oaCharges: calculateOaCharges(currentSupplier), finalPrice: getFinalDeliveredPrice(currentSupplier), duration: `${requestDuration} Days` });
+        setApplications([newApp, ...applications]);
+        setIsRequestFormOpen(false); setTab('my-applications'); loadApplications();
+        setContactMobile(''); setLegalIdentifier(''); setDiscomConsumerNo(''); setValidationErrors({});
+      } catch { setOpenContractWarning('Unable to send request to supplier.'); }
+    })();
+  };
 
   const handleDocUpload = (e: React.FormEvent) => {
     e.preventDefault();
     if (!docName) return;
-    const newDoc = {
-      id: `doc-${Date.now()}`,
-      name: docName,
-      category: docCat,
-      status: 'PENDING',
-      date: new Date().toISOString().split('T')[0]
-    };
-    setUploadedDocs(prev => [newDoc, ...prev]);
-    setDocName('');
-    setDocCat('PPA');
+    setUploadedDocs(prev => [{ id: `doc-${Date.now()}`, name: docName, category: docCat, status: 'PENDING', date: new Date().toISOString().split('T')[0] }, ...prev]);
+    setDocName(''); setDocCat('PPA');
   };
 
-  const handlePayBill = (bill: any) => {
-    setPayAmount(bill.amount);
-    setPayRef(`TRX${Date.now()}`);
-    setIsPaying(true);
-  };
-
+  const handlePayBill = (bill: any) => { setPayAmount(bill.amount); setPayRef(`TRX${Date.now()}`); setIsPaying(true); };
   const submitPayment = () => {
-    setPayments(prev => [{ id: `pay-${Date.now()}`, reference: payRef || `TRX${Date.now()}`, createdAt: new Date().toISOString().split('T')[0], amount: payAmount, status: 'COMPLETED' }, ...prev]);
-    setIsPaying(false);
-    setPayAmount(0);
-    setPayRef('');
+    setPayments(prev => [{ id: `pay-${Date.now()}`, reference: payRef, createdAt: new Date().toISOString().split('T')[0], amount: payAmount, status: 'COMPLETED' }, ...prev]);
+    setIsPaying(false); setPayAmount(0); setPayRef('');
   };
 
   useEffect(() => {
@@ -668,11 +446,8 @@ useEffect(() => {
       } catch { setSuppliers([]); }
     };
     loadProfile(); loadSuppliers(); loadApplications();
-    setUploadedDocs([{ id: `doc-${Date.now()}`, name: docName, category: docCat, status: 'PENDING', date: new Date().toISOString().split('T')[0] }, ...uploadedDocs]);
-    setDocName('');
   }, []);
 
-  // ─── GEOA helpers ─────────────────────────────────────────────────────────
   const handleGeoaDocSimulate = (key: string, fileName: string) => {
     setGeoaDocs(prev => prev.map(d => d.key === key ? { ...d, fileName, status: 'uploaded' } : d));
   };
@@ -681,38 +456,90 @@ useEffect(() => {
     setGeoaStep(1); setGeoaSubmitSuccess(false);
     setGeoaDocs(prev => prev.map(d => ({ ...d, fileName: '', status: 'pending' })));
     setGeoaCin(''); setGeoaAddress(''); setGeoaConsumerNo('');
-    setGeoaContactPerson(''); setGeoaMobile('');
+    setGeoaContactPerson(''); setGeoaMobile(''); setGeoaSelectedSupplierId('');
+    setGeoaInjectionPoint(''); setStep1Errors({}); setStep2Errors({});
+    localStorage.removeItem(GEOA_DRAFT_KEY);
   };
 
-  const submitGeoaApplication = () => {
-    const newApp: GeoaApplication = {
-      id: `geoa-${Date.now()}`,
-      refNo: `RERC/GEOA/2026/${String(Math.floor(Math.random() * 9000) + 1000)}`,
-      applicantName: geoaApplicantName,
-      entityType: geoaEntityType,
-      loadMw: geoaLoadMw,
-      injectionPoint: geoaInjectionPoint,
-      drawalPoint: geoaDrawalPoint,
-      scheduleType: geoaScheduleType,
-      startDate: geoaStartDate,
-      durationDays: geoaDurationDays,
-      voltageLevel: geoaVoltageLevel,
-      state: geoaState,
-      submittedOn: new Date().toISOString().split('T')[0],
-      status: 'SUBMITTED',
-      docs: geoaDocs.map(d => ({ ...d }))
-    };
-    setGeoaApplications(prev => [newApp, ...prev]);
-    setGeoaSubmitSuccess(true);
+  // ── Submit GEOA to backend as an application ───────────────────────────────
+  const submitGeoaApplication = async () => {
+    const selectedSupplier = suppliers.find(s => s.id === geoaSelectedSupplierId);
+    try {
+      const body = {
+        supplierId: geoaSelectedSupplierId,
+        mw: geoaLoadMw,
+        injectionPoint: geoaInjectionPoint,
+        drawalPoint: geoaDrawalPoint,
+        durationDays: geoaDurationDays,
+        requestedPrice: 0,
+        consumerName: geoaApplicantName,
+        applicantName: geoaApplicantName,
+        entityType: geoaEntityType,
+        legalIdentifier: geoaCin,
+        discomConsumerNo: geoaConsumerNo,
+        registeredAddress: geoaAddress,
+        state: geoaState,
+        discom: geoaDiscom,
+        contactPerson: geoaContactPerson,
+        contactEmail: geoaEmail,
+        contactMobile: geoaMobile,
+        voltageLevel: geoaVoltageLevel,
+        renewableType: geoaRenewableType,
+        scheduleType: geoaScheduleType,
+        proposedStartDate: geoaStartDate,
+        timeBlocks: geoaTimeBlocks,
+        documentChecklist: geoaDocs.map(d => ({ key: d.key, label: d.label, uploaded: d.status === 'uploaded', fileName: d.fileName }))
+      };
+      const res = await fetch(`${API_BASE}/api/applications`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+        body: JSON.stringify(body)
+      });
+      if (!res.ok) {
+        const err = await res.json();
+        alert(err.error || 'Failed to submit application');
+        return;
+      }
+      const data = await res.json();
+      const refNo = `RERC/GEOA/2026/${String(Math.floor(Math.random() * 9000) + 1000)}`;
+      const newGeoaApp: GeoaApplication = {
+        id: data.application.id,
+        refNo,
+        applicantName: geoaApplicantName,
+        entityType: geoaEntityType,
+        loadMw: geoaLoadMw,
+        injectionPoint: geoaInjectionPoint,
+        drawalPoint: geoaDrawalPoint,
+        scheduleType: geoaScheduleType,
+        startDate: geoaStartDate,
+        durationDays: geoaDurationDays,
+        voltageLevel: geoaVoltageLevel,
+        state: geoaState,
+        submittedOn: new Date().toISOString().split('T')[0],
+        status: 'SUBMITTED',
+        docs: geoaDocs.map(d => ({ ...d }))
+      };
+      setGeoaApplications(prev => [newGeoaApp, ...prev]);
+      // Also add to my-applications
+      const newApp = mapBackendApplication({
+        ...data.application,
+        supplierName: selectedSupplier?.name || 'Supplier',
+        supplierState: selectedSupplier?.state || '',
+        basePrice: selectedSupplier?.price || 4.2,
+        duration: `${geoaDurationDays} Days`,
+      });
+      setApplications(prev => [newApp, ...prev]);
+      localStorage.removeItem(GEOA_DRAFT_KEY);
+      setGeoaSubmitSuccess(true);
+    } catch {
+      alert('Failed to submit application. Please try again.');
+    }
   };
 
   const geoaStatusBadge = (status: GeoaApplication['status']) => {
     const map: Record<string, string> = {
-      SUBMITTED: 'badge-blue',
-      UNDER_REVIEW: 'badge-amber',
-      NOC_ISSUED: 'badge-amber',
-      APPROVED: 'badge-green',
-      REJECTED: 'badge-red',
+      SUBMITTED: 'badge-blue', UNDER_REVIEW: 'badge-amber',
+      NOC_ISSUED: 'badge-amber', APPROVED: 'badge-green', REJECTED: 'badge-red'
     };
     return map[status] || 'badge-amber';
   };
@@ -723,6 +550,11 @@ useEffect(() => {
     const isApproved = s.status === 'VERIFIED' || s.oaStatus === 'APPROVED';
     return matchesSearch && matchesType && isApproved;
   });
+
+  // ── step 1 validity for button ─────────────────────────────────────────────
+  const step1Valid = !!(geoaApplicantName && geoaContactPerson && geoaEmail && /^\d{10}$/.test(geoaMobile) && geoaCin && geoaConsumerNo && geoaAddress);
+  const step2Valid = !!(geoaSelectedSupplierId && geoaLoadMw >= 1 && geoaDrawalPoint && geoaDurationDays >= 30 && geoaStartDate);
+  const step3Valid = geoaDocs.filter(d => d.required).every(d => d.status === 'uploaded');
 
   // ══════════════════════════════════════════════════════════════════════════
   // DASHBOARD TAB
@@ -740,123 +572,81 @@ useEffect(() => {
             <span className="text-green-dark">PPA OA STATUS: ACTIVE</span>
           </div>
         </div>
-
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
-          <div className="metric-card border-t-[3px] border-t-amber">
-            <div className="flex items-center justify-between mb-2">
-              <span className="text-[11px] font-bold text-gray-500 uppercase tracking-wider">CURRENT LOAD</span>
-              <Zap className="w-4 h-4 text-amber" />
+          {[
+            { label: 'CURRENT LOAD', val: '20 MW', sub: 'RTC Grid Drawal Contracted', icon: <Zap className="w-4 h-4 text-amber" />, border: 'border-t-amber' },
+            { label: 'RENEWABLE MIX', val: '85 %', sub: 'Target Carbon Mitigation Match', icon: <Award className="w-4 h-4 text-green-mid" />, border: 'border-t-green-mid' },
+            { label: 'SAVINGS TO DATE', val: '₹4.8L', sub: 'Compared to Local Utility Tariff', icon: <DollarSign className="w-4 h-4 text-green-mid" />, border: 'border-t-green-mid' },
+            { label: 'ACTIVE SUPPLIER', val: 'Network', sub: 'Industry-grade procurement pool', icon: <ShieldAlert className="w-4 h-4 text-blue-dark" />, border: 'border-t-blue-dark' },
+            { label: 'PENDING DOCS', val: '1 Doc', sub: 'Requires Bank Security approval', icon: <Clock className="w-4 h-4 text-red animate-pulse" />, border: 'border-t-red' },
+          ].map(m => (
+            <div key={m.label} className={`metric-card border-t-[3px] ${m.border}`}>
+              <div className="flex items-center justify-between mb-2">
+                <span className="text-[11px] font-bold text-gray-500 uppercase tracking-wider">{m.label}</span>
+                {m.icon}
+              </div>
+              <p className="font-sora text-[22px] font-bold text-gray-900">{m.val}</p>
+              <p className="text-[11px] text-gray-500 mt-1">{m.sub}</p>
             </div>
-            <p className="font-sora text-[24px] font-bold text-gray-900">20 <span className="text-[14px]">MW</span></p>
-            <p className="text-[11px] text-gray-500 mt-1">RTC Grid Drawal Contracted</p>
-          </div>
-          <div className="metric-card border-t-[3px] border-t-green-mid">
-            <div className="flex items-center justify-between mb-2">
-              <span className="text-[11px] font-bold text-gray-500 uppercase tracking-wider">RENEWABLE MIX</span>
-              <Award className="w-4 h-4 text-green-mid" />
-            </div>
-            <p className="font-sora text-[24px] font-bold text-gray-900">85 <span className="text-[14px]">%</span></p>
-            <p className="text-[11px] text-gray-500 mt-1">Target Carbon Mitigation Match</p>
-          </div>
-          <div className="metric-card border-t-[3px] border-t-green-mid">
-            <div className="flex items-center justify-between mb-2">
-              <span className="text-[11px] font-bold text-gray-500 uppercase tracking-wider">SAVINGS TO DATE</span>
-              <DollarSign className="w-4 h-4 text-green-mid" />
-            </div>
-            <p className="font-sora text-[24px] font-bold text-gray-900">₹4.8<span className="text-[14px]">L</span></p>
-            <p className="text-[11px] text-gray-500 mt-1">Compared to Local Utility Tariff</p>
-          </div>
-          <div className="metric-card border-t-[3px] border-t-blue-dark">
-            <div className="flex items-center justify-between mb-2">
-              <span className="text-[11px] font-bold text-gray-500 uppercase tracking-wider">ACTIVE SUPPLIER</span>
-              <ShieldAlert className="w-4 h-4 text-blue-dark" />
-            </div>
-            <p className="font-sora text-[16px] font-bold text-gray-900 leading-tight">Preferred Supplier Network</p>
-            <p className="text-[11px] text-gray-500 mt-1">Industry-grade procurement pool</p>
-          </div>
-          <div className="metric-card border-t-[3px] border-t-red">
-            <div className="flex items-center justify-between mb-2">
-              <span className="text-[11px] font-bold text-gray-500 uppercase tracking-wider">PENDING DOCS</span>
-              <Clock className="w-4 h-4 text-red animate-pulse" />
-            </div>
-            <p className="font-sora text-[24px] font-bold text-gray-900">1 <span className="text-[14px]">Doc</span></p>
-            <p className="text-[11px] text-gray-500 mt-1">Requires Bank Security approval</p>
-          </div>
+          ))}
         </div>
-
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
           <div className="tracker-card lg:col-span-2 flex flex-col justify-between !mb-0">
-            <div className="flex items-center justify-between mb-6">
+            <div className="flex items-center justify-between mb-4">
               <div>
                 <h3 className="font-sora font-bold text-[16px] text-gray-900">Intraday Energy Exchange Profiles</h3>
                 <p className="text-gray-500 text-[12px] mt-0.5">Real-time scheduling dispatch vs industrial demand limits (MWh)</p>
               </div>
               <BarChart2 className="w-5 h-5 text-green-dark" />
             </div>
-            <div className="relative h-64 flex items-end justify-between px-2 pt-6">
-              <div className="absolute inset-0 flex flex-col justify-between pointer-events-none pb-12 pt-6">
+            <div className="relative h-56 flex items-end justify-between px-2 pt-6">
+              <div className="absolute inset-0 flex flex-col justify-between pointer-events-none pb-10 pt-6">
                 {[...Array(4)].map((_, i) => (
-                  <div key={i} className="border-t border-dashed border-[#e0e8e4] w-full flex justify-between text-[10px] text-gray-400">
-                    <span>{80 - i * 20} MW</span>
-                  </div>
+                  <div key={i} className="border-t border-dashed border-[#e0e8e4] w-full text-[10px] text-gray-400"><span>{80 - i * 20} MW</span></div>
                 ))}
               </div>
-              {[40, 50, 62, 75, 80, 72, 58, 64, 70, 75, 68, 55].map((val, idx) => {
-                const hour = idx * 2;
-                return (
-                  <div key={idx} className="flex flex-col items-center flex-1 mx-1 z-10 group relative">
-                    <div className="absolute -top-12 scale-0 group-hover:scale-100 transition-all bg-gray-900 px-2 py-1.5 rounded-[6px] text-[10px] text-white whitespace-nowrap z-30 shadow-md">
-                      Cons: {val} MW<br />Solar Match: {Math.round(val * 0.85)} MW
-                    </div>
-                    <div className="w-full flex flex-col justify-end space-y-[1px]" style={{ height: `${val * 2}px` }}>
-                      <div className="w-full bg-green-mid rounded-t-[2px] transition-all opacity-90 group-hover:opacity-100" style={{ height: '85%' }}></div>
-                      <div className="w-full bg-amber rounded-b-[2px] transition-all opacity-90 group-hover:opacity-100" style={{ height: '15%' }}></div>
-                    </div>
-                    <span className="text-[10px] text-gray-500 mt-2">{hour}:00</span>
+              {[40,50,62,75,80,72,58,64,70,75,68,55].map((val,idx) => (
+                <div key={idx} className="flex flex-col items-center flex-1 mx-1 z-10 group relative">
+                  <div className="w-full flex flex-col justify-end space-y-[1px]" style={{ height: `${val * 1.8}px` }}>
+                    <div className="w-full bg-green-mid rounded-t-[2px] opacity-90 group-hover:opacity-100" style={{ height: '85%' }}></div>
+                    <div className="w-full bg-amber rounded-b-[2px] opacity-90 group-hover:opacity-100" style={{ height: '15%' }}></div>
                   </div>
-                );
-              })}
+                  <span className="text-[10px] text-gray-500 mt-1">{idx*2}:00</span>
+                </div>
+              ))}
             </div>
-            <div className="flex items-center justify-center space-x-6 text-[11px] mt-6 pt-4 border-t border-[#e0e8e4]">
-              <div className="flex items-center space-x-1.5">
-                <span className="w-3 h-3 rounded-sm bg-green-mid"></span>
-                <span className="text-gray-600 font-medium">Green Open Access Match (85%)</span>
-              </div>
-              <div className="flex items-center space-x-1.5">
-                <span className="w-3 h-3 rounded-sm bg-amber"></span>
-                <span className="text-gray-600 font-medium">Conventional Grid Fallback (15%)</span>
-              </div>
+            <div className="flex items-center justify-center space-x-6 text-[11px] mt-4 pt-4 border-t border-[#e0e8e4]">
+              <div className="flex items-center space-x-1.5"><span className="w-3 h-3 rounded-sm bg-green-mid"></span><span className="text-gray-600 font-medium">Green OA Match (85%)</span></div>
+              <div className="flex items-center space-x-1.5"><span className="w-3 h-3 rounded-sm bg-amber"></span><span className="text-gray-600 font-medium">Grid Fallback (15%)</span></div>
             </div>
           </div>
-
           <div className="tracker-card flex flex-col justify-between !mb-0">
             <div>
               <h3 className="font-sora font-bold text-[16px] text-gray-900 mb-1">Transmission Path Visualizer</h3>
               <p className="text-gray-500 text-[12px]">Real-time corridor feasibility and grid routing</p>
             </div>
-            <div className="my-6 bg-gray-50 rounded-xl p-5 border border-[#e0e8e4] flex flex-col space-y-5 text-[12px] relative overflow-hidden">
-              <div className="absolute top-1/2 left-0 right-0 h-[2px] bg-green-pale z-0 -mt-2"></div>
+            <div className="my-4 bg-gray-50 rounded-xl p-4 border border-[#e0e8e4] flex flex-col space-y-4 text-[12px] relative overflow-hidden">
               <div className="flex items-center justify-between z-10">
-                <div className="bg-white border border-[#e0e8e4] p-3 rounded-lg text-center w-[100px] shadow-sm">
+                <div className="bg-white border border-[#e0e8e4] p-3 rounded-lg text-center w-[90px] shadow-sm">
                   <p className="text-[10px] text-gray-500 font-semibold uppercase">Injection</p>
-                  <p className="font-bold text-gray-900 mt-1 leading-tight">Bhadla Pool</p>
+                  <p className="font-bold text-gray-900 mt-1 text-[12px]">Bhadla Pool</p>
                   <p className="text-[10px] text-green-dark font-medium mt-1">765kV Node</p>
                 </div>
                 <ArrowRight className="w-5 h-5 text-green-mid animate-bounce" />
-                <div className="bg-white border border-[#e0e8e4] p-3 rounded-lg text-center w-[100px] shadow-sm">
+                <div className="bg-white border border-[#e0e8e4] p-3 rounded-lg text-center w-[90px] shadow-sm">
                   <p className="text-[10px] text-gray-500 font-semibold uppercase">Drawal</p>
-                  <p className="font-bold text-gray-900 mt-1 leading-tight">Jajpur Sub</p>
+                  <p className="font-bold text-gray-900 mt-1 text-[12px]">Jajpur Sub</p>
                   <p className="text-[10px] text-green-dark font-medium mt-1">400kV Node</p>
                 </div>
               </div>
-              <div className="border-t border-[#e0e8e4] pt-4 flex flex-col space-y-2 text-[12px] text-gray-600">
-                <div className="flex justify-between"><span className="font-medium">Corridor Loss:</span><span className="text-amber font-bold">3.2% (Approved)</span></div>
-                <div className="flex justify-between"><span className="font-medium">Available Transfer Cap:</span><span className="text-green-dark font-bold">450 MW</span></div>
-                <div className="flex justify-between"><span className="font-medium">Wheeling Congestion:</span><span className="text-green-dark font-bold">Normal (0.01%)</span></div>
+              <div className="border-t border-[#e0e8e4] pt-3 flex flex-col space-y-2 text-[12px] text-gray-600">
+                <div className="flex justify-between"><span className="font-medium">Corridor Loss:</span><span className="text-amber font-bold">3.2%</span></div>
+                <div className="flex justify-between"><span className="font-medium">Transfer Cap:</span><span className="text-green-dark font-bold">450 MW</span></div>
+                <div className="flex justify-between"><span className="font-medium">Congestion:</span><span className="text-green-dark font-bold">Normal</span></div>
               </div>
             </div>
             <button onClick={() => setTab('my-applications')} className="btn-outline w-full flex items-center justify-center space-x-2">
-              <span>Explore Marketplace Bids</span><ArrowRight className="w-4 h-4" />
+              <span>My Applications</span><ArrowRight className="w-4 h-4" />
             </button>
           </div>
         </div>
@@ -874,196 +664,103 @@ useEffect(() => {
           <h2 className="font-sora text-[22px] font-bold text-gray-900">Open Access Marketplace</h2>
           <p className="text-gray-500 text-[13px] mt-1">Browse only admin approved renewable suppliers.</p>
         </div>
-
-        {drafts.length > 0 && (
-          <div className="bg-amber-50 rounded-lg border border-amber-200 p-4">
-            <div className="flex items-center gap-2 mb-3">
-              <Save className="w-5 h-5 text-amber-600" />
-              <h3 className="font-semibold text-amber-800">Saved Drafts ({drafts.length})</h3>
-            </div>
-            <div className="space-y-2">
-              {drafts.map(draft => (
-                <div key={draft.id} className="flex items-center justify-between bg-white p-3 rounded-lg border border-amber-200">
-                  <div>
-                    <p className="font-semibold text-gray-900">{draft.supplierName}</p>
-                    <p className="text-xs text-gray-500">{draft.mw} MW • {draft.duration} days • Saved: {draft.savedAt}</p>
-                  </div>
-                  <div className="flex gap-2">
-                    <button onClick={() => loadDraft(draft)} className="px-3 py-1 text-sm bg-amber-500 text-white rounded hover:bg-amber-600">
-                      Load Draft
-                    </button>
-                    <button onClick={() => deleteDraft(draft.id)} className="px-3 py-1 text-sm bg-red-500 text-white rounded hover:bg-red-600">
-                      Delete
-                    </button>
-                  </div>
-                </div>
-              ))}
-            </div>
-          </div>
-        )}
-
-
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 bg-white p-5 rounded-[var(--radius-md)] border border-[#e0e8e4] shadow-sm">
-          <div className="relative">
-            <Search className="absolute left-3.5 top-[13px] text-gray-400 w-[18px] h-[18px]" />
-            <input type="text" placeholder="Search supplier or state..." value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)} className="form-control pl-10" />
-          </div>
-          <select value={renewableTypeFilter} onChange={(e) => setRenewableTypeFilter(e.target.value)} className="form-control">
-            <option value="All">All Renewable Types</option>
-            <option value="Solar">Solar</option>
-            <option value="Wind">Wind</option>
-            <option value="Hydro">Hydro</option>
-            <option value="Biomass">Biomass</option>
-          </select>
-        </div>
-        
-        {openContractWarning && 
-        <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg text-sm">{openContractWarning}</div>
-        }
-
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 bg-white p-5 rounded-[var(--radius-md)] border border-[#e0e8e4] shadow-sm">
-          <div className="relative">
-            <Search className="absolute left-3.5 top-[13px] text-gray-400 w-[18px] h-[18px]" />
-            <input type="text" placeholder="Search supplier or state..." value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)} className="form-control pl-10" />
-          </div>
-          <select value={renewableTypeFilter} onChange={(e) => setRenewableTypeFilter(e.target.value)} className="form-control">
-            <option value="All">All Renewable Types</option>
-            <option value="Solar">Solar</option>
-            <option value="Wind">Wind</option>
-            <option value="Hydro">Hydro</option>
-            <option value="Biomass">Biomass</option>
-          </select>
-          
-        </div>
         {openContractWarning && <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg text-sm">{openContractWarning}</div>}
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 bg-white p-5 rounded-[var(--radius-md)] border border-[#e0e8e4] shadow-sm">
+          <div className="relative">
+            <Search className="absolute left-3.5 top-[13px] text-gray-400 w-[18px] h-[18px]" />
+            <input type="text" placeholder="Search supplier or state..." value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)} className="form-control pl-10" />
+          </div>
+          <select value={renewableTypeFilter} onChange={(e) => setRenewableTypeFilter(e.target.value)} className="form-control">
+            <option value="All">All Renewable Types</option>
+            <option value="Solar">Solar</option>
+            <option value="Wind">Wind</option>
+            <option value="Hydro">Hydro</option>
+            <option value="Biomass">Biomass</option>
+          </select>
+          <div className="text-[12px] text-gray-500 flex items-center">{filteredSuppliers.length} verified suppliers available</div>
+        </div>
+
         {isRequestFormOpen && currentSupplier && (
-  <div className="bg-white rounded-[var(--radius-md)] border border-[#e0e8e4] p-6 mb-6 shadow-sm">
-    <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4 mb-5">
-      <div>
-        <h3 className="font-sora text-[18px] font-bold text-gray-900">Apply for Open Access</h3>
-        <p className="text-gray-500 text-[13px] mt-1">Send Open Access request to {currentSupplier.name}.</p>
-      </div>
-      <button type="button" onClick={() => setIsRequestFormOpen(false)} className="btn-outline text-[12px] px-4 py-2">
-        Cancel
-      </button>
-    </div>
-    
-    <form onSubmit={submitContractRequest} className="space-y-5">
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
-        <div className="form-group">
-          <label className="required">Supplier</label>
-          <input type="text" value={currentSupplier.name} readOnly className="form-control bg-gray-50" />
-        </div>
-        <div className="form-group">
-          <label className="required">Consumer Name</label>
-          <input type="text" value={consumerName} onChange={(e) => setConsumerName(e.target.value)} required className="form-control" />
-        </div>
-      </div>
-      
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
-        <div className="form-group">
-          <label className="required">Required MW</label>
-          <input type="number" value={requestMw} onChange={(e) => setRequestMw(Number(e.target.value))} min={1} required className="form-control" />
-        </div>
-        <div className="form-group">
-          <label className="required">Duration (Days)</label>
-          <input type="number" value={requestDuration} onChange={(e) => setRequestDuration(Number(e.target.value))} min={30} required className="form-control" />
-        </div>
-      </div>
-      
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
-        <div className="form-group">
-          <label className="required">Offered Price (₹/unit)</label>
-          <input type="number" value={requestedPrice} onChange={(e) => setRequestedPrice(Number(e.target.value))} min={0.1} step="0.01" required className="form-control" />
-          {currentSupplier && (
-            <p className="text-[11px] text-gray-400 mt-1">Supplier base: ₹{currentSupplier.price?.toFixed(2)}</p>
-          )}
-        </div>
-        <div className="form-group">
-          <label className="required">Start Date</label>
-          <input type="date" value={requestStartDate} onChange={(e) => setRequestStartDate(e.target.value)} required className="form-control" />
-        </div>
-      </div>
-      
-      {/* Contact Mobile - Optional but must follow format if provided */}
-      <div className="form-group">
-        <label>Contact Mobile (Optional)</label>
-        <input 
-          type="tel" 
-          value={contactMobile}
-          onChange={(e) => setContactMobile(e.target.value)}
-          placeholder="+919876543210"
-          className={`form-control ${validationErrors.mobile ? 'border-red-500' : ''}`}
-        />
-        {validationErrors.mobile && (
-          <p className="text-red-500 text-[11px] mt-1">{validationErrors.mobile}</p>
+          <div className="bg-white rounded-[var(--radius-md)] border border-[#e0e8e4] p-6 shadow-sm">
+            <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4 mb-5">
+              <div>
+                <h3 className="font-sora text-[18px] font-bold text-gray-900">Apply for Open Access</h3>
+                <p className="text-gray-500 text-[13px] mt-1">Send Open Access request to <strong>{currentSupplier.name}</strong>.</p>
+              </div>
+              <button type="button" onClick={() => setIsRequestFormOpen(false)} className="btn-outline text-[12px] px-4 py-2 flex items-center gap-1.5"><X className="w-3.5 h-3.5" />Cancel</button>
+            </div>
+            <form onSubmit={submitContractRequest} className="space-y-5">
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
+                <div className="form-group">
+                  <label className="required">Supplier</label>
+                  <input type="text" value={currentSupplier.name} readOnly className="form-control bg-gray-50" />
+                </div>
+                <div className="form-group">
+                  <label className="required">Consumer Name</label>
+                  <input type="text" value={consumerName} onChange={(e) => setConsumerName(e.target.value)} required className="form-control" />
+                </div>
+                <div className="form-group">
+                  <label className="required">Offered Price (₹/unit)</label>
+                  <input type="number" value={requestedPrice} onChange={(e) => setRequestedPrice(Number(e.target.value))} min={0.1} step="0.01" required className="form-control" />
+                  <p className="text-[11px] text-gray-400 mt-1">Supplier base: ₹{currentSupplier.price?.toFixed(2)}</p>
+                </div>
+              </div>
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
+                <div className="form-group">
+                  <label className="required">Required MW</label>
+                  <input type="number" value={requestMw} onChange={(e) => setRequestMw(Number(e.target.value))} min={1} required className="form-control" />
+                </div>
+                <div className="form-group">
+                  <label className="required">Duration (Days)</label>
+                  <input type="number" value={requestDuration} onChange={(e) => setRequestDuration(Number(e.target.value))} min={30} required className="form-control" />
+                </div>
+                <div className="form-group">
+                  <label className="required">Start Date</label>
+                  <input type="date" value={requestStartDate} onChange={(e) => setRequestStartDate(e.target.value)} required className="form-control" />
+                </div>
+              </div>
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
+                <div className="form-group">
+                  <label>Contact Mobile <span className="text-gray-400 text-[11px]">(10 digits only)</span></label>
+                  <input type="text" value={contactMobile} onChange={(e) => setContactMobile(e.target.value.replace(/\D/g, '').slice(0,10))} placeholder="9876543210" maxLength={10} className={`form-control ${validationErrors.mobile ? 'border-red-500' : ''}`} />
+                  {validationErrors.mobile && <p className="text-red-500 text-[11px] mt-1">{validationErrors.mobile}</p>}
+                </div>
+                <div className="form-group">
+                  <label>CIN / GSTIN <span className="text-gray-400 text-[11px]">(10 chars)</span></label>
+                  <input type="text" value={legalIdentifier} onChange={(e) => setLegalIdentifier(e.target.value.toUpperCase())} placeholder="ABC123XYZ9" maxLength={10} className={`form-control ${validationErrors.legalIdentifier ? 'border-red-500' : ''}`} />
+                  {validationErrors.legalIdentifier && <p className="text-red-500 text-[11px] mt-1">{validationErrors.legalIdentifier}</p>}
+                </div>
+                <div className="form-group">
+                  <label>DISCOM Consumer No. <span className="text-gray-400 text-[11px]">(10 digits)</span></label>
+                  <input type="text" value={discomConsumerNo} onChange={(e) => setDiscomConsumerNo(e.target.value.replace(/\D/g, '').slice(0,10))} placeholder="1234567890" maxLength={10} className={`form-control ${validationErrors.discomConsumerNo ? 'border-red-500' : ''}`} />
+                  {validationErrors.discomConsumerNo && <p className="text-red-500 text-[11px] mt-1">{validationErrors.discomConsumerNo}</p>}
+                </div>
+              </div>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+                <div className="form-group">
+                  <label className="required">Preferred Time Blocks</label>
+                  <input type="text" value={requestTimeBlocks} onChange={(e) => setRequestTimeBlocks(e.target.value)} required className="form-control" placeholder="e.g. 10:00-18:00" />
+                </div>
+                <div className="form-group">
+                  <label className="required">Delivery State</label>
+                  <input type="text" value={requestDeliveryState} onChange={(e) => setRequestDeliveryState(e.target.value)} required className="form-control" />
+                </div>
+              </div>
+              <div className="form-group">
+                <label>Notes (Optional)</label>
+                <textarea value={requestNotes} onChange={(e) => setRequestNotes(e.target.value)} rows={2} className="form-control" placeholder="Optional message for supplier" />
+              </div>
+              <button type="submit" className="btn-green py-3 px-8 text-[14px]">Submit Application</button>
+            </form>
+          </div>
         )}
-        <p className="text-[11px] text-gray-400 mt-1">Format: +91 followed by 10 digits (e.g., +919876543210)</p>
-      </div>
-      
-      {/* CIN/GSTIN - Optional but must be exactly 10 alphanumeric if provided */}
-      <div className="form-group">
-        <label>CIN / GSTIN / Registration No. (Optional)</label>
-        <input 
-          type="text" 
-          value={legalIdentifier}
-          onChange={(e) => setLegalIdentifier(e.target.value.toUpperCase())}
-          placeholder="ABC123XYZ9"
-          maxLength={10}
-          className={`form-control ${validationErrors.legalIdentifier ? 'border-red-500' : ''}`}
-        />
-        {validationErrors.legalIdentifier && (
-          <p className="text-red-500 text-[11px] mt-1">{validationErrors.legalIdentifier}</p>
-        )}
-        <p className="text-[11px] text-gray-400 mt-1">Exactly 10 alphanumeric characters (A-Z, 0-9)</p>
-      </div>
-      
-      {/* DISCOM Consumer No - Optional but must be exactly 10 digits if provided */}
-      <div className="form-group">
-        <label>DISCOM Consumer No. (Optional)</label>
-        <input 
-          type="text" 
-          value={discomConsumerNo}
-          onChange={(e) => setDiscomConsumerNo(e.target.value.replace(/\D/g, ''))}
-          placeholder="1234567890"
-          maxLength={10}
-          className={`form-control ${validationErrors.discomConsumerNo ? 'border-red-500' : ''}`}
-        />
-        {validationErrors.discomConsumerNo && (
-          <p className="text-red-500 text-[11px] mt-1">{validationErrors.discomConsumerNo}</p>
-        )}
-        <p className="text-[11px] text-gray-400 mt-1">Exactly 10 digits (numbers only, 0-9)</p>
-      </div>
-      
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
-        <div className="form-group">
-          <label className="required">Preferred Time Blocks</label>
-          <input type="text" value={requestTimeBlocks} onChange={(e) => setRequestTimeBlocks(e.target.value)} required className="form-control" placeholder="e.g. 10:00-18:00" />
-        </div>
-        <div className="form-group">
-          <label className="required">Delivery State</label>
-          <input type="text" value={requestDeliveryState} onChange={(e) => setRequestDeliveryState(e.target.value)} required className="form-control" />
-        </div>
-      </div>
-      
-      <div className="form-group">
-        <label>Notes (Optional)</label>
-        <textarea value={requestNotes} onChange={(e) => setRequestNotes(e.target.value)} rows={3} className="form-control" placeholder="Optional message for supplier" />
-      </div>
-      
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
-        <button type="submit" className="btn-green w-full sm:w-auto py-3 text-[15px]">Submit Application</button>
-        <p className="text-gray-500 text-[12px]">After submission, the request will appear under My Applications.</p>
-      </div>
-    </form>
-  </div>
-)}
+
         <div className="bg-white rounded-[var(--radius-md)] border border-[#e0e8e4] overflow-hidden">
           <table className="w-full text-left border-collapse">
             <thead>
               <tr>
-                {['Supplier Name','Renewable Type','Available MW','Base Price','OA Charges','Final Price','Injection Point','Profile'].map(h => (
-                  <th key={h} className="bg-green-dark text-white text-[12px] font-semibold px-5 py-3 uppercase">{h}</th>
+                {['Supplier Name','Type','Available MW','Base Price','OA Charges','Final Price','Injection Point','Actions'].map(h => (
+                  <th key={h} className="bg-green-dark text-white text-[12px] font-semibold px-5 py-3 uppercase whitespace-nowrap">{h}</th>
                 ))}
               </tr>
             </thead>
@@ -1071,18 +768,19 @@ useEffect(() => {
               {filteredSuppliers.length > 0 ? filteredSuppliers.map((s, i) => (
                 <tr key={s.id} className={`hover:bg-gray-50 transition-colors ${i % 2 !== 0 ? 'bg-[#f9fcfa]' : ''}`}>
                   <td className="py-3.5 px-5 font-semibold text-gray-900">{s.name}</td>
-                  <td className="py-3.5 px-5 text-gray-700">{s.renewableType || s.type || '—'}</td>
-                  <td className="py-3.5 px-5 font-semibold text-gray-900">{s.capacity} MW</td>
-                  <td className="py-3.5 px-5 text-gray-900">₹{Number(s.price || 0).toFixed(2)}</td>
+                  <td className="py-3.5 px-5 text-gray-700">{s.renewableType || '—'}</td>
+                  <td className="py-3.5 px-5 font-semibold text-gray-900">{s.generationCapacity || s.capacity || '—'} MW</td>
+                  <td className="py-3.5 px-5 text-gray-900">₹{Number(s.price || 4.2).toFixed(2)}</td>
                   <td className="py-3.5 px-5 text-gray-700">₹{calculateOaCharges(s).toFixed(2)}</td>
                   <td className="py-3.5 px-5 font-bold text-gray-900">₹{getFinalDeliveredPrice(s).toFixed(2)}</td>
-                  <td className="py-3.5 px-5 text-gray-700">{s.injectionPoint || 'Bhadla'}</td>
-                  <td className="py-3.5 px-5 text-right space-x-2 flex justify-end">
-                    <button type="button" onClick={() => openSupplierProfile(s.id)} className="px-3 py-1.5 rounded-md bg-white border border-[#e0e8e4] text-gray-700 text-[12px] font-semibold hover:bg-gray-50">View Profile</button>
+                  <td className="py-3.5 px-5 text-gray-700 text-[12px] max-w-[140px] truncate">{s.injectionPoint || 'Bhadla'}</td>
+                  <td className="py-3.5 px-5 flex gap-2 justify-end">
+                    <button type="button" onClick={() => openSupplierProfile(s.id)} className="px-3 py-1.5 rounded-md bg-white border border-[#e0e8e4] text-gray-700 text-[12px] font-semibold hover:bg-gray-50">Profile</button>
+                    <button type="button" onClick={() => { setSelectedSupplierId(s.id); setIsRequestFormOpen(true); setRequestedPrice(s.price || 4.5); setOpenContractWarning(''); }} className="px-3 py-1.5 rounded-md bg-[#2d6a4f] text-white text-[12px] font-semibold hover:bg-[#1b4d3e]">Request</button>
                   </td>
                 </tr>
               )) : (
-                <tr><td colSpan={8} className="text-center py-10 text-gray-500">No approved suppliers available in marketplace.</td></tr>
+                <tr><td colSpan={8} className="text-center py-10 text-gray-500">No approved suppliers available.</td></tr>
               )}
             </tbody>
           </table>
@@ -1091,59 +789,59 @@ useEffect(() => {
     );
   }
 
-
-
   // ══════════════════════════════════════════════════════════════════════════
   // MY-APPLICATIONS TAB
   // ══════════════════════════════════════════════════════════════════════════
   if (activeTab === 'my-applications') {
     return (
       <div className="space-y-8 animate-fadeIn">
-        <div className="pb-4 border-b border-[#e0e8e4]">
-          <h2 className="font-sora text-[22px] font-bold text-gray-900">My Applications</h2>
-          <p className="text-gray-500 text-[13px] mt-1">Track Open Access requests, upload documents, and review contract status.</p>
+        <div className="pb-4 border-b border-[#e0e8e4] flex items-center justify-between">
+          <div>
+            <h2 className="font-sora text-[22px] font-bold text-gray-900">My Applications</h2>
+            <p className="text-gray-500 text-[13px] mt-1">Track Open Access and GEOA requests — status updates automatically.</p>
+          </div>
+          <button onClick={refreshApplications} className="btn-outline flex items-center gap-2 text-[12px] px-4 py-2">
+            <ArrowRight className="w-3.5 h-3.5 rotate-[-90deg]" /><span>Refresh</span>
+          </button>
         </div>
         <div className="bg-white rounded-[var(--radius-md)] border border-[#e0e8e4] overflow-x-auto">
-  <table className="w-full text-left border-collapse min-w-[800px]">
-    <thead>
-      <tr>
-        {['Supplier Name', 'Requested MW', 'Duration', 'Base Price', 'OA Charges', 'Final Price', 'Status', 'Request Date'].map(h => (
-          <th key={h} className="bg-green-dark text-white text-[12px] font-semibold px-5 py-3 tracking-[0.03em] uppercase whitespace-nowrap">{h}</th>
-        ))}
-      </tr>
-    </thead>
-    <tbody className="divide-y divide-[#f0f4f2] text-[13px]">
-      {applications.length > 0 ? applications.map((app, i) => (
-        <tr key={app.id} className={`hover:bg-gray-50 transition-colors ${i % 2 !== 0 ? 'bg-[#f9fcfa]' : ''}`}>
-          <td className="py-3.5 px-5 font-semibold text-gray-900">{app.supplierName}</td>
-          <td className="py-3.5 px-5 text-gray-700">{app.requestedMw} MW</td>
-          <td className="py-3.5 px-5 text-gray-700">{app.duration}</td>
-          <td className="py-3.5 px-5 text-gray-900">₹{app.basePrice?.toFixed(2) || '0'}</td>
-          <td className="py-3.5 px-5 text-gray-700">₹{app.oaCharges?.toFixed(2) || '0'}</td>
-          <td className="py-3.5 px-5 font-bold text-gray-900">₹{app.finalPrice?.toFixed(2) || '0'}</td>
-          <td className="py-3.5 px-5">
-            <span className={`badge ${
-              app.requestStatus === 'APPROVED' ? 'badge-green' : 
-              app.requestStatus === 'REJECTED' ? 'badge-red' : 
-              app.requestStatus === 'PENDING' ? 'badge-amber' : 'badge-blue'
-            }`}>
-              {app.requestStatus === 'APPROVED' ? 'Accepted' : 
-              app.requestStatus === 'REJECTED' ? 'Rejected' : 
-              app.requestStatus === 'PENDING' ? 'Pending' : app.requestStatus || 'Submitted'}
-            </span>
-          </td>
-          <td className="py-3.5 px-5 text-gray-600">{app.requestDate || app.createdAt?.split('T')[0] || '-'}</td>
-        </tr>
-      )) : (
-        <tr>
-          <td colSpan={8} className="text-center py-10 text-gray-500">
-            No applications found.
-          </td>
-        </tr>
-      )}
-    </tbody>
-  </table>
-</div>
+          <table className="w-full text-left border-collapse min-w-[900px]">
+            <thead>
+              <tr>
+                {['Supplier Name','Requested MW','Duration','Base Price','OA Charges','Final Price','Status','Submitted'].map(h => (
+                  <th key={h} className="bg-green-dark text-white text-[12px] font-semibold px-5 py-3 uppercase whitespace-nowrap">{h}</th>
+                ))}
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-[#f0f4f2] text-[13px]">
+              {applications.length > 0 ? applications.map((app, i) => (
+                <tr key={app.id} className={`hover:bg-gray-50 transition-colors ${i % 2 !== 0 ? 'bg-[#f9fcfa]' : ''}`}>
+                  <td className="py-3.5 px-5 font-semibold text-gray-900">{app.supplierName}</td>
+                  <td className="py-3.5 px-5 text-gray-700">{app.requestedMw} MW</td>
+                  <td className="py-3.5 px-5 text-gray-700">{app.duration}</td>
+                  <td className="py-3.5 px-5 text-gray-900">₹{app.basePrice?.toFixed(2) || '—'}</td>
+                  <td className="py-3.5 px-5 text-gray-700">₹{app.oaCharges?.toFixed(2) || '—'}</td>
+                  <td className="py-3.5 px-5 font-bold text-gray-900">₹{app.finalPrice?.toFixed(2) || '—'}</td>
+                  <td className="py-3.5 px-5">
+                    <span className={`badge ${
+                      app.requestStatus === 'APPROVED' || app.requestStatus === 'SUPPLIER_APPROVED' ? 'badge-green' :
+                      app.requestStatus === 'REJECTED' ? 'badge-red' :
+                      app.requestStatus === 'ADMIN_PENDING' ? 'badge-amber' : 'badge-blue'
+                    }`}>
+                      {app.requestStatus === 'APPROVED' || app.requestStatus === 'SUPPLIER_APPROVED' ? '✓ Approved' :
+                       app.requestStatus === 'REJECTED' ? '✗ Rejected' :
+                       app.requestStatus === 'ADMIN_PENDING' ? 'Under Review' :
+                       app.requestStatus || 'Submitted'}
+                    </span>
+                  </td>
+                  <td className="py-3.5 px-5 text-gray-500">{app.requestDate || '—'}</td>
+                </tr>
+              )) : (
+                <tr><td colSpan={8} className="text-center py-12 text-gray-500">No applications yet. Go to Open Access Marketplace or Documents → Apply GEOA to submit one.</td></tr>
+              )}
+            </tbody>
+          </table>
+        </div>
       </div>
     );
   }
@@ -1154,7 +852,7 @@ useEffect(() => {
   if (activeTab === 'supplier-profile' && (supplierDetails || currentSupplier)) {
     return (
       <div className="space-y-8 animate-fadeIn">
-        <div className="pb-4 border-b border-[#e0e8e4] flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+        <div className="pb-4 border-b border-[#e0e8e4] flex items-center justify-between">
           <div>
             <h2 className="font-sora text-[22px] font-bold text-gray-900">Supplier Profile</h2>
             <p className="text-gray-500 text-[13px] mt-1">Review supplier capabilities, compliance, and delivery risk.</p>
@@ -1164,28 +862,27 @@ useEffect(() => {
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
           <div className="tracker-card p-6">
             <h3 className="font-sora text-[16px] font-bold text-gray-900 mb-4">Company Information</h3>
-            <p className="text-gray-700 font-semibold mb-1">{(supplierDetails && supplierDetails.name) || currentSupplier?.name}</p>
-            <p className="text-gray-500 text-[13px]">State: {(supplierDetails && supplierDetails.state) || currentSupplier?.state}</p>
-            <p className="text-gray-500 text-[13px]">Source: {(supplierDetails && supplierDetails.profile?.renewableType) || currentSupplier?.renewableType || currentSupplier?.type}</p>
-            <p className="text-gray-500 text-[13px]">Available Capacity: {(supplierDetails && supplierDetails.profile?.generationCapacity) || currentSupplier?.capacity} MW</p>
-            <p className="text-gray-500 text-[13px]">Injection Point: {(supplierDetails && supplierDetails.profile?.injectionPoint) || currentSupplier?.injectionPoint || 'Bhadla Pooling Station'}</p>
+            <p className="text-gray-700 font-semibold mb-1">{supplierDetails?.name || currentSupplier?.name}</p>
+            <p className="text-gray-500 text-[13px]">State: {supplierDetails?.state || currentSupplier?.state}</p>
+            <p className="text-gray-500 text-[13px]">Source: {supplierDetails?.profile?.renewableType || currentSupplier?.renewableType}</p>
+            <p className="text-gray-500 text-[13px]">Capacity: {supplierDetails?.profile?.generationCapacity || currentSupplier?.generationCapacity} MW</p>
+            <p className="text-gray-500 text-[13px]">Injection Point: {supplierDetails?.profile?.injectionPoint || currentSupplier?.injectionPoint || 'Bhadla Pooling Station'}</p>
           </div>
           <div className="tracker-card p-6">
             <h3 className="font-sora text-[16px] font-bold text-gray-900 mb-4">Pricing & Performance</h3>
             <div className="space-y-3 text-[13px] text-gray-600">
-              <div className="flex justify-between"><span>Base Price</span><span className="font-semibold text-gray-900">₹{Number((supplierDetails && supplierDetails.profile?.basePrice) || currentSupplier?.price || 0).toFixed(2)}</span></div>
-              <div className="flex justify-between"><span>Estimated OA Charges</span><span className="font-semibold text-gray-900">₹{calculateOaCharges((supplierDetails && { ...currentSupplier, ...supplierDetails.profile }) || currentSupplier).toFixed(2)}</span></div>
-              <div className="flex justify-between"><span>Final Delivered Price</span><span className="font-semibold text-gray-900">₹{getFinalDeliveredPrice((supplierDetails && { ...currentSupplier, ...supplierDetails.profile }) || currentSupplier).toFixed(2)}</span></div>
-              <div className="pt-3 border-t border-[#e0e8e4]"><p className="font-semibold text-gray-900">Ratings / Reliability</p><p className="text-[13px] text-gray-500">4.5 / 5 • 96% delivery compliance</p></div>
+              <div className="flex justify-between"><span>Base Price</span><span className="font-semibold text-gray-900">₹{Number(supplierDetails?.profile?.basePrice || currentSupplier?.price || 0).toFixed(2)}</span></div>
+              <div className="flex justify-between"><span>Est. OA Charges</span><span className="font-semibold text-gray-900">₹{calculateOaCharges(currentSupplier || {}).toFixed(2)}</span></div>
+              <div className="flex justify-between"><span>Final Delivered</span><span className="font-semibold text-gray-900">₹{getFinalDeliveredPrice(currentSupplier || {}).toFixed(2)}</span></div>
+              <div className="pt-3 border-t border-[#e0e8e4]"><p className="font-semibold text-gray-900">Reliability</p><p className="text-[13px] text-gray-500">4.5 / 5 • 96% delivery compliance</p></div>
             </div>
           </div>
           <div className="tracker-card p-6">
             <h3 className="font-sora text-[16px] font-bold text-gray-900 mb-4">Compliance & Documents</h3>
-            <div className="space-y-3 text-[13px] text-gray-600">
-              <p>Renewable certificates: {(supplierDetails && supplierDetails.documents?.length) ? supplierDetails.documents.map((d: any) => d.title).join(', ') : (currentSupplier.renewableCertificate || 'RECs pending')}</p>
-              <p>Historical performance: {currentSupplier.performance || '88% on-time delivery'}</p>
-              <p>Available time slots: {currentSupplier.timeSlots || '10:00-18:00 daily'}</p>
-              <p>Active contracts: {(supplierDetails && supplierDetails.applications) ? supplierDetails.applications.filter((a: any) => a.approvalStatus === 'APPROVED' || a.approvalStatus === 'NOC_APPROVED').length : (currentSupplier.activeContracts || 0)}</p>
+            <div className="space-y-2 text-[13px] text-gray-600">
+              <p>Certificates: {supplierDetails?.documents?.length ? supplierDetails.documents.map((d: any) => d.title).join(', ') : 'RECs pending'}</p>
+              <p>Performance: {currentSupplier?.performance || '88% on-time delivery'}</p>
+              <p>Time Slots: {currentSupplier?.timeSlots || '10:00-18:00 daily'}</p>
             </div>
           </div>
         </div>
@@ -1201,95 +898,36 @@ useEffect(() => {
       <div className="space-y-8 animate-fadeIn">
         <div className="pb-4 border-b border-[#e0e8e4]">
           <h2 className="font-sora text-[22px] font-bold text-gray-900">Contracts</h2>
-          <p className="text-gray-500 text-[13px] mt-1">Review contract summaries and download agreements for active arrangements.</p>
+          <p className="text-gray-500 text-[13px] mt-1">Active and approved contract arrangements.</p>
         </div>
-        <div className="bg-white rounded-[var(--radius-md)] border border-[#e0e8e4] overflow-hidden">
-          <table className="w-full text-left border-collapse">
+        <div className="bg-white rounded-[var(--radius-md)] border border-[#e0e8e4] overflow-x-auto">
+          <table className="w-full text-left border-collapse min-w-[600px]">
             <thead>
               <tr>
-                {['Supplier','MW','Price','OA Status','Actions'].map(h => (
-                  <th key={h} className="bg-green-dark text-white text-[12px] font-semibold px-5 py-3 tracking-[0.03em] uppercase">{h}</th>
+                {['Supplier','MW','Price','Status','Actions'].map(h => (
+                  <th key={h} className="bg-green-dark text-white text-[12px] font-semibold px-5 py-3 uppercase">{h}</th>
                 ))}
               </tr>
             </thead>
             <tbody className="divide-y divide-[#f0f4f2] text-[13px]">
-              {applications.map((app, i) => (
-                <tr key={app.id} className={`hover:bg-gray-50 transition-colors ${i % 2 !== 0 ? 'bg-[#f9fcfa]' : ''}`}>
-                  <td className="py-3.5 px-5 font-semibold text-gray-900">{app.supplierName}</td>
-                  <td className="py-3.5 px-5 text-gray-700">{app.requestedMw} MW</td>
-                  <td className="py-3.5 px-5 font-bold text-gray-900">₹{app.finalPrice.toFixed(2)}</td>
-                  <td className="py-3.5 px-5"><span className="badge badge-amber">{app.requestStatus}</span></td>
-                  <td className="py-3.5 px-5 text-right"><button onClick={() => viewApplicationDetails(app.id)} className="px-3 py-1.5 rounded-md bg-[#2d6a4f] text-white text-[12px] font-semibold hover:bg-[#1b4d3e]">View Contract</button></td>
-                </tr>
-              ))}
+              {applications.filter(app => ['APPROVED','SUPPLIER_APPROVED','Active Contract'].includes(app.requestStatus || app.contractStatus)).length > 0
+                ? applications.filter(app => ['APPROVED','SUPPLIER_APPROVED','Active Contract'].includes(app.requestStatus || app.contractStatus)).map((app, i) => (
+                  <tr key={app.id} className={`hover:bg-gray-50 ${i % 2 !== 0 ? 'bg-[#f9fcfa]' : ''}`}>
+                    <td className="py-3.5 px-5 font-semibold text-gray-900">{app.supplierName}</td>
+                    <td className="py-3.5 px-5 text-gray-700">{app.requestedMw} MW</td>
+                    <td className="py-3.5 px-5 font-bold text-gray-900">₹{app.finalPrice?.toFixed(2)}</td>
+                    <td className="py-3.5 px-5"><span className="badge badge-green">Active</span></td>
+                    <td className="py-3.5 px-5"><button onClick={() => { setSelectedApplication(app); setTab('application-details'); }} className="px-3 py-1.5 rounded-md bg-[#2d6a4f] text-white text-[12px] font-semibold hover:bg-[#1b4d3e]">View Details</button></td>
+                  </tr>
+                ))
+                : <tr><td colSpan={5} className="text-center py-10 text-gray-500">No active contracts yet.</td></tr>
+              }
             </tbody>
           </table>
         </div>
       </div>
     );
   }
-
-  // ══════════════════════════════════════════════════════════════════════════
-  // CONTRACT DETAILS TAB
-  // ══════════════════════════════════════════════════════════════════════════
-  if (activeTab === 'contracts') {
-  return (
-    <div className="space-y-8 animate-fadeIn">
-      <div className="pb-4 border-b border-[#e0e8e4]">
-        <h2 className="font-sora text-[22px] font-bold text-gray-900">Contracts</h2>
-        <p className="text-gray-500 text-[13px] mt-1">Review contract summaries and download agreements for active arrangements.</p>
-      </div>
-      <div className="bg-white rounded-[var(--radius-md)] border border-[#e0e8e4] overflow-x-auto">
-        <table className="w-full text-left border-collapse min-w-[600px]">
-          <thead>
-            <tr>
-              <th className="bg-green-dark text-white text-[12px] font-semibold px-5 py-3 tracking-[0.03em] uppercase whitespace-nowrap">Supplier</th>
-              <th className="bg-green-dark text-white text-[12px] font-semibold px-5 py-3 tracking-[0.03em] uppercase whitespace-nowrap">MW</th>
-              <th className="bg-green-dark text-white text-[12px] font-semibold px-5 py-3 tracking-[0.03em] uppercase whitespace-nowrap">Price (₹/unit)</th>
-              <th className="bg-green-dark text-white text-[12px] font-semibold px-5 py-3 tracking-[0.03em] uppercase whitespace-nowrap">Status</th>
-              <th className="bg-green-dark text-white text-[12px] font-semibold px-5 py-3 tracking-[0.03em] uppercase whitespace-nowrap">Actions</th>
-            </tr>
-          </thead>
-          <tbody className="divide-y divide-[#f0f4f2] text-[13px]">
-            {applications.length > 0 ? applications.filter(app => app.requestStatus === 'APPROVED' || app.contractStatus === 'Active Contract').map((app, i) => (
-              <tr key={app.id} className={`hover:bg-gray-50 transition-colors ${i % 2 !== 0 ? 'bg-[#f9fcfa]' : ''}`}>
-                <td className="py-3.5 px-5 font-semibold text-gray-900">{app.supplierName}</td>
-                <td className="py-3.5 px-5 text-gray-700 font-semibold">{app.requestedMw} MW</td>
-                <td className="py-3.5 px-5 font-bold text-gray-900">₹{app.finalPrice?.toFixed(2) || '0'}</td>
-                <td className="py-3.5 px-5">
-                  <span className={`badge ${
-                    app.requestStatus === 'APPROVED' ? 'badge-green' : 
-                    app.requestStatus === 'REJECTED' ? 'badge-red' : 'badge-amber'
-                  }`}>
-                    {app.requestStatus === 'APPROVED' ? 'Active' : app.requestStatus || 'Pending'}
-                  </span>
-                </td>
-                <td className="py-3.5 px-5">
-                  <button 
-                    onClick={() => {
-                      // Show application details instead of contract
-                      setSelectedApplication(app);
-                      setTab('application-details');
-                    }} 
-                    className="px-3 py-1.5 rounded-md bg-[#2d6a4f] text-white text-[12px] font-semibold hover:bg-[#1b4d3e] whitespace-nowrap"
-                  >
-                    View Details
-                  </button>
-                </td>
-              </tr>
-            )) : (
-              <tr>
-                <td colSpan={5} className="text-center py-10 text-gray-500">
-                  No active contracts found.
-                </td>
-              </tr>
-            )}
-          </tbody>
-        </table>
-      </div>
-    </div>
-  );
-}
 
   // ══════════════════════════════════════════════════════════════════════════
   // SCHEDULES TAB
@@ -1299,27 +937,27 @@ useEffect(() => {
       <div className="space-y-8 animate-fadeIn">
         <div className="pb-4 border-b border-[#e0e8e4]">
           <h2 className="font-sora text-[22px] font-bold text-gray-900">Active Grid Schedules</h2>
-          <p className="text-gray-500 text-[13px] mt-1">National Open Access Registry (NOAR) dispatch approvals</p>
+          <p className="text-gray-500 text-[13px] mt-1">NOAR dispatch approvals</p>
         </div>
         <div className="bg-white rounded-[var(--radius-md)] border border-[#e0e8e4] overflow-hidden">
           <table className="w-full text-left border-collapse">
             <thead>
               <tr>
-                {['Schedule ID','Renewable Supplier','Approved MW','Time Block (RTC)','Status'].map(h => (
-                  <th key={h} className="bg-green-dark text-white text-[12px] font-semibold px-5 py-3 tracking-[0.03em] uppercase">{h}</th>
+                {['Schedule ID','Supplier','Approved MW','Time Block','Status'].map(h => (
+                  <th key={h} className="bg-green-dark text-white text-[12px] font-semibold px-5 py-3 uppercase">{h}</th>
                 ))}
               </tr>
             </thead>
             <tbody className="divide-y divide-[#f0f4f2] text-[13px]">
-              {schedules.map((s, i) => (
-                <tr key={s.id} className={`hover:bg-gray-50 transition-colors ${i % 2 !== 0 ? 'bg-[#f9fcfa]' : ''}`}>
+              {schedules.length > 0 ? schedules.map((s: any, i) => (
+                <tr key={s.id} className={`hover:bg-gray-50 ${i % 2 !== 0 ? 'bg-[#f9fcfa]' : ''}`}>
                   <td className="py-3.5 px-5 text-gray-600 font-semibold uppercase">{s.id}</td>
                   <td className="py-3.5 px-5 font-semibold text-gray-900">{s.supplierName}</td>
                   <td className="py-3.5 px-5 font-bold text-green-dark">{s.mw} MW</td>
                   <td className="py-3.5 px-5 text-gray-700">{s.timeBlock}</td>
                   <td className="py-3.5 px-5"><span className={`badge ${s.gridStatus === 'RUNNING' ? 'badge-green' : 'badge-blue'}`}>{s.gridStatus}</span></td>
                 </tr>
-              ))}
+              )) : <tr><td colSpan={5} className="text-center py-10 text-gray-500">No active schedules yet.</td></tr>}
             </tbody>
           </table>
         </div>
@@ -1328,130 +966,46 @@ useEffect(() => {
   }
 
   // ══════════════════════════════════════════════════════════════════════════
-  // DOCUMENTS TAB  ←  FULL REWRITE WITH GEOA PORTAL
+  // DOCUMENTS TAB
   // ══════════════════════════════════════════════════════════════════════════
   if (activeTab === 'documents') {
 
-    // ── LANDING VIEW ──────────────────────────────────────────────────────
+    // ── LANDING ──────────────────────────────────────────────────────────────
     if (docView === 'landing') {
       return (
         <div className="space-y-8 animate-fadeIn">
-          {/* Header */}
           <div className="pb-4 border-b border-[#e0e8e4]">
             <h2 className="font-sora text-[22px] font-bold text-gray-900">Documents & GEOA Portal</h2>
-            <p className="text-gray-500 text-[13px] mt-1">
-              Apply for Green Energy Open Access (GEOA) under RERC regulations or manage your regulatory compliance documents.
-            </p>
+            <p className="text-gray-500 text-[13px] mt-1">Apply for Green Energy Open Access or manage compliance documents.</p>
           </div>
-
-          {/* Regulatory notice */}
           <div className="alert alert-info">
             <AlertCircle className="w-4 h-4 shrink-0 mt-0.5" />
-            <p className="text-[13px]">
-              <span className="font-semibold">RERC GEOA Regulation 2022 —</span> All industrial consumers above 1 MW load are required to file a GEOA application through the Nodal Agency (RLDC/SLDC) before commencing Green Open Access transactions. Ensure all mandatory documents are uploaded prior to submission.
-            </p>
+            <p className="text-[13px]"><span className="font-semibold">RERC GEOA Regulation 2022 —</span> All industrial consumers above 1 MW load must file a GEOA application through the Nodal Agency before commencing Open Access transactions.</p>
           </div>
-
-          {/* Action cards */}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            {/* Apply GEOA card */}
-            <div
-              onClick={() => { resetGeoaForm(); setDocView('geoa-form'); }}
-              className="group bg-white border-2 border-[#e0e8e4] hover:border-green-mid rounded-[var(--radius-md)] p-7 cursor-pointer transition-all hover:-translate-y-1 hover:shadow-md"
-            >
-              <div className="w-12 h-12 bg-green-pale rounded-xl flex items-center justify-center mb-5 group-hover:bg-green-mid/20 transition-colors">
-                <ClipboardList className="w-6 h-6 text-green-dark" />
-              </div>
+            <div onClick={() => { resetGeoaForm(); setDocView('geoa-form'); }} className="group bg-white border-2 border-[#e0e8e4] hover:border-green-mid rounded-[var(--radius-md)] p-7 cursor-pointer transition-all hover:-translate-y-1 hover:shadow-md">
+              <div className="w-12 h-12 bg-green-pale rounded-xl flex items-center justify-center mb-5"><ClipboardList className="w-6 h-6 text-green-dark" /></div>
               <h3 className="font-sora text-[17px] font-bold text-gray-900 mb-2">Apply GEOA</h3>
-              <p className="text-[13px] text-gray-500 leading-relaxed mb-5">
-                File a formal Green Energy Open Access application to RERC / RLDC with applicant details, technical parameters, and all regulatory documents.
-              </p>
-              <div className="flex items-center text-green-dark text-[13px] font-semibold group-hover:gap-2 transition-all gap-1">
-                <span>Apply for Green Energy Open Access</span>
-                <ChevronRight className="w-4 h-4" />
-              </div>
+              <p className="text-[13px] text-gray-500 leading-relaxed mb-5">File a formal Green Energy Open Access application to RERC / RLDC with all regulatory documents.</p>
+              <div className="flex items-center text-green-dark text-[13px] font-semibold gap-1"><span>Apply for Green Energy Open Access</span><ChevronRight className="w-4 h-4" /></div>
             </div>
-
-            {/* Upload Documents card */}
-            <div
-              onClick={() => setDocView('doc-upload')}
-              className="group bg-white border-2 border-[#e0e8e4] hover:border-blue-dark rounded-[var(--radius-md)] p-7 cursor-pointer transition-all hover:-translate-y-1 hover:shadow-md"
-            >
-              <div className="w-12 h-12 bg-blue-light rounded-xl flex items-center justify-center mb-5 group-hover:bg-blue-dark/10 transition-colors">
-                <Upload className="w-6 h-6 text-blue-dark" />
-              </div>
+            <div onClick={() => setDocView('doc-upload')} className="group bg-white border-2 border-[#e0e8e4] hover:border-blue-dark rounded-[var(--radius-md)] p-7 cursor-pointer transition-all hover:-translate-y-1 hover:shadow-md">
+              <div className="w-12 h-12 bg-blue-light rounded-xl flex items-center justify-center mb-5"><Upload className="w-6 h-6 text-blue-dark" /></div>
               <h3 className="font-sora text-[17px] font-bold text-gray-900 mb-2">Upload Regulatory Documents</h3>
-              <p className="text-[13px] text-gray-500 leading-relaxed mb-5">
-                Submit PPAs, bank guarantees, board authorizations, and other compliance files to the Nodal Agency vault for admin verification.
-              </p>
-              <div className="flex items-center text-blue-dark text-[13px] font-semibold group-hover:gap-2 transition-all gap-1">
-                <span>Open Compliance Vault</span>
-                <ChevronRight className="w-4 h-4" />
-              </div>
+              <p className="text-[13px] text-gray-500 leading-relaxed mb-5">Submit PPAs, bank guarantees, board authorizations to the Nodal Agency vault for admin verification.</p>
+              <div className="flex items-center text-blue-dark text-[13px] font-semibold gap-1"><span>Open Compliance Vault</span><ChevronRight className="w-4 h-4" /></div>
             </div>
           </div>
-
-          {/* GEOA Applications tracker */}
-          <div className="space-y-4">
-            <div className="flex items-center justify-between">
-              <h3 className="font-sora text-[18px] font-bold text-gray-900">My GEOA Applications</h3>
-              <button onClick={() => { resetGeoaForm(); setDocView('geoa-form'); }} className="btn-green flex items-center gap-2 text-[13px] px-4 py-2">
-                <ClipboardList className="w-4 h-4" /><span>New Application</span>
-              </button>
-            </div>
-            <div className="bg-white rounded-[var(--radius-md)] border border-[#e0e8e4] overflow-hidden">
-              <table className="w-full text-left border-collapse">
-                <thead>
-                  <tr>
-                    {['Ref No.','Applicant','Load (MW)','Schedule','Injection Point','Submitted On','Status','Docs'].map(h => (
-                      <th key={h} className="bg-green-dark text-white text-[12px] font-semibold px-5 py-3 tracking-[0.03em] uppercase">{h}</th>
-                    ))}
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-[#f0f4f2] text-[13px]">
-                  {geoaApplications.length > 0 ? geoaApplications.map((app, i) => (
-                    <tr key={app.id} className={`hover:bg-gray-50 transition-colors ${i % 2 !== 0 ? 'bg-[#f9fcfa]' : ''}`}>
-                      <td className="py-3.5 px-5 font-mono text-[12px] font-semibold text-green-dark">{app.refNo}</td>
-                      <td className="py-3.5 px-5 font-semibold text-gray-900 max-w-[140px] truncate">{app.applicantName}</td>
-                      <td className="py-3.5 px-5 font-bold text-gray-900">{app.loadMw} MW</td>
-                      <td className="py-3.5 px-5 text-gray-700">{app.scheduleType}</td>
-                      <td className="py-3.5 px-5 text-gray-700 max-w-[160px] truncate">{app.injectionPoint}</td>
-                      <td className="py-3.5 px-5 text-gray-500">{app.submittedOn}</td>
-                      <td className="py-3.5 px-5"><span className={`badge ${geoaStatusBadge(app.status)}`}>{app.status.replace('_', ' ')}</span></td>
-                      <td className="py-3.5 px-5">
-                        <div className="flex items-center gap-1 text-[12px] text-gray-500">
-                          <CheckCircle className="w-3.5 h-3.5 text-green-mid" />
-                          <span>{app.docs.filter(d => d.status === 'uploaded').length}/{app.docs.length}</span>
-                        </div>
-                      </td>
-                    </tr>
-                  )) : (
-                    <tr><td colSpan={8} className="text-center py-10 text-gray-500">No GEOA applications submitted yet.</td></tr>
-                  )}
-                </tbody>
-              </table>
-            </div>
-          </div>
-
-          {/* Regulatory Document Registry */}
+          
           <div className="space-y-4">
             <h3 className="font-sora text-[18px] font-bold text-gray-900">Regulatory Document Registry</h3>
             <div className="bg-white rounded-[var(--radius-md)] border border-[#e0e8e4] overflow-hidden">
               <table className="w-full text-left border-collapse">
-                <thead>
-                  <tr>
-                    {['Document Name','Category','Uploaded On','Status'].map(h => (
-                      <th key={h} className="bg-green-dark text-white text-[12px] font-semibold px-5 py-3 tracking-[0.03em] uppercase">{h}</th>
-                    ))}
-                  </tr>
-                </thead>
+                <thead><tr>{['Document Name','Category','Uploaded On','Status'].map(h => <th key={h} className="bg-green-dark text-white text-[12px] font-semibold px-5 py-3 uppercase">{h}</th>)}</tr></thead>
                 <tbody className="divide-y divide-[#f0f4f2] text-[13px]">
                   {uploadedDocs.map((doc, i) => (
-                    <tr key={doc.id} className={`hover:bg-gray-50 transition-colors ${i % 2 !== 0 ? 'bg-[#f9fcfa]' : ''}`}>
-                      <td className="py-3.5 px-5 font-semibold text-gray-900 flex items-center gap-2">
-                        <div className="w-8 h-8 rounded bg-gray-100 flex items-center justify-center shrink-0"><FileText className="w-4 h-4 text-gray-500" /></div>
-                        {doc.name}
-                      </td>
+                    <tr key={doc.id} className={`hover:bg-gray-50 ${i % 2 !== 0 ? 'bg-[#f9fcfa]' : ''}`}>
+                      <td className="py-3.5 px-5 font-semibold text-gray-900 flex items-center gap-2"><div className="w-8 h-8 rounded bg-gray-100 flex items-center justify-center shrink-0"><FileText className="w-4 h-4 text-gray-500" /></div>{doc.name}</td>
                       <td className="py-3.5 px-5 text-gray-600">{doc.category}</td>
                       <td className="py-3.5 px-5 text-gray-500">{doc.date}</td>
                       <td className="py-3.5 px-5"><span className={`badge ${doc.status === 'VERIFIED' ? 'badge-green' : 'badge-amber'}`}>{doc.status}</span></td>
@@ -1465,29 +1019,18 @@ useEffect(() => {
       );
     }
 
-    // ── DOCUMENT UPLOAD VIEW ───────────────────────────────────────────────
+    // ── DOCUMENT UPLOAD ───────────────────────────────────────────────────────
     if (docView === 'doc-upload') {
       return (
         <div className="space-y-8 animate-fadeIn">
           <div className="pb-4 border-b border-[#e0e8e4] flex items-center justify-between">
-            <div>
-              <h2 className="font-sora text-[22px] font-bold text-gray-900">Upload Regulatory Documents</h2>
-              <p className="text-gray-500 text-[13px] mt-1">Submit compliance files to the Nodal Agency verification vault.</p>
-            </div>
-            <button onClick={() => setDocView('landing')} className="btn-outline flex items-center gap-2">
-              <X className="w-4 h-4" /><span>Back</span>
-            </button>
+            <div><h2 className="font-sora text-[22px] font-bold text-gray-900">Upload Regulatory Documents</h2><p className="text-gray-500 text-[13px] mt-1">Submit compliance files to the Nodal Agency verification vault.</p></div>
+            <button onClick={() => setDocView('landing')} className="btn-outline flex items-center gap-2"><X className="w-4 h-4" /><span>Back</span></button>
           </div>
-
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
             <div className="form-card lg:col-span-2">
-              <h3 className="font-sora text-[16px] font-bold text-gray-900 mb-1">Upload Verification Files</h3>
-              <p className="text-[13px] text-gray-500 mb-6 pb-6 border-b border-[#f0f4f2]">Submit necessary agreements and approvals to Nodal Agency.</p>
               <form onSubmit={handleDocUpload} className="space-y-5">
-                <div className="form-group">
-                  <label className="required">Document Title</label>
-                  <input type="text" placeholder="e.g. Trilateral Connection Agreement..." value={docName} onChange={(e) => setDocName(e.target.value)} required className="form-control" />
-                </div>
+                <div className="form-group"><label className="required">Document Title</label><input type="text" placeholder="e.g. Trilateral Connection Agreement..." value={docName} onChange={(e) => setDocName(e.target.value)} required className="form-control" /></div>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
                   <div className="form-group">
                     <label className="required">Category</label>
@@ -1500,58 +1043,30 @@ useEffect(() => {
                       <option value="ANNEXURE">Annexure Documents</option>
                     </select>
                   </div>
-                  <div className="flex items-end">
-                    <button type="submit" className="btn-outline w-full flex items-center justify-center space-x-2 h-[42px]">
-                      <Upload className="w-4 h-4" /><span>Upload & File Metadata</span>
-                    </button>
-                  </div>
+                  <div className="flex items-end"><button type="submit" className="btn-outline w-full flex items-center justify-center space-x-2 h-[42px]"><Upload className="w-4 h-4" /><span>Upload & File Metadata</span></button></div>
                 </div>
               </form>
             </div>
-
             <div className="tracker-card flex flex-col justify-between !mb-0">
-              <div>
-                <h3 className="font-sora font-bold text-[16px] text-gray-900 mb-2">Grid Compliance Vault</h3>
-                <p className="text-gray-500 text-[13px]">Verify your company credentials with RLDC operators to prevent disconnection bans.</p>
+              <div><h3 className="font-sora font-bold text-[16px] text-gray-900 mb-2">Grid Compliance Vault</h3>
                 <div className="mt-4 space-y-2">
-                  {[
-                    { label: 'RLDC NOC', status: 'VERIFIED' },
-                    { label: 'SLDC Approval', status: 'PENDING' },
-                    { label: 'DISCOM Consent', status: 'VERIFIED' },
-                  ].map(item => (
-                    <div key={item.label} className="flex items-center justify-between py-2 border-b border-[#f0f4f2]">
-                      <span className="text-[13px] text-gray-600">{item.label}</span>
-                      <span className={`badge ${item.status === 'VERIFIED' ? 'badge-green' : 'badge-amber'}`}>{item.status}</span>
-                    </div>
+                  {[{label:'RLDC NOC',status:'VERIFIED'},{label:'SLDC Approval',status:'PENDING'},{label:'DISCOM Consent',status:'VERIFIED'}].map(item => (
+                    <div key={item.label} className="flex items-center justify-between py-2 border-b border-[#f0f4f2]"><span className="text-[13px] text-gray-600">{item.label}</span><span className={`badge ${item.status === 'VERIFIED' ? 'badge-green' : 'badge-amber'}`}>{item.status}</span></div>
                   ))}
                 </div>
               </div>
-              <div className="bg-blue-light p-4 rounded-lg border border-[#b5d4f4] mt-6">
-                <p className="text-[12px] text-blue-dark leading-relaxed">
-                  ★ Uploaded files are visible to NLDC administrators immediately. Status changes from PENDING → VERIFIED after audit checks.
-                </p>
-              </div>
+              <div className="bg-blue-light p-4 rounded-lg border border-[#b5d4f4] mt-6"><p className="text-[12px] text-blue-dark">★ Uploaded files visible to NLDC administrators immediately. PENDING → VERIFIED after audit.</p></div>
             </div>
           </div>
-
           <div className="space-y-4">
             <h3 className="font-sora text-[16px] font-bold text-gray-900">Document Registry</h3>
             <div className="bg-white rounded-[var(--radius-md)] border border-[#e0e8e4] overflow-hidden">
               <table className="w-full text-left border-collapse">
-                <thead>
-                  <tr>
-                    {['Document Name','Category','Uploaded On','Status'].map(h => (
-                      <th key={h} className="bg-green-dark text-white text-[12px] font-semibold px-5 py-3 tracking-[0.03em] uppercase">{h}</th>
-                    ))}
-                  </tr>
-                </thead>
+                <thead><tr>{['Document Name','Category','Uploaded On','Status'].map(h => <th key={h} className="bg-green-dark text-white text-[12px] font-semibold px-5 py-3 uppercase">{h}</th>)}</tr></thead>
                 <tbody className="divide-y divide-[#f0f4f2] text-[13px]">
                   {uploadedDocs.map((doc, i) => (
-                    <tr key={doc.id} className={`hover:bg-gray-50 transition-colors ${i % 2 !== 0 ? 'bg-[#f9fcfa]' : ''}`}>
-                      <td className="py-3.5 px-5 font-semibold text-gray-900 flex items-center gap-2">
-                        <div className="w-8 h-8 rounded bg-gray-100 flex items-center justify-center shrink-0"><FileText className="w-4 h-4 text-gray-500" /></div>
-                        {doc.name}
-                      </td>
+                    <tr key={doc.id} className={`hover:bg-gray-50 ${i % 2 !== 0 ? 'bg-[#f9fcfa]' : ''}`}>
+                      <td className="py-3.5 px-5 font-semibold text-gray-900 flex items-center gap-2"><div className="w-8 h-8 rounded bg-gray-100 flex items-center justify-center shrink-0"><FileText className="w-4 h-4 text-gray-500" /></div>{doc.name}</td>
                       <td className="py-3.5 px-5 text-gray-600">{doc.category}</td>
                       <td className="py-3.5 px-5 text-gray-500">{doc.date}</td>
                       <td className="py-3.5 px-5"><span className={`badge ${doc.status === 'VERIFIED' ? 'badge-green' : 'badge-amber'}`}>{doc.status}</span></td>
@@ -1565,32 +1080,25 @@ useEffect(() => {
       );
     }
 
-    // ── GEOA FORM VIEW ─────────────────────────────────────────────────────
+    // ── GEOA FORM ─────────────────────────────────────────────────────────────
     if (docView === 'geoa-form') {
 
-      // Success screen
       if (geoaSubmitSuccess) {
         const latest = geoaApplications[0];
         return (
           <div className="space-y-8 animate-fadeIn">
-            <div className="pb-4 border-b border-[#e0e8e4]">
-              <h2 className="font-sora text-[22px] font-bold text-gray-900">Apply for Green Energy Open Access</h2>
-            </div>
+            <div className="pb-4 border-b border-[#e0e8e4]"><h2 className="font-sora text-[22px] font-bold text-gray-900">Apply for Green Energy Open Access</h2></div>
             <div className="bg-white rounded-[var(--radius-md)] border border-[#e0e8e4] p-12 flex flex-col items-center text-center space-y-5 max-w-xl mx-auto">
-              <div className="w-16 h-16 bg-green-pale rounded-full flex items-center justify-center">
-                <CheckCircle className="w-9 h-9 text-green-dark" />
-              </div>
+              <div className="w-16 h-16 bg-green-pale rounded-full flex items-center justify-center"><CheckCircle className="w-9 h-9 text-green-dark" /></div>
               <h3 className="font-sora text-[20px] font-bold text-gray-900">Application Submitted Successfully</h3>
-              <p className="text-gray-500 text-[14px] leading-relaxed">
-                Your GEOA application has been filed with the Nodal Agency. You will receive a confirmation notification once it is reviewed by RLDC/SLDC authorities.
-              </p>
+              <p className="text-gray-500 text-[14px] leading-relaxed">Your GEOA application has been filed. It is now visible in the Admin OA Applications panel for review and approval.</p>
               <div className="bg-green-pale border border-[#9fe1cb] rounded-lg px-6 py-4 w-full text-left space-y-2">
                 <p className="text-[12px] text-gray-500 uppercase font-semibold tracking-wider">Reference Number</p>
                 <p className="font-mono text-[16px] font-bold text-green-dark">{latest?.refNo}</p>
                 <p className="text-[12px] text-gray-500">Submitted on {latest?.submittedOn}</p>
               </div>
               <div className="flex gap-3 w-full pt-2">
-                <button onClick={() => { setDocView('landing'); }} className="btn-green flex-1">View My Applications</button>
+                <button onClick={() => { setDocView('landing'); setTab('my-applications'); }} className="btn-green flex-1">View My Applications</button>
                 <button onClick={() => { resetGeoaForm(); }} className="btn-outline flex-1">Submit Another</button>
               </div>
             </div>
@@ -1604,37 +1112,26 @@ useEffect(() => {
           <div className="pb-4 border-b border-[#e0e8e4] flex items-center justify-between">
             <div>
               <h2 className="font-sora text-[22px] font-bold text-gray-900">Apply for Green Energy Open Access</h2>
-              <p className="text-gray-500 text-[13px] mt-1">
-                RERC GEOA Regulation 2022 — Fill all details carefully. Fields marked <span className="text-red font-semibold">*</span> are mandatory.
-              </p>
+              <p className="text-gray-500 text-[13px] mt-1">RERC GEOA Regulation 2022 — Fields marked <span className="text-red font-semibold">*</span> are mandatory.</p>
             </div>
-            <button onClick={() => setDocView('landing')} className="btn-outline flex items-center gap-2">
-              <X className="w-4 h-4" /><span>Cancel</span>
-            </button>
+            <div className="flex items-center gap-3">
+              {geoaDraftSaved && <span className="text-[12px] text-green-dark font-semibold bg-green-pale px-3 py-1.5 rounded-lg border border-[#9fe1cb]">✓ Draft Saved</span>}
+              <button onClick={() => setDocView('landing')} className="btn-outline flex items-center gap-2"><X className="w-4 h-4" /><span>Cancel</span></button>
+            </div>
           </div>
 
-          {/* Step progress bar */}
+          {/* Step indicator */}
           <div className="bg-white rounded-[var(--radius-md)] border border-[#e0e8e4] p-5">
             <div className="flex items-center gap-0">
               {GEOA_STEPS.map((step, idx) => (
                 <React.Fragment key={step.num}>
                   <div className="flex flex-col items-center gap-1.5 flex-1">
-                    <div className={`w-9 h-9 rounded-full flex items-center justify-center text-[13px] font-bold border-2 transition-all ${
-                      geoaStep > step.num
-                        ? 'bg-green-dark border-green-dark text-white'
-                        : geoaStep === step.num
-                          ? 'bg-white border-green-dark text-green-dark'
-                          : 'bg-white border-[#dde5e1] text-gray-400'
-                    }`}>
+                    <div className={`w-9 h-9 rounded-full flex items-center justify-center text-[13px] font-bold border-2 transition-all ${geoaStep > step.num ? 'bg-green-dark border-green-dark text-white' : geoaStep === step.num ? 'bg-white border-green-dark text-green-dark' : 'bg-white border-[#dde5e1] text-gray-400'}`}>
                       {geoaStep > step.num ? <CheckCircle className="w-5 h-5" /> : step.num}
                     </div>
-                    <span className={`text-[11px] font-semibold text-center leading-tight ${geoaStep >= step.num ? 'text-gray-900' : 'text-gray-400'}`}>
-                      {step.label}
-                    </span>
+                    <span className={`text-[11px] font-semibold text-center leading-tight ${geoaStep >= step.num ? 'text-gray-900' : 'text-gray-400'}`}>{step.label}</span>
                   </div>
-                  {idx < GEOA_STEPS.length - 1 && (
-                    <div className={`h-[2px] flex-1 mb-5 transition-all ${geoaStep > step.num ? 'bg-green-dark' : 'bg-[#e0e8e4]'}`} />
-                  )}
+                  {idx < GEOA_STEPS.length - 1 && <div className={`h-[2px] flex-1 mb-5 transition-all ${geoaStep > step.num ? 'bg-green-dark' : 'bg-[#e0e8e4]'}`} />}
                 </React.Fragment>
               ))}
             </div>
@@ -1643,18 +1140,19 @@ useEffect(() => {
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
             <div className="lg:col-span-2 space-y-6">
 
-              {/* ── STEP 1: Applicant Details ── */}
+              {/* ── STEP 1 ── */}
               {geoaStep === 1 && (
                 <div className="form-card space-y-5">
                   <div className="pb-4 border-b border-[#f0f4f2]">
                     <h3 className="font-sora text-[16px] font-bold text-gray-900">Step 1: Applicant Details</h3>
-                    <p className="text-gray-500 text-[13px] mt-1">Enter your company and authorised signatory information.</p>
+                    <p className="text-gray-500 text-[13px] mt-1">All fields are mandatory unless noted otherwise.</p>
                   </div>
 
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
                     <div className="form-group">
                       <label className="required">Applicant / Company Name</label>
-                      <input type="text" value={geoaApplicantName} onChange={e => setGeoaApplicantName(e.target.value)} placeholder="e.g. Bharat Industries Pvt Ltd" className="form-control" required />
+                      <input type="text" value={geoaApplicantName} onChange={e => setGeoaApplicantName(e.target.value)} placeholder="e.g. Bharat Industries Pvt Ltd" className={`form-control ${step1Errors.applicantName ? 'border-red-500' : ''}`} />
+                      {step1Errors.applicantName && <p className="text-red-500 text-[11px] mt-1">{step1Errors.applicantName}</p>}
                     </div>
                     <div className="form-group">
                       <label className="required">Entity Type</label>
@@ -1669,112 +1167,124 @@ useEffect(() => {
 
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
                     <div className="form-group">
-                      <label>CIN / GSTIN / Registration No.</label>
-                      <input type="text" value={geoaCin} onChange={e => setGeoaCin(e.target.value)} placeholder="e.g. U40100RJ2020PTC012345" className="form-control" />
+                      <label className="required">CIN / GSTIN / Registration No.</label>
+                      <input type="text" value={geoaCin} onChange={e => setGeoaCin(e.target.value.toUpperCase())} placeholder="e.g. U40100RJ2020PTC012345" className={`form-control ${step1Errors.cin ? 'border-red-500' : ''}`} />
+                      {step1Errors.cin ? <p className="text-red-500 text-[11px] mt-1">{step1Errors.cin}</p> : <p className="text-[11px] text-gray-400 mt-1">CIN (21 chars) or GSTIN (15 chars) or Reg No. (min 10 chars)</p>}
                     </div>
                     <div className="form-group">
-                      <label>DISCOM Consumer No.</label>
-                      <input type="text" value={geoaConsumerNo} onChange={e => setGeoaConsumerNo(e.target.value)} placeholder="e.g. JVVNL-400220001" className="form-control" />
+                      <label className="required">DISCOM Consumer No.</label>
+                      <input type="text" value={geoaConsumerNo} onChange={e => setGeoaConsumerNo(e.target.value.replace(/\D/g,'').slice(0,10))} placeholder="1234567890" maxLength={10} className={`form-control ${step1Errors.consumerNo ? 'border-red-500' : ''}`} />
+                      {step1Errors.consumerNo ? <p className="text-red-500 text-[11px] mt-1">{step1Errors.consumerNo}</p> : <p className="text-[11px] text-gray-400 mt-1">Exactly 10 digits (numbers only)</p>}
                     </div>
                   </div>
 
                   <div className="form-group">
-                    <label>Registered Address</label>
-                    <textarea value={geoaAddress} onChange={e => setGeoaAddress(e.target.value)} rows={2} placeholder="Plot No., Industrial Area, City, State, PIN" className="form-control" />
+                    <label className="required">Registered Address</label>
+                    <textarea value={geoaAddress} onChange={e => setGeoaAddress(e.target.value)} rows={2} placeholder="Plot No., Industrial Area, City, State, PIN" className={`form-control ${step1Errors.address ? 'border-red-500' : ''}`} />
+                    {step1Errors.address && <p className="text-red-500 text-[11px] mt-1">{step1Errors.address}</p>}
                   </div>
 
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
                     <div className="form-group">
                       <label className="required">State</label>
                       <select value={geoaState} onChange={e => setGeoaState(e.target.value)} className="form-control">
-                        {['Rajasthan','Gujarat','Maharashtra','Madhya Pradesh','Uttar Pradesh','Tamil Nadu','Karnataka','Haryana','Punjab','Telangana'].map(s => (
-                          <option key={s} value={s}>{s}</option>
-                        ))}
+                        {['Rajasthan','Gujarat','Maharashtra','Madhya Pradesh','Uttar Pradesh','Tamil Nadu','Karnataka','Haryana','Punjab','Telangana'].map(s => <option key={s} value={s}>{s}</option>)}
                       </select>
                     </div>
                     <div className="form-group">
                       <label className="required">DISCOM / Utility</label>
                       <select value={geoaDiscom} onChange={e => setGeoaDiscom(e.target.value)} className="form-control">
-                        {['JVVNL','AVVNL','DVVNL','MSEDCL','PGVCL','TNEB','BESCOM'].map(d => (
-                          <option key={d} value={d}>{d}</option>
-                        ))}
+                        {['JVVNL','AVVNL','DVVNL','MSEDCL','PGVCL','TNEB','BESCOM'].map(d => <option key={d} value={d}>{d}</option>)}
                       </select>
                     </div>
                   </div>
 
                   <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
                     <div className="form-group">
-                      <label className="required">Authorised Contact Person</label>
-                      <input type="text" value={geoaContactPerson} onChange={e => setGeoaContactPerson(e.target.value)} placeholder="Full name" className="form-control" required />
+                      <label className="required">Contact Person</label>
+                      <input type="text" value={geoaContactPerson} onChange={e => setGeoaContactPerson(e.target.value)} placeholder="Full name" className={`form-control ${step1Errors.contactPerson ? 'border-red-500' : ''}`} />
+                      {step1Errors.contactPerson && <p className="text-red-500 text-[11px] mt-1">{step1Errors.contactPerson}</p>}
                     </div>
                     <div className="form-group">
                       <label className="required">Email Address</label>
-                      <input type="email" value={geoaEmail} onChange={e => setGeoaEmail(e.target.value)} placeholder="company@example.com" className="form-control" required />
+                      <input type="email" value={geoaEmail} onChange={e => setGeoaEmail(e.target.value)} placeholder="company@example.com" className={`form-control ${step1Errors.email ? 'border-red-500' : ''}`} />
+                      {step1Errors.email && <p className="text-red-500 text-[11px] mt-1">{step1Errors.email}</p>}
                     </div>
                     <div className="form-group">
-                      <label className="required">Mobile No.</label>
-                      <input type="tel" value={geoaMobile} onChange={e => setGeoaMobile(e.target.value)} placeholder="+91 98XXXXXX00" className="form-control" required />
+                      <label className="required">Mobile No. <span className="text-gray-400 font-normal">(digits only)</span></label>
+                      <input type="text" value={geoaMobile} onChange={e => setGeoaMobile(e.target.value.replace(/\D/g,'').slice(0,10))} placeholder="9876543210" maxLength={10} className={`form-control ${step1Errors.mobile ? 'border-red-500' : ''}`} />
+                      {step1Errors.mobile ? <p className="text-red-500 text-[11px] mt-1">{step1Errors.mobile}</p> : <p className="text-[11px] text-gray-400 mt-1">10 digits, no +91 or spaces</p>}
                     </div>
                   </div>
 
-                  <div className="flex justify-end pt-2">
-                    <button
-                      type="button"
-                      disabled={!geoaStep1Valid}
-                      onClick={() => setGeoaStep(2)}
-                      className={`btn-green flex items-center gap-2 px-8 ${!geoaStep1Valid ? 'opacity-50 cursor-not-allowed' : ''}`}
-                    >
+                  <div className="flex items-center justify-between pt-2">
+                    <button type="button" onClick={saveGeoaDraft} className="btn-outline flex items-center gap-2 text-[13px] px-5">
+                      <Save className="w-4 h-4" /><span>Save Draft</span>
+                    </button>
+                    <button type="button" onClick={() => { if (validateStep1()) setGeoaStep(2); }} className="btn-green flex items-center gap-2 px-8">
                       <span>Next: Technical Details</span><ChevronRight className="w-4 h-4" />
                     </button>
                   </div>
                 </div>
               )}
 
-              {/* ── STEP 2: Technical Details ── */}
+              {/* ── STEP 2 ── */}
               {geoaStep === 2 && (
                 <div className="form-card space-y-5">
                   <div className="pb-4 border-b border-[#f0f4f2]">
                     <h3 className="font-sora text-[16px] font-bold text-gray-900">Step 2: Technical & Supply Details</h3>
-                    <p className="text-gray-500 text-[13px] mt-1">Specify the load requirement, grid points, and scheduling preferences.</p>
+                    <p className="text-gray-500 text-[13px] mt-1">Select a registered supplier and specify grid parameters.</p>
+                  </div>
+
+                  {/* Supplier dropdown — registered suppliers */}
+                  <div className="form-group">
+                    <label className="required">Select Renewable Supplier</label>
+                    <select value={geoaSelectedSupplierId} onChange={e => setGeoaSelectedSupplierId(e.target.value)} className={`form-control ${step2Errors.supplier ? 'border-red-500' : ''}`}>
+                      <option value="">— Choose a verified supplier —</option>
+                      {suppliers.filter(s => s.status === 'VERIFIED').map(s => (
+                        <option key={s.id} value={s.id}>{s.name} ({s.renewableType || 'Renewable'}) — {s.state}</option>
+                      ))}
+                    </select>
+                    {step2Errors.supplier && <p className="text-red-500 text-[11px] mt-1">{step2Errors.supplier}</p>}
+                    {geoaSelectedSupplierId && (() => {
+                      const sup = suppliers.find(s => s.id === geoaSelectedSupplierId);
+                      return sup ? (
+                        <div className="mt-2 bg-green-pale border border-[#9fe1cb] rounded-lg p-3 text-[12px] text-green-dark">
+                          <span className="font-semibold">{sup.name}</span> · {sup.state} · Capacity: {sup.generationCapacity || '—'} MW · Base Price: ₹{Number(sup.price || 4.2).toFixed(2)}/unit
+                        </div>
+                      ) : null;
+                    })()}
                   </div>
 
                   <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
                     <div className="form-group">
                       <label className="required">Connected Load (MW)</label>
-                      <input type="number" value={geoaLoadMw} onChange={e => setGeoaLoadMw(Number(e.target.value))} min={1} max={500} required className="form-control" />
+                      <input type="number" value={geoaLoadMw} onChange={e => setGeoaLoadMw(Number(e.target.value))} min={1} max={500} className={`form-control ${step2Errors.loadMw ? 'border-red-500' : ''}`} />
+                      {step2Errors.loadMw && <p className="text-red-500 text-[11px] mt-1">{step2Errors.loadMw}</p>}
                     </div>
                     <div className="form-group">
-                      <label className="required">Voltage Level at Drawal Point</label>
+                      <label className="required">Voltage Level</label>
                       <select value={geoaVoltageLevel} onChange={e => setGeoaVoltageLevel(e.target.value)} className="form-control">
-                        <option value="11kV">11 kV</option>
-                        <option value="33kV">33 kV</option>
-                        <option value="66kV">66 kV</option>
-                        <option value="110kV">110 kV</option>
-                        <option value="220kV">220 kV</option>
-                        <option value="400kV">400 kV</option>
-                        <option value="765kV">765 kV</option>
+                        {['11kV','33kV','66kV','110kV','220kV','400kV','765kV'].map(v => <option key={v} value={v}>{v}</option>)}
                       </select>
                     </div>
                     <div className="form-group">
-                      <label className="required">Source of Renewable Energy</label>
+                      <label className="required">Renewable Source</label>
                       <select value={geoaRenewableType} onChange={e => setGeoaRenewableType(e.target.value)} className="form-control">
-                        <option value="Solar">Solar</option>
-                        <option value="Wind">Wind</option>
-                        <option value="Hybrid">Solar-Wind Hybrid</option>
-                        <option value="Hydro">Small Hydro</option>
-                        <option value="Biomass">Biomass</option>
+                        {['Solar','Wind','Solar-Wind Hybrid','Small Hydro','Biomass'].map(v => <option key={v} value={v}>{v}</option>)}
                       </select>
                     </div>
                   </div>
 
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
                     <div className="form-group">
-                      <label className="required">Injection Point (Generator End)</label>
-                      <input type="text" value={geoaInjectionPoint} onChange={e => setGeoaInjectionPoint(e.target.value)} placeholder="e.g. Bhadla Pooling Station, 765kV" required className="form-control" />
+                      <label className="required">Injection Point (auto-filled from supplier)</label>
+                      <input type="text" value={geoaInjectionPoint} onChange={e => setGeoaInjectionPoint(e.target.value)} placeholder="Select a supplier above to auto-fill" className="form-control" />
                     </div>
                     <div className="form-group">
                       <label className="required">Drawal Point (Consumer End)</label>
-                      <input type="text" value={geoaDrawalPoint} onChange={e => setGeoaDrawalPoint(e.target.value)} placeholder="e.g. 400kV Jajpur Substation" required className="form-control" />
+                      <input type="text" value={geoaDrawalPoint} onChange={e => setGeoaDrawalPoint(e.target.value)} placeholder="e.g. 400kV Jajpur Substation" className={`form-control ${step2Errors.drawalPoint ? 'border-red-500' : ''}`} />
+                      {step2Errors.drawalPoint && <p className="text-red-500 text-[11px] mt-1">{step2Errors.drawalPoint}</p>}
                     </div>
                   </div>
 
@@ -1789,12 +1299,14 @@ useEffect(() => {
                       </select>
                     </div>
                     <div className="form-group">
-                      <label className="required">Contract Duration (Days)</label>
-                      <input type="number" value={geoaDurationDays} onChange={e => setGeoaDurationDays(Number(e.target.value))} min={30} required className="form-control" />
+                      <label className="required">Duration (Days)</label>
+                      <input type="number" value={geoaDurationDays} onChange={e => setGeoaDurationDays(Number(e.target.value))} min={30} className={`form-control ${step2Errors.duration ? 'border-red-500' : ''}`} />
+                      {step2Errors.duration && <p className="text-red-500 text-[11px] mt-1">{step2Errors.duration}</p>}
                     </div>
                     <div className="form-group">
                       <label className="required">Proposed Start Date</label>
-                      <input type="date" value={geoaStartDate} onChange={e => setGeoaStartDate(e.target.value)} required className="form-control" />
+                      <input type="date" value={geoaStartDate} onChange={e => setGeoaStartDate(e.target.value)} className={`form-control ${step2Errors.startDate ? 'border-red-500' : ''}`} />
+                      {step2Errors.startDate && <p className="text-red-500 text-[11px] mt-1">{step2Errors.startDate}</p>}
                     </div>
                   </div>
 
@@ -1802,32 +1314,28 @@ useEffect(() => {
                     <div className="form-group">
                       <label className="required">Custom Time Blocks</label>
                       <input type="text" value={geoaTimeBlocks} onChange={e => setGeoaTimeBlocks(e.target.value)} placeholder="e.g. 06:00-10:00, 18:00-22:00" className="form-control" />
-                      <p className="text-[11px] text-gray-400 mt-1">Specify in HH:MM-HH:MM format, comma-separated for multiple blocks.</p>
+                      <p className="text-[11px] text-gray-400 mt-1">Format: HH:MM-HH:MM, comma-separated</p>
                     </div>
                   )}
 
-                  <div className="flex justify-between pt-2">
-                    <button type="button" onClick={() => setGeoaStep(1)} className="btn-outline flex items-center gap-2">
-                      <ArrowRight className="w-4 h-4 rotate-180" /><span>Back</span>
-                    </button>
-                    <button
-                      type="button"
-                      disabled={!geoaStep2Valid}
-                      onClick={() => setGeoaStep(3)}
-                      className={`btn-green flex items-center gap-2 px-8 ${!geoaStep2Valid ? 'opacity-50 cursor-not-allowed' : ''}`}
-                    >
+                  <div className="flex items-center justify-between pt-2">
+                    <div className="flex items-center gap-3">
+                      <button type="button" onClick={() => setGeoaStep(1)} className="btn-outline flex items-center gap-2"><ArrowRight className="w-4 h-4 rotate-180" /><span>Back</span></button>
+                      <button type="button" onClick={saveGeoaDraft} className="btn-outline flex items-center gap-2 text-[13px]"><Save className="w-4 h-4" /><span>Save Draft</span></button>
+                    </div>
+                    <button type="button" onClick={() => { if (validateStep2()) setGeoaStep(3); }} className="btn-green flex items-center gap-2 px-8">
                       <span>Next: Upload Documents</span><ChevronRight className="w-4 h-4" />
                     </button>
                   </div>
                 </div>
               )}
 
-              {/* ── STEP 3: Document Upload ── */}
+              {/* ── STEP 3 ── */}
               {geoaStep === 3 && (
                 <div className="form-card space-y-5">
                   <div className="pb-4 border-b border-[#f0f4f2]">
                     <h3 className="font-sora text-[16px] font-bold text-gray-900">Step 3: Upload Supporting Documents</h3>
-                    <p className="text-gray-500 text-[13px] mt-1">Upload all required files in PDF format. Max 5MB per file. Fields marked <span className="text-red font-semibold">*</span> are mandatory.</p>
+                    <p className="text-gray-500 text-[13px] mt-1">Upload required files (PDF/JPG/PNG, max 5MB). Mandatory fields marked <span className="text-red font-semibold">*</span>.</p>
                   </div>
 
                   <div className="space-y-3">
@@ -1835,45 +1343,23 @@ useEffect(() => {
                       <div key={doc.key} className={`flex items-center justify-between p-4 rounded-xl border transition-all ${doc.status === 'uploaded' ? 'border-green-mid bg-green-pale/30' : 'border-[#e0e8e4] bg-white'}`}>
                         <div className="flex items-center gap-3 min-w-0">
                           <div className={`w-9 h-9 rounded-lg flex items-center justify-center shrink-0 ${doc.status === 'uploaded' ? 'bg-green-mid/20' : 'bg-gray-100'}`}>
-                            {doc.status === 'uploaded'
-                              ? <CheckCircle className="w-5 h-5 text-green-dark" />
-                              : <FileText className="w-5 h-5 text-gray-400" />
-                            }
+                            {doc.status === 'uploaded' ? <CheckCircle className="w-5 h-5 text-green-dark" /> : <FileText className="w-5 h-5 text-gray-400" />}
                           </div>
                           <div className="min-w-0">
-                            <p className="text-[13px] font-semibold text-gray-900 truncate">
-                              {doc.label}
-                              {doc.required && <span className="text-red ml-1">*</span>}
-                            </p>
+                            <p className="text-[13px] font-semibold text-gray-900 truncate">{doc.label}{doc.required && <span className="text-red ml-1">*</span>}</p>
                             {doc.fileName && <p className="text-[11px] text-green-dark font-medium truncate">{doc.fileName}</p>}
                           </div>
                         </div>
                         <div className="flex items-center gap-2 shrink-0 ml-3">
-                          {doc.status === 'uploaded'
-                            ? <span className="badge badge-green">Uploaded</span>
-                            : (
-                              <label className="px-3 py-1.5 rounded-md bg-white border border-[#e0e8e4] text-gray-700 text-[12px] font-semibold hover:bg-gray-50 cursor-pointer flex items-center gap-1.5">
-                                <Upload className="w-3.5 h-3.5" />
-                                <span>Choose File</span>
-                                <input
-                                  type="file"
-                                  accept=".pdf,.jpg,.png"
-                                  className="hidden"
-                                  onChange={(e) => {
-                                    const file = e.target.files?.[0];
-                                    if (file) handleGeoaDocSimulate(doc.key, file.name);
-                                  }}
-                                />
-                              </label>
-                            )
-                          }
+                          {doc.status === 'uploaded' ? <span className="badge badge-green">Uploaded</span> : (
+                            <label className="px-3 py-1.5 rounded-md bg-white border border-[#e0e8e4] text-gray-700 text-[12px] font-semibold hover:bg-gray-50 cursor-pointer flex items-center gap-1.5">
+                              <Upload className="w-3.5 h-3.5" /><span>Choose File</span>
+                              <input type="file" accept=".pdf,.jpg,.png" className="hidden" onChange={(e) => { const file = e.target.files?.[0]; if (file) handleGeoaDocSimulate(doc.key, file.name); }} />
+                            </label>
+                          )}
                           {doc.status === 'uploaded' && (
-                            <button
-                              type="button"
-                              onClick={() => setGeoaDocs(prev => prev.map(d => d.key === doc.key ? { ...d, fileName: '', status: 'pending' } : d))}
-                              className="w-7 h-7 rounded-md border border-[#e0e8e4] flex items-center justify-center hover:bg-red-50 hover:border-red/30 transition-colors"
-                            >
-                              <X className="w-3.5 h-3.5 text-gray-400 hover:text-red" />
+                            <button type="button" onClick={() => setGeoaDocs(prev => prev.map(d => d.key === doc.key ? { ...d, fileName: '', status: 'pending' } : d))} className="w-7 h-7 rounded-md border border-[#e0e8e4] flex items-center justify-center hover:bg-red-50">
+                              <X className="w-3.5 h-3.5 text-gray-400" />
                             </button>
                           )}
                         </div>
@@ -1882,28 +1368,22 @@ useEffect(() => {
                   </div>
 
                   <div className="bg-amber-light border border-[#fac775] rounded-lg p-4">
-                    <p className="text-[12px] text-amber leading-relaxed">
-                      <span className="font-semibold">Note:</span> All mandatory documents must be uploaded before submitting. Uploaded files will be verified by the Nodal Agency within 3–5 working days. Ensure all documents are valid, self-attested, and clearly legible.
-                    </p>
+                    <p className="text-[12px] text-amber leading-relaxed"><span className="font-semibold">Note:</span> All mandatory documents must be uploaded before proceeding. Files verified by Nodal Agency within 3–5 working days.</p>
                   </div>
 
-                  <div className="flex justify-between pt-2">
-                    <button type="button" onClick={() => setGeoaStep(2)} className="btn-outline flex items-center gap-2">
-                      <ArrowRight className="w-4 h-4 rotate-180" /><span>Back</span>
-                    </button>
-                    <button
-                      type="button"
-                      disabled={!geoaDocs.filter(d => d.required).every(d => d.status === 'uploaded')}
-                      onClick={() => setGeoaStep(4)}
-                      className={`btn-green flex items-center gap-2 px-8 ${!geoaDocs.filter(d => d.required).every(d => d.status === 'uploaded') ? 'opacity-50 cursor-not-allowed' : ''}`}
-                    >
+                  <div className="flex items-center justify-between pt-2">
+                    <div className="flex items-center gap-3">
+                      <button type="button" onClick={() => setGeoaStep(2)} className="btn-outline flex items-center gap-2"><ArrowRight className="w-4 h-4 rotate-180" /><span>Back</span></button>
+                      <button type="button" onClick={saveGeoaDraft} className="btn-outline flex items-center gap-2 text-[13px]"><Save className="w-4 h-4" /><span>Save Draft</span></button>
+                    </div>
+                    <button type="button" disabled={!step3Valid} onClick={() => setGeoaStep(4)} className={`btn-green flex items-center gap-2 px-8 ${!step3Valid ? 'opacity-50 cursor-not-allowed' : ''}`}>
                       <span>Next: Review & Submit</span><ChevronRight className="w-4 h-4" />
                     </button>
                   </div>
                 </div>
               )}
 
-              {/* ── STEP 4: Review & Submit ── */}
+              {/* ── STEP 4 ── */}
               {geoaStep === 4 && (
                 <div className="form-card space-y-6">
                   <div className="pb-4 border-b border-[#f0f4f2]">
@@ -1914,20 +1394,10 @@ useEffect(() => {
                   {/* Review – Applicant */}
                   <div>
                     <h4 className="text-[12px] font-bold text-gray-500 uppercase tracking-wider mb-3 flex items-center gap-2">
-                      <span className="w-5 h-5 rounded-full bg-green-pale text-green-dark text-[10px] font-bold flex items-center justify-center">1</span>
-                      Applicant Details
+                      <span className="w-5 h-5 rounded-full bg-green-pale text-green-dark text-[10px] font-bold flex items-center justify-center">1</span>Applicant Details
                     </h4>
                     <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
-                      {[
-                        { l: 'Company Name', v: geoaApplicantName },
-                        { l: 'Entity Type', v: geoaEntityType },
-                        { l: 'State', v: geoaState },
-                        { l: 'DISCOM', v: geoaDiscom },
-                        { l: 'Contact Person', v: geoaContactPerson },
-                        { l: 'Email', v: geoaEmail },
-                        { l: 'Mobile', v: geoaMobile },
-                        ...(geoaCin ? [{ l: 'CIN/GSTIN', v: geoaCin }] : []),
-                      ].map(item => (
+                      {[{l:'Company Name',v:geoaApplicantName},{l:'Entity Type',v:geoaEntityType},{l:'State',v:geoaState},{l:'DISCOM',v:geoaDiscom},{l:'Contact Person',v:geoaContactPerson},{l:'Email',v:geoaEmail},{l:'Mobile',v:geoaMobile},{l:'CIN/GSTIN',v:geoaCin},{l:'Address',v:geoaAddress},{l:'DISCOM No.',v:geoaConsumerNo}].map(item => (
                         <div key={item.l} className="bg-gray-50 rounded-lg p-3 border border-[#e0e8e4]">
                           <p className="text-[10px] text-gray-400 uppercase font-semibold">{item.l}</p>
                           <p className="text-[13px] font-semibold text-gray-900 mt-0.5 truncate">{item.v || '—'}</p>
@@ -1939,19 +1409,15 @@ useEffect(() => {
                   {/* Review – Technical */}
                   <div>
                     <h4 className="text-[12px] font-bold text-gray-500 uppercase tracking-wider mb-3 flex items-center gap-2">
-                      <span className="w-5 h-5 rounded-full bg-green-pale text-green-dark text-[10px] font-bold flex items-center justify-center">2</span>
-                      Technical Details
+                      <span className="w-5 h-5 rounded-full bg-green-pale text-green-dark text-[10px] font-bold flex items-center justify-center">2</span>Technical Details
                     </h4>
                     <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
                       {[
-                        { l: 'Load (MW)', v: `${geoaLoadMw} MW` },
-                        { l: 'Voltage Level', v: geoaVoltageLevel },
-                        { l: 'Renewable Source', v: geoaRenewableType },
-                        { l: 'Schedule Type', v: geoaScheduleType },
-                        { l: 'Duration', v: `${geoaDurationDays} Days` },
-                        { l: 'Start Date', v: geoaStartDate },
-                        { l: 'Injection Point', v: geoaInjectionPoint },
-                        { l: 'Drawal Point', v: geoaDrawalPoint },
+                        {l:'Supplier',v:suppliers.find(s=>s.id===geoaSelectedSupplierId)?.name||'—'},
+                        {l:'Load (MW)',v:`${geoaLoadMw} MW`},{l:'Voltage Level',v:geoaVoltageLevel},
+                        {l:'Renewable Source',v:geoaRenewableType},{l:'Schedule Type',v:geoaScheduleType},
+                        {l:'Duration',v:`${geoaDurationDays} Days`},{l:'Start Date',v:geoaStartDate},
+                        {l:'Injection Point',v:geoaInjectionPoint},{l:'Drawal Point',v:geoaDrawalPoint},
                       ].map(item => (
                         <div key={item.l} className="bg-gray-50 rounded-lg p-3 border border-[#e0e8e4]">
                           <p className="text-[10px] text-gray-400 uppercase font-semibold">{item.l}</p>
@@ -1964,38 +1430,27 @@ useEffect(() => {
                   {/* Review – Documents */}
                   <div>
                     <h4 className="text-[12px] font-bold text-gray-500 uppercase tracking-wider mb-3 flex items-center gap-2">
-                      <span className="w-5 h-5 rounded-full bg-green-pale text-green-dark text-[10px] font-bold flex items-center justify-center">3</span>
-                      Documents
+                      <span className="w-5 h-5 rounded-full bg-green-pale text-green-dark text-[10px] font-bold flex items-center justify-center">3</span>Documents
                     </h4>
                     <div className="space-y-2">
                       {geoaDocs.map(doc => (
                         <div key={doc.key} className="flex items-center justify-between py-2 border-b border-[#f0f4f2]">
+                          <div className="flex items-center gap-2"><FileText className="w-4 h-4 text-gray-400" /><span className="text-[13px] text-gray-700">{doc.label}{doc.required && <span className="text-red ml-1">*</span>}</span></div>
                           <div className="flex items-center gap-2">
-                            <FileText className="w-4 h-4 text-gray-400" />
-                            <span className="text-[13px] text-gray-700">{doc.label}{doc.required && <span className="text-red ml-1">*</span>}</span>
-                          </div>
-                          <div className="flex items-center gap-2">
-                            {doc.fileName && <span className="text-[12px] text-gray-500 max-w-[160px] truncate">{doc.fileName}</span>}
-                            <span className={`badge ${doc.status === 'uploaded' ? 'badge-green' : 'badge-amber'}`}>
-                              {doc.status === 'uploaded' ? 'Ready' : 'Not Uploaded'}
-                            </span>
+                            {doc.fileName && <span className="text-[12px] text-gray-500 max-w-[140px] truncate">{doc.fileName}</span>}
+                            <span className={`badge ${doc.status === 'uploaded' ? 'badge-green' : 'badge-amber'}`}>{doc.status === 'uploaded' ? 'Ready' : 'Not Uploaded'}</span>
                           </div>
                         </div>
                       ))}
                     </div>
                   </div>
 
-                  {/* Declaration */}
                   <div className="bg-green-pale border border-[#9fe1cb] rounded-lg p-4">
-                    <p className="text-[12px] text-green-dark leading-relaxed">
-                      <span className="font-bold">Declaration:</span> I hereby declare that the information provided in this application is true and correct to the best of my knowledge. I understand that any false information may result in rejection of this application or cancellation of the Open Access permission granted.
-                    </p>
+                    <p className="text-[12px] text-green-dark leading-relaxed"><span className="font-bold">Declaration:</span> I hereby declare that the information provided is true and correct. I understand that any false information may result in rejection or cancellation of Open Access permission.</p>
                   </div>
 
-                  <div className="flex justify-between pt-2">
-                    <button type="button" onClick={() => setGeoaStep(3)} className="btn-outline flex items-center gap-2">
-                      <ArrowRight className="w-4 h-4 rotate-180" /><span>Back</span>
-                    </button>
+                  <div className="flex items-center justify-between pt-2">
+                    <button type="button" onClick={() => setGeoaStep(3)} className="btn-outline flex items-center gap-2"><ArrowRight className="w-4 h-4 rotate-180" /><span>Back</span></button>
                     <button type="button" onClick={submitGeoaApplication} className="btn-green flex items-center gap-2 px-10 py-3 text-[15px]">
                       <CheckCircle className="w-5 h-5" /><span>Submit GEOA Application</span>
                     </button>
@@ -2004,18 +1459,16 @@ useEffect(() => {
               )}
             </div>
 
-            {/* Right sidebar – checklist */}
+            {/* Right sidebar */}
             <div className="space-y-4">
               <div className="tracker-card p-5 !mb-0">
-                <h4 className="font-sora font-bold text-[14px] text-gray-900 mb-4 flex items-center gap-2">
-                  <Eye className="w-4 h-4 text-green-dark" />Application Checklist
-                </h4>
+                <h4 className="font-sora font-bold text-[14px] text-gray-900 mb-4 flex items-center gap-2"><Eye className="w-4 h-4 text-green-dark" />Application Checklist</h4>
                 <div className="space-y-2.5">
                   {[
-                    { label: 'Applicant Details', done: geoaStep1Valid, step: 1 },
-                    { label: 'Technical Parameters', done: geoaStep2Valid, step: 2 },
-                    { label: 'All Mandatory Docs', done: geoaDocs.filter(d => d.required).every(d => d.status === 'uploaded'), step: 3 },
-                    { label: 'Review Complete', done: geoaStep === 4, step: 4 },
+                    {label:'Applicant Details',done:step1Valid,step:1},
+                    {label:'Technical Parameters',done:step2Valid,step:2},
+                    {label:'All Mandatory Docs',done:step3Valid,step:3},
+                    {label:'Review Complete',done:geoaStep===4,step:4},
                   ].map(item => (
                     <div key={item.label} className="flex items-center justify-between text-[13px]">
                       <div className="flex items-center gap-2">
@@ -2037,21 +1490,16 @@ useEffect(() => {
                 <div className="space-y-2">
                   {geoaDocs.map(doc => (
                     <div key={doc.key} className="flex items-center gap-2 text-[12px]">
-                      {doc.status === 'uploaded'
-                        ? <CheckCircle className="w-3.5 h-3.5 text-green-dark shrink-0" />
-                        : <div className={`w-3.5 h-3.5 rounded-full border shrink-0 ${doc.required ? 'border-red bg-red-light/40' : 'border-gray-300'}`} />
-                      }
-                      <span className={doc.status === 'uploaded' ? 'text-gray-600 line-through' : doc.required ? 'text-gray-700' : 'text-gray-400'}>
-                        {doc.label}
-                      </span>
+                      {doc.status === 'uploaded' ? <CheckCircle className="w-3.5 h-3.5 text-green-dark shrink-0" /> : <div className={`w-3.5 h-3.5 rounded-full border shrink-0 ${doc.required ? 'border-red' : 'border-gray-300'}`} />}
+                      <span className={doc.status === 'uploaded' ? 'text-gray-500 line-through' : doc.required ? 'text-gray-700' : 'text-gray-400'}>{doc.label}</span>
                     </div>
                   ))}
                 </div>
               </div>
 
               <div className="bg-blue-light border border-[#b5d4f4] rounded-[var(--radius-md)] p-4">
-                <p className="text-[12px] text-blue-dark leading-relaxed font-semibold mb-1">RERC Helpdesk</p>
-                <p className="text-[12px] text-blue-dark leading-relaxed">For assistance with GEOA applications, contact the Nodal Agency at <span className="font-semibold">geoa@rerc.rajasthan.gov.in</span> or call <span className="font-semibold">0141-2740011</span>.</p>
+                <p className="text-[12px] text-blue-dark font-semibold mb-1">RERC Helpdesk</p>
+                <p className="text-[12px] text-blue-dark">Contact: <span className="font-semibold">geoa@rerc.rajasthan.gov.in</span> or <span className="font-semibold">0141-2740011</span></p>
               </div>
             </div>
           </div>
@@ -2070,12 +1518,11 @@ useEffect(() => {
           <h2 className="font-sora text-[22px] font-bold text-gray-900">Consumer Profile & Billing</h2>
           <p className="text-gray-500 text-[13px] mt-1">Manage company details, preferences, and ledger statements</p>
         </div>
-
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
           <div className="form-card lg:col-span-1 space-y-6">
             <div className="flex items-center space-x-4">
               <div className="w-16 h-16 bg-green-dark rounded-full flex items-center justify-center text-white text-xl font-bold">
-                {(profile?.name || user?.name || 'Consumer').split(' ').map((w: string) => w[0]).join('').slice(0, 2)}
+                {(profile?.name || user?.name || 'Consumer').split(' ').map((w: string) => w[0]).join('').slice(0,2)}
               </div>
               <div>
                 <h3 className="font-sora text-[18px] font-bold text-gray-900">{profile?.name || user?.name || 'Consumer Enterprise'}</h3>
@@ -2083,14 +1530,11 @@ useEffect(() => {
               </div>
             </div>
             <div className="pt-4 border-t border-[#f0f4f2] space-y-3">
-              <div className="flex justify-between items-center text-[13px]"><span className="text-gray-500">Registered State</span><span className="font-semibold text-gray-900">{profile?.state || user?.state || 'Rajasthan'}</span></div>
-              <div className="flex justify-between items-center text-[13px]"><span className="text-gray-500">Drawal Point</span><span className="font-semibold text-gray-900">{profile?.profile?.drawalPoint || requestDeliveryState || 'Jajpur Substation'}</span></div>
-              <div className="flex justify-between items-center text-[13px]"><span className="text-gray-500">Load Requirement</span><span className="font-semibold text-gray-900">{requestMw} MW</span></div>
+              <div className="flex justify-between items-center text-[13px]"><span className="text-gray-500">Registered State</span><span className="font-semibold text-gray-900">{profile?.state || 'Rajasthan'}</span></div>
               <div className="flex justify-between items-center text-[13px]"><span className="text-gray-500">Account Status</span><span className="badge badge-green">{user?.status || 'VERIFIED'}</span></div>
             </div>
             <button className="btn-outline w-full flex items-center justify-center space-x-2"><Settings className="w-4 h-4" /><span>Account Settings</span></button>
           </div>
-
           <div className="form-card lg:col-span-2 space-y-6">
             <h3 className="font-sora text-[18px] font-bold text-gray-900 mb-1">Active Electricity Statements</h3>
             <div className="space-y-4">
@@ -2099,16 +1543,13 @@ useEffect(() => {
                   <div>
                     <h4 className="font-bold text-gray-900 text-[15px]">{bill.supplier}</h4>
                     <p className="text-[12px] text-gray-500 mt-1">Billing Period: {bill.month}</p>
-                    <p className="text-[12px] text-gray-500 mt-0.5">Contract energy matching fee</p>
                   </div>
                   <div className="flex items-center space-x-6">
                     <div className="text-right">
                       <p className="text-[18px] font-bold text-gray-900">₹{bill.amount.toLocaleString()}</p>
                       <span className={`badge mt-1 ${bill.status === 'PAID' ? 'badge-green' : 'badge-amber'}`}>{bill.status}</span>
                     </div>
-                    {bill.status === 'UNPAID' && (
-                      <button onClick={() => handlePayBill(bill)} className="btn-green px-4 py-2 text-[12px]">Pay Invoice</button>
-                    )}
+                    {bill.status === 'UNPAID' && <button onClick={() => handlePayBill(bill)} className="btn-green px-4 py-2 text-[12px]">Pay Invoice</button>}
                   </div>
                 </div>
               ))}
@@ -2117,16 +1558,9 @@ useEffect(() => {
               <div className="fixed inset-0 bg-gray-900/50 backdrop-blur-sm z-50 flex items-center justify-center animate-fadeIn">
                 <div className="bg-white p-8 rounded-2xl max-w-sm w-full shadow-2xl">
                   <h3 className="font-sora text-xl font-bold text-gray-900 mb-2">Simulated Gateway</h3>
-                  <p className="text-gray-500 text-[13px] mb-6">Processing payment for ₹{payAmount.toLocaleString()}</p>
+                  <p className="text-gray-500 text-[13px] mb-6">Processing ₹{payAmount.toLocaleString()}</p>
                   <div className="space-y-4">
-                    <div>
-                      <label className="text-[12px] font-semibold text-gray-700">Transaction Reference</label>
-                      <input type="text" value={payRef} onChange={(e) => setPayRef(e.target.value)} className="form-control mt-2" />
-                    </div>
-                    <div>
-                      <label className="text-[12px] font-semibold text-gray-700">Payment Amount</label>
-                      <input type="text" value={`₹${payAmount.toLocaleString()}`} disabled className="form-control mt-2 bg-gray-100" />
-                    </div>
+                    <div><label className="text-[12px] font-semibold text-gray-700">Transaction Reference</label><input type="text" value={payRef} onChange={(e) => setPayRef(e.target.value)} className="form-control mt-2" /></div>
                     <button onClick={submitPayment} className="btn-green w-full mt-4">Confirm Payment Transfer</button>
                     <button onClick={() => setIsPaying(false)} className="btn-outline w-full">Cancel</button>
                   </div>
@@ -2135,27 +1569,20 @@ useEffect(() => {
             )}
           </div>
         </div>
-
         <div className="space-y-4">
           <h3 className="font-sora text-[18px] font-bold text-gray-900">Settlement Ledger</h3>
           <div className="bg-white rounded-[var(--radius-md)] border border-[#e0e8e4] overflow-hidden">
             <table className="w-full text-left border-collapse">
-              <thead>
-                <tr>
-                  {['Transaction Ref','Date','Amount','Status'].map(h => (
-                    <th key={h} className="bg-green-dark text-white text-[12px] font-semibold px-5 py-3 tracking-[0.03em] uppercase">{h}</th>
-                  ))}
-                </tr>
-              </thead>
+              <thead><tr>{['Transaction Ref','Date','Amount','Status'].map(h => <th key={h} className="bg-green-dark text-white text-[12px] font-semibold px-5 py-3 uppercase">{h}</th>)}</tr></thead>
               <tbody className="divide-y divide-[#f0f4f2] text-[13px]">
-                {payments.map((p, i) => (
-                  <tr key={p.id} className={`hover:bg-gray-50 transition-colors ${i % 2 !== 0 ? 'bg-[#f9fcfa]' : ''}`}>
+                {payments.length > 0 ? payments.map((p, i) => (
+                  <tr key={p.id} className={`hover:bg-gray-50 ${i % 2 !== 0 ? 'bg-[#f9fcfa]' : ''}`}>
                     <td className="py-3.5 px-5 text-gray-600 font-medium">{p.reference}</td>
                     <td className="py-3.5 px-5 text-gray-500">{p.createdAt}</td>
                     <td className="py-3.5 px-5 font-bold text-gray-900">₹{p.amount.toLocaleString()}</td>
                     <td className="py-3.5 px-5"><span className="badge badge-green">{p.status}</span></td>
                   </tr>
-                ))}
+                )) : <tr><td colSpan={4} className="text-center py-8 text-gray-500">No transactions yet.</td></tr>}
               </tbody>
             </table>
           </div>
