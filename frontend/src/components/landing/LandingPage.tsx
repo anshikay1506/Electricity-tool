@@ -352,8 +352,8 @@ export const LandingPage: React.FC<LandingPageProps> = ({
             {[
               { label: 'Registered Suppliers', value: suppliersCount,  suffix: '',   icon: <Building2 className="w-5 h-5" />, color: 'border-t-[#1b4d3e]', iconBg: 'bg-green-pale',  iconColor: 'text-[#1b4d3e]' },
               { label: 'Active Consumers',     value: consumersCount,  suffix: '',   icon: <Users     className="w-5 h-5" />, color: 'border-t-[#1d3557]', iconBg: 'bg-blue-light',  iconColor: 'text-blue-dark' },
-              { label: 'Energy Contracted',    value: energyCount,     suffix: ' MW',icon: <Zap       className="w-5 h-5" />, color: 'border-t-[#f3a712]', iconBg: 'bg-[#fff8ec]',  iconColor: 'text-amber' },
-              { label: 'Active Contracts',     value: contractsCount,  suffix: '',   icon: <FileText  className="w-5 h-5" />, color: 'border-t-[#1b4d3e]', iconBg: 'bg-green-pale',  iconColor: 'text-[#1b4d3e]' },
+              { label: 'Open Access Requests',    value: energyCount,     suffix: ' MW',icon: <Zap       className="w-5 h-5" />, color: 'border-t-[#f3a712]', iconBg: 'bg-[#fff8ec]',  iconColor: 'text-amber' },
+              { label: 'Approved Applications',     value: contractsCount,  suffix: '',   icon: <FileText  className="w-5 h-5" />, color: 'border-t-[#1b4d3e]', iconBg: 'bg-green-pale',  iconColor: 'text-[#1b4d3e]' },
               { label: 'Total Grid Capacity',  value: capacityCount,   suffix: ' MW',icon: <TrendingUp className="w-5 h-5"/>, color: 'border-t-[#1d3557]', iconBg: 'bg-blue-light',  iconColor: 'text-blue-dark' },
             ].map(stat => (
               <div key={stat.label} className={`bg-white rounded-[14px] border border-[#e0e8e4] border-t-[3px] ${stat.color} p-5 shadow-sm hover:shadow-md transition-shadow`}>
@@ -510,9 +510,7 @@ export const LandingPage: React.FC<LandingPageProps> = ({
                 <h3 className="font-sora font-bold text-[16px] text-gray-900">Marketplace Rate Table</h3>
                 <p className="text-[13px] text-gray-500 mt-0.5">All-in delivered prices for Rajasthan consumers (indicative)</p>
               </div>
-              <span className="text-[11px] font-bold text-[#1b4d3e] bg-green-pale px-3 py-1 rounded-full border border-[#9fe1cb]">
-                LIVE
-              </span>
+              
             </div>
             <div className="overflow-x-auto">
               <table className="w-full text-left border-collapse text-[13px]">
