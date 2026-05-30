@@ -4,11 +4,13 @@
   "description": "GOAR/NOAR Green Open Access Management System Backend",
   "main": "dist/server.js",
   "scripts": {
+    "predev": "npm run prisma:generate",
     "dev": "nodemon --exec ts-node src/server.ts",
     "build": "tsc",
     "start": "node dist/server.js",
     "prisma:generate": "prisma generate",
-    "prisma:seed": "ts-node prisma/seed.ts"
+    "prisma:seed": "ts-node prisma/seed.ts",
+    "postinstall": "npm run prisma:generate"
   },
   "dependencies": {
     "@prisma/client": "^6.4.0",
