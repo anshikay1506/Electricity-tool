@@ -577,7 +577,7 @@ export const ConsumerDashboard: React.FC<ConsumerDashboardProps> = ({ activeTab,
             { label: 'CURRENT LOAD', val: '20 MW', sub: 'RTC Grid Drawal Contracted', icon: <Zap className="w-4 h-4 text-amber" />, border: 'border-t-amber' },
             { label: 'RENEWABLE MIX', val: '85 %', sub: 'Target Carbon Mitigation Match', icon: <Award className="w-4 h-4 text-green-mid" />, border: 'border-t-green-mid' },
             { label: 'SAVINGS TO DATE', val: '₹4.8L', sub: 'Compared to Local Utility Tariff', icon: <DollarSign className="w-4 h-4 text-green-mid" />, border: 'border-t-green-mid' },
-            { label: 'ACTIVE SUPPLIER', val: 'Network', sub: 'Industry-grade procurement pool', icon: <ShieldAlert className="w-4 h-4 text-blue-dark" />, border: 'border-t-blue-dark' },
+            { label: 'ACTIVE SUPPLIER', val: '12', sub: 'Industry-grade procurement pool', icon: <ShieldAlert className="w-4 h-4 text-blue-dark" />, border: 'border-t-blue-dark' },
             { label: 'PENDING DOCS', val: '1 Doc', sub: 'Requires Bank Security approval', icon: <Clock className="w-4 h-4 text-red animate-pulse" />, border: 'border-t-red' },
           ].map(m => (
             <div key={m.label} className={`metric-card border-t-[3px] ${m.border}`}>
@@ -677,7 +677,6 @@ export const ConsumerDashboard: React.FC<ConsumerDashboardProps> = ({ activeTab,
             <option value="Hydro">Hydro</option>
             <option value="Biomass">Biomass</option>
           </select>
-          <div className="text-[12px] text-gray-500 flex items-center">{filteredSuppliers.length} verified suppliers available</div>
         </div>
 
 
