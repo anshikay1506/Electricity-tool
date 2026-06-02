@@ -1,10 +1,9 @@
-
 import React, { useState, useEffect, useCallback } from 'react';
 import { useAuth } from '../../context/AuthContext';
 import { 
   Zap, Award, Users, ShieldCheck,
   Plus, BarChart2, Edit2, Save, X, Phone, Mail, MapPin, FileText, CheckCircle, Lock,
-  RefreshCw
+  RefreshCw, Upload, AlertCircle, Clock 
 } from 'lucide-react';
 
 interface SupplierDashboardProps {
@@ -12,11 +11,23 @@ interface SupplierDashboardProps {
   setTab?: (tab: string) => void;
 }
 
+interface DocumentUpload {
+  id: string;
+  name: string;
+  category: string;
+  fileName: string;
+  uploadedAt: string;
+  status: 'PENDING' | 'APPROVED' | 'REJECTED';
+  verifiedBy?: string;
+  verifiedAt?: string;
+}
+
 export const SupplierDashboard: React.FC<SupplierDashboardProps> = ({ activeTab }) => {
   const { user, token } = useAuth();
   const [profile, setProfile] = useState<any>(null);
   const [capacityList, setCapacityList] = useState<any[]>([]);
   const [requests, setRequests] = useState<any[]>([]);
+  const [contracts, setContracts] = useState<any[]>([]);
   const [bids, setBids] = useState<any[]>([]);
   const [schedules, setSchedules] = useState<any[]>([]);
   const [revenueLedger, setRevenueLedger] = useState<any[]>([]);
@@ -24,9 +35,13 @@ export const SupplierDashboard: React.FC<SupplierDashboardProps> = ({ activeTab 
   const [isRefreshing, setIsRefreshing] = useState(false);
 
   // Document uploads
+  const [documents, setDocuments] = useState<DocumentUpload[]>([]);
+  const [docName, setDocName] = useState('');
+  const [docCategory, setDocCategory] = useState('PPA');
   const [uploadedDocs, setUploadedDocs] = useState<any[]>([]);
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [uploadError, setUploadError] = useState<string | null>(null);
+  const [uploadSuccess, setUploadSuccess] = useState<string | null>(null);
   const MAX_FILE_SIZE = 5 * 1024 * 1024;
 
   // Capacity edit helpers
@@ -69,7 +84,15 @@ export const SupplierDashboard: React.FC<SupplierDashboardProps> = ({ activeTab 
   const [bidSubmitted, setBidSubmitted] = useState(false);
 
   const API_BASE = (import.meta as any)?.env?.VITE_API_URL || 'http://localhost:5000';
-  const normalizedTab = activeTab === 'consumer-requests' ? 'contracts' : activeTab;
+  const normalizedTab = activeTab === 'consumer-requests' ? 'consumer-requests' : 
+                        activeTab === 'contracts' ? 'contracts' : 
+                        activeTab === 'documents' ? 'documents' : activeTab;
+
+
+useEffect(() => {
+  console.log('Current supplier user:', user);
+  console.log('Supplier ID:', user?.id);
+}, [user]);
 
   // ── Map backend application to supplier view ────────────────────────────
   const mapRequest = (app: any) => ({
@@ -81,23 +104,57 @@ export const SupplierDashboard: React.FC<SupplierDashboardProps> = ({ activeTab 
     consumerName: app.consumerName || 'Consumer',
     durationDays: app.durationDays || 0,
     deliveryPoint: app.drawalPoint || '',
-    requestDate: app.createdAt?.split('T')[0] || ''
+    requestDate: app.createdAt?.split('T')[0] || '',
+    requestedPrice: app.requestedPrice || 0,
+    injectionPoint: app.injectionPoint || '',
+    startDate: app.proposedStartDate || app.startDate || '',
+    finalPrice: app.finalPrice || app.requestedPrice || 0
   });
 
-  // ── Load requests — extracted so it can be called on demand ─────────────
-  const loadRequests = useCallback(async () => {
-    if (!token) return;
-    try {
-      const res = await fetch(`${API_BASE}/api/applications`, {
-        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` }
-      });
-      if (!res.ok) return;
-      const data = await res.json();
-      setRequests(data.map(mapRequest));
-    } catch {
-      setRequests([]);
-    }
-  }, [token, API_BASE]);
+
+const loadRequests = useCallback(async () => {
+  if (!token) {
+    console.log('No token available!');
+    return;
+  }
+  
+  try {
+    const res = await fetch(`${API_BASE}/api/applications`, {
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` }
+    });
+    
+    if (!res.ok) return;
+    const data = await res.json();
+    
+    data.forEach((app: any) => {
+      console.log(`App ID: ${app.id}, Status: ${app.approvalStatus}, SupplierId: ${app.supplierId}, Consumer: ${app.consumerName}`);
+    });
+    
+    // Filter for this supplier only
+    const supplierApps = data.filter((app: any) => app.supplierId === user?.id);
+
+    const pendingRequests = supplierApps.filter((app: any) => 
+      app.approvalStatus === 'APPROVED'
+    );
+
+    const activeContracts = supplierApps.filter((app: any) => 
+      app.approvalStatus === 'SUPPLIER_APPROVED'
+    );
+
+    setRequests(pendingRequests.map(mapRequest));
+    setContracts(activeContracts.map(mapRequest));
+
+    console.log('Pending requests (need action):', pendingRequests.length);
+    console.log('Active contracts:', activeContracts.length);
+  } catch (error) {
+    console.error('Error loading requests:', error);
+    setRequests([]);
+    setContracts([]);
+  }
+}, [token, API_BASE, user?.id]);
+
+
+
 
   // ── Refresh handler with loading indicator ──────────────────────────────
   const handleRefresh = async () => {
@@ -175,15 +232,7 @@ export const SupplierDashboard: React.FC<SupplierDashboardProps> = ({ activeTab 
   const saveEditPlant = (e: React.FormEvent) => { e.preventDefault(); if (!editingPlantId) return; setCapacityList(capacityList.map(p => p.id === editingPlantId ? { ...p, ...editingPlantData } : p)); setEditingPlantId(null); };
   const cancelEditPlant = () => { setEditingPlantId(null); };
 
-  const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
-    setUploadError(null);
-    const f = e.target.files && e.target.files[0];
-    if (!f) return;
-    const allowed = ['application/pdf', 'image/png', 'image/jpeg'];
-    if (!allowed.includes(f.type)) { setUploadError('Unsupported file type. Allowed: PDF, JPG, PNG'); setSelectedFile(null); return; }
-    if (f.size > MAX_FILE_SIZE) { setUploadError('File too large. Max 5 MB'); setSelectedFile(null); return; }
-    setSelectedFile(f);
-  };
+  
 
   const handleUploadFile = (e?: React.FormEvent) => {
     e?.preventDefault();
@@ -218,32 +267,155 @@ export const SupplierDashboard: React.FC<SupplierDashboardProps> = ({ activeTab 
       const res = await fetch(`${API_BASE}/api/applications/${id}/supplier-approve`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
-        body: JSON.stringify({ status: action })
+        body: JSON.stringify({ status: action === 'APPROVED' ? 'SUPPLIER_APPROVED' : 'REJECTED' })
       });
       if (!res.ok) return;
       const data = await res.json();
-      const updated = data.application || { id, approvalStatus: action === 'APPROVED' ? 'SUPPLIER_APPROVED' : 'REJECTED' };
+      // const updated = data.application || { id, approvalStatus: action === 'APPROVED' ? 'SUPPLIER_APPROVED' : 'REJECTED' };
 
-      setRequests(prev => prev.map(r =>
-        r.id === id ? { ...r, status: updated.approvalStatus || action, approvalStatus: updated.approvalStatus || action } : r
-      ));
+      // setRequests(prev => prev.map(r =>
+      //   r.id === id ? { ...r, status: updated.approvalStatus || action, approvalStatus: updated.approvalStatus || action } : r
+      // ));
 
       if (action === 'APPROVED') {
-        const req = requests.find(r => r.id === id);
-        if (req) {
+        // Move from requests to contracts
+        const acceptedApp = requests.find(r => r.id === id);
+        if (acceptedApp) {
+          setContracts(prev => [{
+            ...acceptedApp,
+            status: 'SUPPLIER_APPROVED',
+            approvalStatus: 'SUPPLIER_APPROVED',
+            acceptedAt: new Date().toISOString()
+          }, ...prev]);
+          setRequests(prev => prev.filter(r => r.id !== id));
+          
+          // Add to schedules
           setSchedules(prev => [{
             id: `sch-${Date.now()}`,
-            consumerName: req.consumerName || 'Consumer',
-            mw: req.mw || 20,
+            consumerName: acceptedApp.consumerName,
+            mw: acceptedApp.mw,
             timeBlock: '00:00-24:00 (RTC)',
             gridStatus: 'SCHEDULED'
           }, ...prev]);
         }
+      } else {
+        // Remove rejected request
+        setRequests(prev => prev.filter(r => r.id !== id));
       }
+      
     } catch (error) {
       console.error('Failed to update request:', error);
     }
   };
+
+
+
+  const handleCancelContract = async (id: string) => {
+    if (!confirm('Are you sure you want to cancel this contract?')) return;
+    
+    try {
+      if (!token) return;
+      
+      const res = await fetch(`${API_BASE}/api/applications/${id}/cancel`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+        body: JSON.stringify({ status: 'CANCELLED' })
+      });
+      
+      if (!res.ok) return;
+      
+      setContracts(prev => prev.filter(c => c.id !== id));
+      alert('Contract cancelled successfully');
+      
+    } catch (error) {
+      console.error('Failed to cancel contract:', error);
+    }
+  };
+
+
+  // Document upload handlers
+  const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+    setUploadError(null);
+    setUploadSuccess(null);
+    const file = e.target.files?.[0];
+    if (!file) return;
+    
+    const allowed = ['application/pdf', 'image/png', 'image/jpeg'];
+    if (!allowed.includes(file.type)) {
+      setUploadError('Unsupported file type. Allowed: PDF, JPG, PNG');
+      setSelectedFile(null);
+      return;
+    }
+    if (file.size > MAX_FILE_SIZE) {
+      setUploadError('File too large. Max 5 MB');
+      setSelectedFile(null);
+      return;
+    }
+    setSelectedFile(file);
+  };
+
+
+
+  const handleUploadDocument = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!selectedFile || !docName) {
+      setUploadError('Please provide document name and file');
+      return;
+    }
+    
+    // Simulate upload to backend
+    const newDoc: DocumentUpload = {
+      id: `doc-${Date.now()}`,
+      name: docName,
+      category: docCategory,
+      fileName: selectedFile.name,
+      uploadedAt: new Date().toLocaleString(),
+      status: 'PENDING'
+    };
+    
+    setDocuments(prev => [newDoc, ...prev]);
+    setUploadSuccess(`Document "${docName}" uploaded successfully! Pending admin approval.`);
+    setSelectedFile(null);
+    setDocName('');
+    setTimeout(() => setUploadSuccess(null), 3000);
+  };
+
+  // Load documents (simulated - replace with API call)
+  const loadDocuments = useCallback(async () => {
+    // In production, fetch from backend
+    const mockDocs: DocumentUpload[] = [
+      {
+        id: 'doc-1',
+        name: 'Power Purchase Agreement',
+        category: 'PPA',
+        fileName: 'PPA_SolarGen_2026.pdf',
+        uploadedAt: '2026-05-15 10:30:00',
+        status: 'APPROVED',
+        verifiedBy: 'Admin',
+        verifiedAt: '2026-05-16 14:20:00'
+      },
+      {
+        id: 'doc-2',
+        name: 'Bank Guarantee',
+        category: 'Financial',
+        fileName: 'BG_StateBank_2026.pdf',
+        uploadedAt: '2026-05-20 09:15:00',
+        status: 'PENDING'
+      },
+      {
+        id: 'doc-3',
+        name: 'Grid Connectivity Certificate',
+        category: 'Technical',
+        fileName: 'Grid_Conn_NLDC.pdf',
+        uploadedAt: '2026-05-25 11:45:00',
+        status: 'APPROVED',
+        verifiedBy: 'NLDC Officer',
+        verifiedAt: '2026-05-26 09:30:00'
+      }
+    ];
+    setDocuments(mockDocs);
+  }, []);
+
 
   const fetchConsumerProfile = async (consumerId: string) => {
     if (!token) return;
@@ -423,6 +595,78 @@ export const SupplierDashboard: React.FC<SupplierDashboardProps> = ({ activeTab 
     );
   }
 
+
+
+  if (normalizedTab === 'consumer-requests') {
+    return (
+      <div className="space-y-8 animate-fadeIn">
+        <div className="pb-4 border-b border-[#e0e8e4] flex flex-col md:flex-row md:items-center md:justify-between gap-3">
+          <div>
+            <h2 className="font-sora text-[22px] font-bold text-gray-900">Consumer Requests</h2>
+            <p className="text-gray-500 text-[13px] mt-1">
+              Admin-approved open access requests waiting for your action.
+            </p>
+          </div>
+          <button onClick={handleRefresh} disabled={isRefreshing} className="flex items-center gap-2 border border-[#e0e8e4] bg-white text-gray-700 text-[12px] font-bold px-4 py-2 rounded-lg hover:bg-gray-50">
+            <RefreshCw className={`w-3.5 h-3.5 ${isRefreshing ? 'animate-spin' : ''}`} />
+            <span>Refresh</span>
+          </button>
+        </div>
+
+        {requests.length === 0 ? (
+          <div className="bg-white rounded-lg border border-[#e0e8e4] p-12 text-center">
+            <div className="w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-4">
+              <Users className="w-8 h-8 text-gray-400" />
+            </div>
+            <p className="text-gray-500 text-[15px] font-medium">No pending consumer requests</p>
+            <p className="text-gray-400 text-[13px] mt-1">Admin-approved requests will appear here for your action.</p>
+          </div>
+        ) : (
+          <div className="bg-white rounded-lg border border-[#e0e8e4] overflow-x-auto">
+            <table className="w-full text-left border-collapse min-w-[900px]">
+              <thead>
+                <tr>
+                  {['Consumer','Capacity (MW)','Offered Price (₹)','Injection Point','Duration','Submitted','Action'].map(h => (
+                    <th key={h} className="bg-[#1b4d3e] text-white text-[12px] font-semibold px-5 py-3 uppercase whitespace-nowrap">{h}</th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-[#f0f4f2] text-[13px]">
+                {requests.map((r, i) => (
+                  <tr key={r.id} className={`hover:bg-gray-50 transition-colors ${i % 2 !== 0 ? 'bg-[#f9fcfa]' : ''}`}>
+                    <td className="py-3.5 px-5 font-semibold text-gray-900">{r.consumerName}</td>
+                    <td className="py-3.5 px-5 font-bold text-gray-900">{r.mw} MW</td>
+                    <td className="py-3.5 px-5 font-bold text-[#1b4d3e]">₹{r.requestedPrice?.toFixed(2) || '—'}</td>
+                    <td className="py-3.5 px-5 text-gray-600 text-[12px] max-w-[180px] truncate">{r.injectionPoint || '—'}</td>
+                    <td className="py-3.5 px-5 text-gray-600">{r.duration}</td>
+                    <td className="py-3.5 px-5 text-gray-500 text-[12px]">{r.requestDate || '—'}</td>
+                    <td className="py-3.5 px-5">
+                      <div className="flex gap-2">
+                        <button
+                          onClick={() => handleRequestAction(r.id, 'APPROVED')}
+                          className="px-3 py-1.5 rounded-md bg-[#1b4d3e] text-white text-[12px] font-bold hover:bg-[#2d6a4f] transition-colors shadow-sm"
+                        >
+                          ✓ Accept
+                        </button>
+                        <button
+                          onClick={() => handleRequestAction(r.id, 'REJECTED')}
+                          className="px-3 py-1.5 rounded-md bg-white border border-red-200 text-red-600 text-[12px] font-bold hover:bg-red-50 transition-colors"
+                        >
+                          ✗ Reject
+                        </button>
+                      </div>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </div>
+    );
+  }
+
+
   // ══════════════════════════════════════════════════════════════════════════
   // CONTRACTS / CONSUMER REQUESTS TAB
   // Key fix: auto-reloads on tab switch via useEffect above.
@@ -434,111 +678,65 @@ export const SupplierDashboard: React.FC<SupplierDashboardProps> = ({ activeTab 
   // ══════════════════════════════════════════════════════════════════════════
   if (normalizedTab === 'contracts') {
     return (
-      <div className="space-y-8">
-        <div className="pb-4 border-b border-[#e0e8e4] flex flex-col md:flex-row md:items-center md:justify-between gap-3">
-          <div>
-            <h2 className="font-sora text-[22px] font-bold text-gray-900">Consumer Requests & Contracts</h2>
-            <p className="text-gray-500 text-[13px] mt-1">
-              Open Access applications submitted by consumers for your supply. Once admin approves, you can Accept or Reject each request.
-            </p>
+      <div className="space-y-8 animate-fadeIn">
+        <div className="pb-4 border-b border-[#e0e8e4]">
+          <h2 className="font-sora text-[22px] font-bold text-gray-900">Active Contracts</h2>
+          <p className="text-gray-500 text-[13px] mt-1">
+            Contracts you have accepted. Click Cancel to terminate any contract.
+          </p>
+        </div>
+
+        {contracts.length === 0 ? (
+          <div className="bg-white rounded-lg border border-[#e0e8e4] p-12 text-center">
+            <div className="w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-4">
+              <FileText className="w-8 h-8 text-gray-400" />
+            </div>
+            <p className="text-gray-500 text-[15px] font-medium">No active contracts</p>
+            <p className="text-gray-400 text-[13px] mt-1">Accepted requests will appear here as active contracts.</p>
           </div>
-          <button
-            onClick={handleRefresh}
-            disabled={isRefreshing}
-            className="flex items-center gap-2 border border-[#e0e8e4] bg-white text-gray-700 text-[12px] font-bold px-4 py-2 rounded-lg hover:bg-gray-50 transition-colors disabled:opacity-50 shrink-0"
-          >
-            <RefreshCw className={`w-3.5 h-3.5 ${isRefreshing ? 'animate-spin' : ''}`} />
-            <span>Refresh</span>
-          </button>
-        </div>
-
-        {/* Status legend */}
-        <div className="bg-blue-50 border border-[#b5d4f4] rounded-xl p-4 text-[12px] text-[#1d3557] flex flex-wrap gap-4">
-          <span className="font-semibold">Status Guide:</span>
-          <span className="flex items-center gap-1.5"><span className="w-2.5 h-2.5 rounded-full bg-yellow-400 inline-block"></span>Pending Admin Review — waiting for admin to approve</span>
-          <span className="flex items-center gap-1.5"><span className="w-2.5 h-2.5 rounded-full bg-green-500 inline-block"></span>Admin Approved — you can now Accept or Reject</span>
-          <span className="flex items-center gap-1.5"><span className="w-2.5 h-2.5 rounded-full bg-blue-500 inline-block"></span>Accepted — active contract scheduled</span>
-          <span className="flex items-center gap-1.5"><span className="w-2.5 h-2.5 rounded-full bg-red-500 inline-block"></span>Rejected</span>
-        </div>
-
-        <div className="bg-white rounded-lg border border-[#e0e8e4] overflow-x-auto">
-          <table className="w-full text-left border-collapse min-w-[900px]">
-            <thead>
-              <tr>
-                {['Consumer','Capacity (MW)','Offered Price','Injection Point','Duration','Submitted','Status','Action'].map(h=>(
-                  <th key={h} className="bg-[#1b4d3e] text-white text-[12px] font-semibold px-5 py-3 tracking-[0.03em] uppercase whitespace-nowrap">{h}</th>
-                ))}
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-[#f0f4f2] text-[13px]">
-              {requests.length === 0 ? (
-                <tr><td colSpan={8} className="text-center py-12 text-gray-500">No consumer requests yet. They will appear here once consumers submit Open Access applications.</td></tr>
-              ) : requests.map((r, i) => (
-                <tr key={r.id} className={`hover:bg-gray-50 transition-colors ${i%2!==0?'bg-[#f9fcfa]':''}`}>
-                  <td className="py-3.5 px-5 font-semibold text-gray-900">{r.consumerName}</td>
-                  <td className="py-3.5 px-5 text-gray-700 font-bold">{r.mw} MW</td>
-                  <td className="py-3.5 px-5 font-bold text-[#1b4d3e]">{r.requestedPrice ? `₹${Number(r.requestedPrice).toFixed(2)}` : '—'}</td>
-                  <td className="py-3.5 px-5 text-gray-600 text-[12px] max-w-[160px] truncate">{r.injectionPoint || r.deliveryPoint || '—'}</td>
-                  <td className="py-3.5 px-5 text-gray-600">{r.duration}</td>
-                  <td className="py-3.5 px-5 text-gray-500 text-[12px]">{r.requestDate || '—'}</td>
-                  <td className="py-3.5 px-5">
-                    <span className={`px-2 py-1 rounded-full text-[11px] font-semibold ${getStatusBadgeClass(r.status)}`}>
-                      {getStatusLabel(r.status)}
-                    </span>
-                  </td>
-                  <td className="py-3.5 px-5">
-                    <div className="flex items-center gap-2 justify-end">
-                      <button
-                        onClick={()=>viewConsumerProfile(r.consumerId)}
-                        className="px-3 py-1.5 rounded-md bg-white border border-[#e0e8e4] text-gray-600 text-[12px] font-bold hover:bg-gray-50 whitespace-nowrap"
-                      >
-                        View Profile
-                      </button>
-                      {/* Accept/Reject only shown after admin approves */}
-                      {canSupplierAct(r.status) && (
-                        <>
-                          <button
-                            onClick={()=>handleRequestAction(r.id,'APPROVED')}
-                            className="px-3 py-1.5 rounded-md bg-[#1b4d3e] text-white text-[12px] font-bold hover:bg-[#2d6a4f] transition-colors shadow-sm whitespace-nowrap"
-                          >
-                            ✓ Accept
-                          </button>
-                          <button
-                            onClick={()=>handleRequestAction(r.id,'REJECTED')}
-                            className="px-3 py-1.5 rounded-md bg-white border border-red-200 text-red-600 text-[12px] font-bold hover:bg-red-50 whitespace-nowrap"
-                          >
-                            ✗ Reject
-                          </button>
-                        </>
-                      )}
-                    </div>
-                  </td>
+        ) : (
+          <div className="bg-white rounded-lg border border-[#e0e8e4] overflow-x-auto">
+            <table className="w-full text-left border-collapse min-w-[1000px]">
+              <thead>
+                <tr>
+                  {['Contract ID','Consumer','Capacity (MW)','Final Price (₹)','Duration','Start Date','Status','Action'].map(h => (
+                    <th key={h} className="bg-[#1b4d3e] text-white text-[12px] font-semibold px-5 py-3 uppercase whitespace-nowrap">{h}</th>
+                  ))}
                 </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-
-        {/* Consumer profile panel */}
-        {consumerProfile && (
-          <div className="bg-white rounded-lg border border-[#e0e8e4] p-6 mt-6">
-            <div className="flex items-center justify-between mb-4">
-              <h3 className="font-sora text-[18px] font-bold text-gray-900">Consumer Profile</h3>
-              <button onClick={()=>setConsumerProfile(null)} className="text-gray-400 hover:text-gray-600"><X className="w-4 h-4" /></button>
-            </div>
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-[13px] text-gray-700">
-              {[{label:'Name',val:consumerProfile.name},{label:'Email',val:consumerProfile.email},{label:'State',val:consumerProfile.state},{label:'Drawal Point',val:consumerProfile.drawalPoint},{label:'OA Status',val:consumerProfile.oaStatus}].map(f=>(
-                <div key={f.label} className="bg-gray-50 rounded-lg p-3 border border-[#e0e8e4]">
-                  <p className="text-[10px] text-gray-400 uppercase font-semibold">{f.label}</p>
-                  <p className="font-semibold text-gray-900 mt-0.5">{f.val || 'N/A'}</p>
-                </div>
-              ))}
-            </div>
+              </thead>
+              <tbody className="divide-y divide-[#f0f4f2] text-[13px]">
+                {contracts.map((c, i) => (
+                  <tr key={c.id} className={`hover:bg-gray-50 transition-colors ${i % 2 !== 0 ? 'bg-[#f9fcfa]' : ''}`}>
+                    <td className="py-3.5 px-5 font-mono text-[11px] font-bold text-gray-600">#{c.id.slice(-8)}</td>
+                    <td className="py-3.5 px-5 font-semibold text-gray-900">{c.consumerName}</td>
+                    <td className="py-3.5 px-5 font-bold text-gray-900">{c.mw} MW</td>
+                    <td className="py-3.5 px-5 font-bold text-[#1b4d3e]">₹{c.finalPrice?.toFixed(2) || c.requestedPrice?.toFixed(2) || '—'}</td>
+                    <td className="py-3.5 px-5 text-gray-600">{c.duration}</td>
+                    <td className="py-3.5 px-5 text-gray-600">{c.startDate || c.requestDate || '—'}</td>
+                    <td className="py-3.5 px-5">
+                      <span className="px-2 py-1 rounded-full text-[11px] font-semibold bg-green-100 text-green-800 flex items-center gap-1 w-fit">
+                        <CheckCircle className="w-3 h-3" />
+                        Ongoing
+                      </span>
+                    </td>
+                    <td className="py-3.5 px-5">
+                      <button
+                        onClick={() => handleCancelContract(c.id)}
+                        className="px-3 py-1.5 rounded-md bg-red-50 border border-red-200 text-red-600 text-[12px] font-bold hover:bg-red-100 transition-colors flex items-center gap-1"
+                      >
+                        <X className="w-3.5 h-3.5" />
+                        Cancel Contract
+                      </button>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
           </div>
         )}
       </div>
     );
-  }
+  };
 
   if (normalizedTab === 'consumer-marketplace') {
     return (
@@ -638,40 +836,154 @@ export const SupplierDashboard: React.FC<SupplierDashboardProps> = ({ activeTab 
 
   if (normalizedTab === 'documents') {
     return (
-      <div className="space-y-8">
-        <div className="pb-4 border-b border-[#e0e8e4]"><h2 className="font-sora text-[22px] font-bold text-gray-900">Regulatory Documents</h2><p className="text-gray-500 text-[13px] mt-1">Upload PPA, Bank Guarantees or certification PDFs/images for verification</p></div>
-        <div className="bg-white rounded-lg p-6 shadow-sm border border-[#e0e8e4] max-w-2xl">
-          <h3 className="font-bold text-gray-900 text-[16px] mb-3">Upload Document</h3>
-          <form onSubmit={handleUploadFile} className="space-y-3">
-            <div>
-              <label className="text-[12px] font-semibold text-gray-700">Choose file</label>
-              <input type="file" accept=".pdf,image/png,image/jpeg" onChange={handleFileSelect} className="mt-2" />
-              <p className="text-[12px] text-gray-500 mt-1">Max size: 5 MB. Allowed: PDF, JPG, PNG</p>
-              {uploadError && <div className="text-sm text-red-600 mt-2">{uploadError}</div>}
-              {selectedFile && <div className="mt-3 flex items-center space-x-3"><div className="text-[13px] font-medium">{selectedFile.name}</div><div className="text-[12px] text-gray-500">{(selectedFile.size/1024).toFixed(0)} KB</div></div>}
+      <div className="space-y-8 animate-fadeIn">
+        <div className="pb-4 border-b border-[#e0e8e4]">
+          <h2 className="font-sora text-[22px] font-bold text-gray-900">Document Management</h2>
+          <p className="text-gray-500 text-[13px] mt-1">
+            Upload regulatory documents and track approval status from admin.
+          </p>
+        </div>
+
+        {/* Upload Form */}
+        <div className="bg-white rounded-lg border border-[#e0e8e4] p-6">
+          <h3 className="font-sora text-[18px] font-bold text-gray-900 mb-4 flex items-center gap-2">
+            <Upload className="w-5 h-5 text-green-dark" />
+            Upload New Document
+          </h3>
+          
+          <form onSubmit={handleUploadDocument} className="space-y-4">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className="form-group">
+                <label className="text-[12px] font-semibold text-gray-700">Document Name *</label>
+                <input
+                  type="text"
+                  value={docName}
+                  onChange={(e) => setDocName(e.target.value)}
+                  placeholder="e.g., Power Purchase Agreement"
+                  className="form-control mt-1"
+                  required
+                />
+              </div>
+              <div className="form-group">
+                <label className="text-[12px] font-semibold text-gray-700">Category *</label>
+                <select value={docCategory} onChange={(e) => setDocCategory(e.target.value)} className="form-control mt-1">
+                  <option value="PPA">Power Purchase Agreement (PPA)</option>
+                  <option value="Financial">Bank Guarantee / Financial</option>
+                  <option value="Technical">Technical / Grid Connectivity</option>
+                  <option value="Legal">Legal / Regulatory</option>
+                  <option value="Other">Other</option>
+                </select>
+              </div>
             </div>
-            <div className="flex space-x-3">
-              <button disabled={!selectedFile} type="submit" className="btn-green px-4 py-2">Upload</button>
-              <button type="button" onClick={()=>{setSelectedFile(null);setUploadError(null);}} className="btn-outline px-4 py-2">Clear</button>
+            
+            <div className="form-group">
+              <label className="text-[12px] font-semibold text-gray-700">Select File (PDF, JPG, PNG - Max 5MB) *</label>
+              <input
+                type="file"
+                accept=".pdf,.jpg,.png"
+                onChange={handleFileSelect}
+                className="mt-1 block w-full text-[13px] file:mr-3 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-[12px] file:font-semibold file:bg-green-dark file:text-white hover:file:bg-[#2d6a4f] cursor-pointer"
+                required
+              />
+              {selectedFile && (
+                <p className="text-[12px] text-green-dark mt-2 flex items-center gap-1">
+                  <CheckCircle className="w-3.5 h-3.5" />
+                  Selected: {selectedFile.name} ({(selectedFile.size / 1024).toFixed(0)} KB)
+                </p>
+              )}
             </div>
+            
+            {uploadError && (
+              <div className="bg-red-50 border border-red-200 rounded-lg p-3 text-red-600 text-[13px] flex items-center gap-2">
+                <AlertCircle className="w-4 h-4" />
+                {uploadError}
+              </div>
+            )}
+            
+            {uploadSuccess && (
+              <div className="bg-green-50 border border-green-200 rounded-lg p-3 text-green-700 text-[13px] flex items-center gap-2">
+                <CheckCircle className="w-4 h-4" />
+                {uploadSuccess}
+              </div>
+            )}
+            
+            <button type="submit" className="btn-green flex items-center gap-2">
+              <Upload className="w-4 h-4" />
+              Upload Document
+            </button>
           </form>
         </div>
-        <div className="bg-white rounded-lg border border-[#e0e8e4] overflow-hidden">
-          <div className="p-5 border-b border-[#f0f4f2]"><h3 className="font-sora text-[16px] font-bold text-gray-900">Uploaded Documents</h3></div>
-          <table className="w-full text-left border-collapse">
-            <thead><tr>{['Document Name','Size','Uploaded On','Status'].map(h=><th key={h} className="bg-green-dark text-white text-[12px] font-semibold px-5 py-3 tracking-[0.03em] uppercase">{h}</th>)}</tr></thead>
-            <tbody className="divide-y divide-[#f0f4f2] text-[13px]">
-              {uploadedDocs.length===0&&<tr><td colSpan={4} className="py-6 px-5 text-center text-gray-500">No documents uploaded yet</td></tr>}
-              {uploadedDocs.map((doc,i)=>(
-                <tr key={doc.id} className={`hover:bg-gray-50 transition-colors ${i%2!==0?'bg-[#f9fcfa]':''}`}>
-                  <td className="py-3.5 px-5 font-semibold text-gray-900 flex items-center gap-3"><div className="w-8 h-8 rounded bg-gray-100 flex items-center justify-center">📄</div>{doc.name}</td>
-                  <td className="py-3.5 px-5 text-gray-600">{(doc.size/1024).toFixed(0)} KB</td>
-                  <td className="py-3.5 px-5 text-gray-500">{doc.date}</td>
-                  <td className="py-3.5 px-5">{doc.status==='VERIFIED'?<div className="flex items-center text-green-700 space-x-2"><CheckCircle className="w-4 h-4"/><span className="font-semibold">Verified</span></div>:<span className="px-2 py-1 rounded-full text-[11px] font-semibold bg-yellow-100 text-yellow-800">{doc.status}</span>}</td>
+
+        {/* Documents Table */}
+        <div className="space-y-4">
+          <div className="flex items-center justify-between">
+            <h3 className="font-sora text-[18px] font-bold text-gray-900">Document Registry</h3>
+            <button onClick={handleRefresh} className="text-[12px] text-green-dark hover:text-green-mid flex items-center gap-1">
+              <RefreshCw className="w-3.5 h-3.5" />
+              Refresh
+            </button>
+          </div>
+          
+          <div className="bg-white rounded-lg border border-[#e0e8e4] overflow-x-auto">
+            <table className="w-full text-left border-collapse min-w-[800px]">
+              <thead>
+                <tr>
+                  {['Document Name','Category','File Name','Uploaded On','Status','Verified By','Verified On'].map(h => (
+                    <th key={h} className="bg-[#1b4d3e] text-white text-[12px] font-semibold px-5 py-3 uppercase whitespace-nowrap">{h}</th>
+                  ))}
                 </tr>
-              ))}
-            </tbody>
-          </table>
+              </thead>
+              <tbody className="divide-y divide-[#f0f4f2] text-[13px]">
+                {documents.length === 0 ? (
+                  <tr>
+                    <td colSpan={7} className="py-12 text-center text-gray-500">
+                      <FileText className="w-12 h-12 text-gray-300 mx-auto mb-3" />
+                      No documents uploaded yet
+                    </td>
+                  </tr>
+                ) : (
+                  documents.map((doc, i) => (
+                    <tr key={doc.id} className={`hover:bg-gray-50 transition-colors ${i % 2 !== 0 ? 'bg-[#f9fcfa]' : ''}`}>
+                      <td className="py-3.5 px-5 font-semibold text-gray-900 flex items-center gap-2">
+                        <FileText className="w-4 h-4 text-gray-400" />
+                        {doc.name}
+                      </td>
+                      <td className="py-3.5 px-5">
+                        <span className="px-2 py-1 rounded-full text-[10px] font-semibold bg-gray-100 text-gray-700">
+                          {doc.category}
+                        </span>
+                      </td>
+                      <td className="py-3.5 px-5 text-gray-600 text-[12px]">{doc.fileName}</td>
+                      <td className="py-3.5 px-5 text-gray-500 text-[12px] flex items-center gap-1">
+                        <Clock className="w-3 h-3" />
+                        {doc.uploadedAt}
+                      </td>
+                      <td className="py-3.5 px-5">
+                        {doc.status === 'APPROVED' ? (
+                          <span className="px-2 py-1 rounded-full text-[11px] font-semibold bg-green-100 text-green-800 flex items-center gap-1 w-fit">
+                            <CheckCircle className="w-3 h-3" />
+                            Approved
+                          </span>
+                        ) : doc.status === 'REJECTED' ? (
+                          <span className="px-2 py-1 rounded-full text-[11px] font-semibold bg-red-100 text-red-800 flex items-center gap-1 w-fit">
+                            <X className="w-3 h-3" />
+                            Rejected
+                          </span>
+                        ) : (
+                          <span className="px-2 py-1 rounded-full text-[11px] font-semibold bg-yellow-100 text-yellow-800 flex items-center gap-1 w-fit">
+                            <Clock className="w-3 h-3" />
+                            Pending Approval
+                          </span>
+                        )}
+                      </td>
+                      <td className="py-3.5 px-5 text-gray-600 text-[12px]">{doc.verifiedBy || '—'}</td>
+                      <td className="py-3.5 px-5 text-gray-500 text-[12px]">{doc.verifiedAt || '—'}</td>
+                    </tr>
+                  ))
+                )}
+              </tbody>
+            </table>
+          </div>
         </div>
       </div>
     );

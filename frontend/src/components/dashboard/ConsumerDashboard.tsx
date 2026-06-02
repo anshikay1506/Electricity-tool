@@ -464,9 +464,15 @@ export const ConsumerDashboard: React.FC<ConsumerDashboardProps> = ({ activeTab,
   // ── Submit GEOA to backend as an application ───────────────────────────────
   const submitGeoaApplication = async () => {
     const selectedSupplier = suppliers.find(s => s.id === geoaSelectedSupplierId);
+
+    console.log('Selected supplier:', selectedSupplier);
+  console.log('Supplier ID being sent:', geoaSelectedSupplierId);
+
     try {
       const body = {
         supplierId: geoaSelectedSupplierId,
+        supplierName: selectedSupplier?.name,  // Store supplier name too
+  supplierState: selectedSupplier?.state,
         mw: geoaLoadMw,
         injectionPoint: geoaInjectionPoint,
         drawalPoint: geoaDrawalPoint,

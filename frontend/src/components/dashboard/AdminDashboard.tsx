@@ -136,6 +136,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ activeTab, setTa
 
   // ── Admin approve ──────────────────────────────────────────────────────────
   const handleApprove = async (id: string) => {
+    console.log('Approving application:', id);
     if (!token) return;
     setActionLoadingId(id);
     try {
@@ -146,6 +147,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ activeTab, setTa
       });
       if (!res.ok) throw new Error(await res.text());
       const data = await res.json();
+      console.log('Approved application response:', data); // Add this
       setApplications(prev => prev.map(app =>
         app.id === id ? { ...app, approvalStatus: 'APPROVED', ...data.application } : app
       ));
