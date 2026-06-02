@@ -201,7 +201,7 @@ const loadRequests = useCallback(async () => {
     loadRequests();
   }, [token]);
 
-  // ── Status helpers ───────────────────────────────────────────────────────
+  
   const getStatusBadgeClass = (status: string) => {
     const s = (status || '').toUpperCase();
     if (s === 'APPROVED' || s === 'SUPPLIER_APPROVED') return 'bg-green-100 text-green-800';
@@ -220,9 +220,7 @@ const loadRequests = useCallback(async () => {
     return status || 'Pending';
   };
 
-  // ── Whether supplier can act on a request ───────────────────────────────
-  // Supplier can Accept/Reject only when admin has approved (APPROVED status)
-  // Before admin approves, it's in ADMIN_PENDING — supplier can't act yet.
+
   const canSupplierAct = (status: string) => {
     const s = (status || '').toUpperCase();
     return s === 'APPROVED'; // Admin approved → now supplier must accept/reject
