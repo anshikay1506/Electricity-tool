@@ -3,7 +3,7 @@ import { useAuth } from '../../context/AuthContext';
 import {
   Zap, ShieldAlert, Award, Clock,
   Search, ArrowRight, Upload, DollarSign, BarChart2, Settings,
-  FileText, CheckCircle, ChevronRight, ClipboardList, AlertCircle, X, Eye, Save
+  FileText, CheckCircle, ChevronRight, ClipboardList, AlertCircle, X, Eye, Save, Download
 } from 'lucide-react';
 
 interface DraftApplication {
@@ -819,6 +819,234 @@ export const ConsumerDashboard: React.FC<ConsumerDashboardProps> = ({ activeTab,
       </div>
     );
   }
+
+
+
+
+// APPLICATION DETAILS TAB (for contracts and applications)
+
+if (activeTab === 'application-details' && selectedApplication) {
+  return (
+    <div className="space-y-8 animate-fadeIn">
+      {/* Header with back button */}
+      <div className="pb-4 border-b border-[#e0e8e4] flex items-center justify-between">
+        <div>
+          <h2 className="font-sora text-[22px] font-bold text-gray-900">
+            Contract Details: {selectedApplication.supplierName}
+          </h2>
+          <p className="text-gray-500 text-[13px] mt-1">
+            Reference: {selectedApplication.id || selectedApplication.applicationId || 'N/A'}
+          </p>
+        </div>
+        <button 
+          onClick={() => {
+            setSelectedApplication(null);
+            setTab('contracts');
+          }} 
+          className="btn-outline flex items-center gap-2"
+        >
+          <ArrowRight className="w-4 h-4 rotate-180" />
+          <span>Back to Contracts</span>
+        </button>
+      </div>
+
+      {/* Contract Status Banner */}
+      <div className={`rounded-lg p-4 border ${
+        selectedApplication.requestStatus === 'APPROVED' 
+          ? 'bg-green-pale border-green-mid' 
+          : 'bg-amber-light border-amber'
+      }`}>
+        <div className="flex items-center gap-3">
+          {selectedApplication.requestStatus === 'APPROVED' ? (
+            <CheckCircle className="w-6 h-6 text-green-dark" />
+          ) : (
+            <Clock className="w-6 h-6 text-amber" />
+          )}
+          <div>
+            <p className="font-semibold text-gray-900">
+              Contract Status: {selectedApplication.contractStatus || selectedApplication.requestStatus}
+            </p>
+            <p className="text-[13px] text-gray-600">
+              {selectedApplication.requestStatus === 'APPROVED' 
+                ? 'This contract is active and all parties have approved.' 
+                : 'This contract is pending approval from the supplier or administrator.'}
+            </p>
+          </div>
+        </div>
+      </div>
+
+      {/* Main Content Grid */}
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        
+        {/* Left Column - Contract Details */}
+        <div className="lg:col-span-2 space-y-6">
+          
+          {/* Contract Summary Card */}
+          <div className="form-card">
+            <h3 className="font-sora text-[18px] font-bold text-gray-900 mb-4 flex items-center gap-2">
+              <FileText className="w-5 h-5 text-green-dark" />
+              Contract Summary
+            </h3>
+            <div className="grid grid-cols-2 gap-4">
+              <div className="bg-gray-50 p-4 rounded-lg">
+                <p className="text-[11px] text-gray-400 uppercase font-semibold">Total Volume</p>
+                <p className="text-[24px] font-bold text-gray-900">{selectedApplication.requestedMw || selectedApplication.mw} MW</p>
+              </div>
+              <div className="bg-gray-50 p-4 rounded-lg">
+                <p className="text-[11px] text-gray-400 uppercase font-semibold">Final Price</p>
+                <p className="text-[24px] font-bold text-green-dark">₹{selectedApplication.finalPrice?.toFixed(2) || '—'}/unit</p>
+              </div>
+              <div className="bg-gray-50 p-4 rounded-lg">
+                <p className="text-[11px] text-gray-400 uppercase font-semibold">Contract Value</p>
+                <p className="text-[24px] font-bold text-gray-900">
+                  ₹{((selectedApplication.requestedMw || 0) * 1000 * (selectedApplication.finalPrice || 0)).toLocaleString()}
+                </p>
+                <p className="text-[10px] text-gray-400">Estimated annual value</p>
+              </div>
+              <div className="bg-gray-50 p-4 rounded-lg">
+                <p className="text-[11px] text-gray-400 uppercase font-semibold">Duration</p>
+                <p className="text-[24px] font-bold text-gray-900">{selectedApplication.duration}</p>
+              </div>
+            </div>
+          </div>
+
+          {/* Pricing Breakdown */}
+          <div className="form-card">
+            <h3 className="font-sora text-[16px] font-bold text-gray-900 mb-4">Pricing Breakdown</h3>
+            <div className="space-y-3">
+              <div className="flex justify-between items-center py-2 border-b border-[#f0f4f2]">
+                <span className="text-gray-600">Base Price (Supplier)</span>
+                <span className="font-semibold text-gray-900">₹{selectedApplication.basePrice?.toFixed(2) || '—'}/unit</span>
+              </div>
+              <div className="flex justify-between items-center py-2 border-b border-[#f0f4f2]">
+                <span className="text-gray-600">Open Access Charges</span>
+                <span className="font-semibold text-gray-900">₹{selectedApplication.oaCharges?.toFixed(2) || '—'}/unit</span>
+              </div>
+              <div className="flex justify-between items-center py-2 border-b border-[#f0f4f2]">
+                <span className="text-gray-600">Wheeling Charges</span>
+                <span className="font-semibold text-gray-900">₹0.85/unit</span>
+              </div>
+              <div className="flex justify-between items-center py-3 bg-green-pale px-4 rounded-lg -mx-2">
+                <span className="font-bold text-gray-900">Final Delivered Price</span>
+                <span className="font-bold text-[18px] text-green-dark">₹{selectedApplication.finalPrice?.toFixed(2) || '—'}/unit</span>
+              </div>
+            </div>
+          </div>
+
+          {/* Timeline / Milestones */}
+          <div className="form-card">
+            <h3 className="font-sora text-[16px] font-bold text-gray-900 mb-4 flex items-center gap-2">
+              <Clock className="w-4 h-4 text-green-dark" />
+              Approval Timeline
+            </h3>
+            <div className="space-y-4">
+              {selectedApplication.approvalTimeline?.map((milestone: any, idx: number) => (
+                <div key={idx} className="flex items-start gap-3">
+                  <div className="relative">
+                    <div className={`w-8 h-8 rounded-full flex items-center justify-center ${
+                      milestone.status === 'Completed' ? 'bg-green-dark text-white' : 'bg-gray-200 text-gray-500'
+                    }`}>
+                      {milestone.status === 'Completed' ? <CheckCircle className="w-4 h-4" /> : idx + 1}
+                    </div>
+                    {idx < selectedApplication.approvalTimeline.length - 1 && (
+                      <div className="absolute top-8 left-4 w-0.5 h-8 bg-gray-300"></div>
+                    )}
+                  </div>
+                  <div className="flex-1 pb-6">
+                    <p className="font-semibold text-gray-900">{milestone.stage}</p>
+                    <p className="text-[12px] text-gray-500">{milestone.date}</p>
+                    <span className={`badge text-[10px] mt-1 ${
+                      milestone.status === 'Completed' ? 'badge-green' : 'badge-amber'
+                    }`}>{milestone.status}</span>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+
+        {/* Right Column - Additional Info */}
+        <div className="space-y-6">
+          
+          {/* Supplier Information */}
+          <div className="form-card">
+            <h3 className="font-sora text-[16px] font-bold text-gray-900 mb-3">Supplier Information</h3>
+            <div className="space-y-3 text-[13px]">
+              <div>
+                <p className="text-gray-500 text-[11px] uppercase font-semibold">Name</p>
+                <p className="font-semibold text-gray-900">{selectedApplication.supplierName}</p>
+              </div>
+              <div>
+                <p className="text-gray-500 text-[11px] uppercase font-semibold">State</p>
+                <p className="text-gray-700">{selectedApplication.supplierState}</p>
+              </div>
+              <div>
+                <p className="text-gray-500 text-[11px] uppercase font-semibold">Delivery Point</p>
+                <p className="text-gray-700">{selectedApplication.deliveryState}</p>
+              </div>
+            </div>
+          </div>
+
+          {/* Consumer Information */}
+          <div className="form-card">
+            <h3 className="font-sora text-[16px] font-bold text-gray-900 mb-3">Consumer Information</h3>
+            <div className="space-y-3 text-[13px]">
+              <div>
+                <p className="text-gray-500 text-[11px] uppercase font-semibold">Name</p>
+                <p className="font-semibold text-gray-900">{profile?.name || 'Consumer'}</p>
+              </div>
+              <div>
+                <p className="text-gray-500 text-[11px] uppercase font-semibold">State</p>
+                <p className="text-gray-700">{profile?.state || 'Rajasthan'}</p>
+              </div>
+              <div>
+                <p className="text-gray-500 text-[11px] uppercase font-semibold">Drawal Point</p>
+                <p className="text-gray-700">400kV Jajpur Substation</p>
+              </div>
+            </div>
+          </div>
+
+          {/* Contract Documents */}
+          <div className="form-card">
+            <h3 className="font-sora text-[16px] font-bold text-gray-900 mb-3 flex items-center gap-2">
+              <FileText className="w-4 h-4 text-green-dark" />
+              Contract Documents
+            </h3>
+            <div className="space-y-2">
+              <button className="w-full btn-outline flex items-center justify-between px-4 py-3">
+                <span className="text-[13px] font-semibold">📄 PPA Agreement</span>
+                <Eye className="w-4 h-4" />
+              </button>
+              <button className="w-full btn-outline flex items-center justify-between px-4 py-3">
+                <span className="text-[13px] font-semibold">🔒 Bank Guarantee</span>
+                <Eye className="w-4 h-4" />
+              </button>
+              <button className="w-full btn-outline flex items-center justify-between px-4 py-3">
+                <span className="text-[13px] font-semibold">📑 Open Access Approval</span>
+                <Eye className="w-4 h-4" />
+              </button>
+            </div>
+          </div>
+
+          {/* Action Buttons */}
+          <div className="space-y-3">
+            {selectedApplication.requestStatus !== 'APPROVED' && (
+              <button className="btn-green w-full flex items-center justify-center gap-2">
+                <CheckCircle className="w-4 h-4" />
+                <span>Sign Contract Electronically</span>
+              </button>
+            )}
+            <button className="btn-outline w-full flex items-center justify-center gap-2">
+              <Download className="w-4 h-4" />
+              <span>Download Contract PDF</span>
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 
   // ══════════════════════════════════════════════════════════════════════════
   // CONTRACTS TAB
