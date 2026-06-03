@@ -65,6 +65,11 @@ export const ConsumerDashboard: React.FC<ConsumerDashboardProps> = ({ activeTab,
   const [schedules] = useState<any[]>([]);
   const [payments, setPayments] = useState<any[]>([]);
   const [drafts, setDrafts] = useState<DraftApplication[]>([]);
+  const [selectedFile, setSelectedFile] = useState<File | null>(null);
+  const [uploading, setUploading] = useState(false);
+  const [uploadError, setUploadError] = useState<string | null>(null);
+  const [uploadSuccess, setUploadSuccess] = useState<string | null>(null);
+  const [submitting, setSubmitting] = useState(false);
 
   // Consumer workflow state
   const [consumerName, setConsumerName] = useState('');
@@ -156,6 +161,7 @@ export const ConsumerDashboard: React.FC<ConsumerDashboardProps> = ({ activeTab,
   const [step1Errors, setStep1Errors] = useState<Record<string, string>>({});
 
   // Step 2 fields
+  const [geoaFiles, setGeoaFiles] = useState<Map<string, File>>(new Map());
   const [geoaLoadMw, setGeoaLoadMw] = useState(10);
   const [geoaSelectedSupplierId, setGeoaSelectedSupplierId] = useState('');
   const [geoaInjectionPoint, setGeoaInjectionPoint] = useState('');
@@ -210,6 +216,16 @@ export const ConsumerDashboard: React.FC<ConsumerDashboardProps> = ({ activeTab,
     if (profile?.email && !geoaEmail) setGeoaEmail(profile.email);
     if (profile?.state) { setGeoaState(profile.state); setRequestDeliveryState(profile.state); }
   }, [profile]);
+
+
+  const handleGeoaFileSelect = (key: string, file: File) => {
+  // Store the actual file object
+  setGeoaFiles(prev => new Map(prev).set(key, file));
+  
+  setGeoaDocs(prev => prev.map(d => 
+    d.key === key ? { ...d, fileName: file.name, status: 'uploaded' } : d
+  ));
+};
 
   // ── Load draft from localStorage on mount ─────────────────────────────────
   useEffect(() => {
@@ -414,12 +430,82 @@ export const ConsumerDashboard: React.FC<ConsumerDashboardProps> = ({ activeTab,
     })();
   };
 
-  const handleDocUpload = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!docName) return;
-    setUploadedDocs(prev => [{ id: `doc-${Date.now()}`, name: docName, category: docCat, status: 'PENDING', date: new Date().toISOString().split('T')[0] }, ...prev]);
-    setDocName(''); setDocCat('PPA');
-  };
+  const handleDocUpload = async (e: React.FormEvent) => {
+  e.preventDefault();
+  if (!docName || !selectedFile) {
+    setUploadError('Please provide document name and select a file');
+    return;
+  }
+
+  setUploading(true);
+  setUploadError(null);
+
+  const formData = new FormData();
+  formData.append('file', selectedFile);
+  formData.append('title', docName);
+  formData.append('category', docCat);
+
+  try {
+    const res = await fetch(`${API_BASE}/api/documents/upload`, {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${token}`
+      },
+      body: formData
+    });
+
+    if (!res.ok) {
+      const error = await res.json();
+      throw new Error(error.error || 'Upload failed');
+    }
+
+    const data = await res.json();
+    
+    // Add to local state
+    setUploadedDocs(prev => [{
+      id: data.document.id,
+      name: docName,
+      category: docCat,
+      status: 'PENDING',
+      date: new Date().toISOString().split('T')[0],
+      fileUrl: data.document.fileUrl
+    }, ...prev]);
+    
+    setUploadSuccess(`Document "${docName}" uploaded successfully!`);
+    setDocName('');
+    setSelectedFile(null);
+    setDocCat('PPA');
+    
+    setTimeout(() => setUploadSuccess(null), 3000);
+  } catch (err: any) {
+    setUploadError(err.message);
+  } finally {
+    setUploading(false);
+  }
+};
+
+
+// Add file input handler
+const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const file = e.target.files?.[0];
+  if (!file) return;
+  
+  const allowedTypes = ['application/pdf', 'image/jpeg', 'image/png'];
+  if (!allowedTypes.includes(file.type)) {
+    setUploadError('Invalid file type. Allowed: PDF, JPG, PNG');
+    return;
+  }
+  
+  if (file.size > 5 * 1024 * 1024) {
+    setUploadError('File too large. Max 5MB');
+    return;
+  }
+  
+  setSelectedFile(file);
+  setUploadError(null);
+};
+
+
 
   const handlePayBill = (bill: any) => { setPayAmount(bill.amount); setPayRef(`TRX${Date.now()}`); setIsPaying(true); };
   const submitPayment = () => {
@@ -448,9 +534,49 @@ export const ConsumerDashboard: React.FC<ConsumerDashboardProps> = ({ activeTab,
     loadProfile(); loadSuppliers(); loadApplications();
   }, []);
 
-  const handleGeoaDocSimulate = (key: string, fileName: string) => {
-    setGeoaDocs(prev => prev.map(d => d.key === key ? { ...d, fileName, status: 'uploaded' } : d));
-  };
+ 
+const handleGeoaDocUpload = async (key: string, file: File) => {
+  if (!token) {
+    alert('Please login to upload documents');
+    return;
+  }
+
+  const formData = new FormData();
+  formData.append('file', file);
+  formData.append('title', `GEOA ${key.toUpperCase()} Document`);
+  formData.append('category', key.toUpperCase());
+
+  try {
+    const res = await fetch(`${API_BASE}/api/documents/upload`, {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${token}`
+      },
+      body: formData
+    });
+
+    if (!res.ok) {
+      const error = await res.json();
+      throw new Error(error.error || 'Upload failed');
+    }
+
+    const data = await res.json();
+    
+    setGeoaDocs(prev => prev.map(d => 
+      d.key === key ? { 
+        ...d, 
+        fileName: file.name, 
+        status: 'uploaded',
+        documentId: data.document.id 
+      } : d
+    ));
+    
+    console.log('Document uploaded:', data.document);
+  } catch (error: any) {
+    console.error('Upload failed:', error);
+    alert(`Failed to upload ${key}: ${error.message}`);
+  }
+};
 
   const resetGeoaForm = () => {
     setGeoaStep(1); setGeoaSubmitSuccess(false);
@@ -465,14 +591,57 @@ export const ConsumerDashboard: React.FC<ConsumerDashboardProps> = ({ activeTab,
   const submitGeoaApplication = async () => {
     const selectedSupplier = suppliers.find(s => s.id === geoaSelectedSupplierId);
 
-    console.log('Selected supplier:', selectedSupplier);
-  console.log('Supplier ID being sent:', geoaSelectedSupplierId);
+    if (!selectedSupplier) {
+    alert('Please select a supplier');
+    return;
+  }
+
+  setSubmitting(true);
+
 
     try {
+    const uploadedDocuments = [];
+    
+    for (const doc of geoaDocs) {
+      if (doc.status === 'uploaded') {
+        // Get the actual file from the file input
+        const fileInput = document.getElementById(`file-${doc.key}`) as HTMLInputElement;
+        const file = fileInput?.files?.[0];
+        
+        if (file) {
+          const formData = new FormData();
+          formData.append('file', file);
+          formData.append('title', `${doc.label} - ${geoaApplicantName}`);
+          formData.append('category', doc.key.toUpperCase());
+          
+          const uploadRes = await fetch(`${API_BASE}/api/documents/upload`, {
+            method: 'POST',
+            headers: {
+              'Authorization': `Bearer ${token}`
+            },
+            body: formData
+          });
+          
+          if (uploadRes.ok) {
+            const uploadData = await uploadRes.json();
+            uploadedDocuments.push({
+              key: doc.key,
+              documentId: uploadData.document.id,
+              fileUrl: uploadData.document.fileUrl,
+              fileName: file.name
+            });
+            console.log(`✅ Uploaded ${doc.key}: ${uploadData.document.id}`);
+          } else {
+            console.error(`Failed to upload ${doc.key}`);
+          }
+        }
+      }
+    }
       const body = {
         supplierId: geoaSelectedSupplierId,
-        supplierName: selectedSupplier?.name,  // Store supplier name too
-  supplierState: selectedSupplier?.state,
+        supplierName: selectedSupplier?.name,
+        supplierState: selectedSupplier?.state,
+        // documentIds: uploadedDocIds,
         mw: geoaLoadMw,
         injectionPoint: geoaInjectionPoint,
         drawalPoint: geoaDrawalPoint,
@@ -494,7 +663,16 @@ export const ConsumerDashboard: React.FC<ConsumerDashboardProps> = ({ activeTab,
         scheduleType: geoaScheduleType,
         proposedStartDate: geoaStartDate,
         timeBlocks: geoaTimeBlocks,
-        documentChecklist: geoaDocs.map(d => ({ key: d.key, label: d.label, uploaded: d.status === 'uploaded', fileName: d.fileName }))
+        documentChecklist: uploadedDocuments.map(d => ({
+        key: d.key,
+        documentId: d.documentId,
+        fileName: d.fileName,
+        uploaded: true
+      })),  
+      ppaUrl: uploadedDocuments.find(d => d.key === 'ppa')?.fileUrl || null,
+        oaAppUrl: uploadedDocuments.find(d => d.key === 'oa_app')?.fileUrl || null,
+        bgUrl: uploadedDocuments.find(d => d.key === 'bg')?.fileUrl || null,
+        authLetterUrl: uploadedDocuments.find(d => d.key === 'auth')?.fileUrl || null,
       };
       const res = await fetch(`${API_BASE}/api/applications`, {
         method: 'POST',
@@ -503,10 +681,23 @@ export const ConsumerDashboard: React.FC<ConsumerDashboardProps> = ({ activeTab,
       });
       if (!res.ok) {
         const err = await res.json();
-        alert(err.error || 'Failed to submit application');
-        return;
+        throw new Error(err.error || 'Failed to submit application');
       }
       const data = await res.json();
+
+      for (const doc of uploadedDocuments) {
+      await fetch(`${API_BASE}/api/documents/${doc.documentId}/link-to-application`, {
+        method: 'PATCH',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify({ applicationId: data.application.id })
+      }).catch(e => console.error('Link failed:', e));
+    }
+    
+    console.log('✅ Application and all documents saved to database!');
+
       const refNo = `RERC/GEOA/2026/${String(Math.floor(Math.random() * 9000) + 1000)}`;
       const newGeoaApp: GeoaApplication = {
         id: data.application.id,
@@ -526,7 +717,7 @@ export const ConsumerDashboard: React.FC<ConsumerDashboardProps> = ({ activeTab,
         docs: geoaDocs.map(d => ({ ...d }))
       };
       setGeoaApplications(prev => [newGeoaApp, ...prev]);
-      // Also add to my-applications
+
       const newApp = mapBackendApplication({
         ...data.application,
         supplierName: selectedSupplier?.name || 'Supplier',
@@ -535,6 +726,7 @@ export const ConsumerDashboard: React.FC<ConsumerDashboardProps> = ({ activeTab,
         duration: `${geoaDurationDays} Days`,
       });
       setApplications(prev => [newApp, ...prev]);
+
       localStorage.removeItem(GEOA_DRAFT_KEY);
       setGeoaSubmitSuccess(true);
     } catch {
@@ -1181,59 +1373,77 @@ if (activeTab === 'application-details' && selectedApplication) {
     if (docView === 'doc-upload') {
       return (
         <div className="space-y-8 animate-fadeIn">
-          <div className="pb-4 border-b border-[#e0e8e4] flex items-center justify-between">
-            <div><h2 className="font-sora text-[22px] font-bold text-gray-900">Upload Regulatory Documents</h2><p className="text-gray-500 text-[13px] mt-1">Submit compliance files to the Nodal Agency verification vault.</p></div>
-            <button onClick={() => setDocView('landing')} className="btn-outline flex items-center gap-2"><X className="w-4 h-4" /><span>Back</span></button>
-          </div>
-          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-            <div className="form-card lg:col-span-2">
-              <form onSubmit={handleDocUpload} className="space-y-5">
-                <div className="form-group"><label className="required">Document Title</label><input type="text" placeholder="e.g. Trilateral Connection Agreement..." value={docName} onChange={(e) => setDocName(e.target.value)} required className="form-control" /></div>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
-                  <div className="form-group">
-                    <label className="required">Category</label>
-                    <select value={docCat} onChange={(e) => setDocCat(e.target.value)} className="form-control">
-                      <option value="PPA">Power Purchase Agreement (PPA)</option>
-                      <option value="OA_APP">Open Access Registration Request</option>
-                      <option value="BG">Bank Guarantee Security Record</option>
-                      <option value="AUTH_LETTER">Board Authorization Clearance</option>
-                      <option value="REC">Renewable Energy Certificate</option>
-                      <option value="ANNEXURE">Annexure Documents</option>
-                    </select>
-                  </div>
-                  <div className="flex items-end"><button type="submit" className="btn-outline w-full flex items-center justify-center space-x-2 h-[42px]"><Upload className="w-4 h-4" /><span>Upload & File Metadata</span></button></div>
-                </div>
-              </form>
-            </div>
-            <div className="tracker-card flex flex-col justify-between !mb-0">
-              <div><h3 className="font-sora font-bold text-[16px] text-gray-900 mb-2">Grid Compliance Vault</h3>
-                <div className="mt-4 space-y-2">
-                  {[{label:'RLDC NOC',status:'VERIFIED'},{label:'SLDC Approval',status:'PENDING'},{label:'DISCOM Consent',status:'VERIFIED'}].map(item => (
-                    <div key={item.label} className="flex items-center justify-between py-2 border-b border-[#f0f4f2]"><span className="text-[13px] text-gray-600">{item.label}</span><span className={`badge ${item.status === 'VERIFIED' ? 'badge-green' : 'badge-amber'}`}>{item.status}</span></div>
-                  ))}
-                </div>
-              </div>
-              <div className="bg-blue-light p-4 rounded-lg border border-[#b5d4f4] mt-6"><p className="text-[12px] text-blue-dark">★ Uploaded files visible to NLDC administrators immediately. PENDING → VERIFIED after audit.</p></div>
-            </div>
-          </div>
-          <div className="space-y-4">
-            <h3 className="font-sora text-[16px] font-bold text-gray-900">Document Registry</h3>
-            <div className="bg-white rounded-[var(--radius-md)] border border-[#e0e8e4] overflow-hidden">
-              <table className="w-full text-left border-collapse">
-                <thead><tr>{['Document Name','Category','Uploaded On','Status'].map(h => <th key={h} className="bg-green-dark text-white text-[12px] font-semibold px-5 py-3 uppercase">{h}</th>)}</tr></thead>
-                <tbody className="divide-y divide-[#f0f4f2] text-[13px]">
-                  {uploadedDocs.map((doc, i) => (
-                    <tr key={doc.id} className={`hover:bg-gray-50 ${i % 2 !== 0 ? 'bg-[#f9fcfa]' : ''}`}>
-                      <td className="py-3.5 px-5 font-semibold text-gray-900 flex items-center gap-2"><div className="w-8 h-8 rounded bg-gray-100 flex items-center justify-center shrink-0"><FileText className="w-4 h-4 text-gray-500" /></div>{doc.name}</td>
-                      <td className="py-3.5 px-5 text-gray-600">{doc.category}</td>
-                      <td className="py-3.5 px-5 text-gray-500">{doc.date}</td>
-                      <td className="py-3.5 px-5"><span className={`badge ${doc.status === 'VERIFIED' ? 'badge-green' : 'badge-amber'}`}>{doc.status}</span></td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          </div>
+          {/* Document Upload Form */}
+<div className="form-card lg:col-span-2">
+  <form onSubmit={handleDocUpload} className="space-y-5">
+    <div className="form-group">
+      <label className="required">Document Title</label>
+      <input 
+        type="text" 
+        placeholder="e.g. Trilateral Connection Agreement..." 
+        value={docName} 
+        onChange={(e) => setDocName(e.target.value)} 
+        required 
+        className="form-control" 
+      />
+    </div>
+    
+    <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+      <div className="form-group">
+        <label className="required">Category</label>
+        <select value={docCat} onChange={(e) => setDocCat(e.target.value)} className="form-control">
+          <option value="PPA">Power Purchase Agreement (PPA)</option>
+          <option value="OA_APP">Open Access Registration Request</option>
+          <option value="BG">Bank Guarantee Security Record</option>
+          <option value="AUTH_LETTER">Board Authorization Clearance</option>
+          <option value="REC">Renewable Energy Certificate</option>
+          <option value="ANNEXURE">Annexure Documents</option>
+        </select>
+      </div>
+      
+      <div className="form-group">
+        <label className="required">Select File (PDF, JPG, PNG - Max 5MB)</label>
+        <input 
+          type="file" 
+          accept=".pdf,.jpg,.png,.jpeg"
+          onChange={handleFileSelect}
+          className="form-control"
+          required
+        />
+        {selectedFile && (
+          <p className="text-[11px] text-green-dark mt-1">
+            Selected: {selectedFile.name} ({(selectedFile.size / 1024).toFixed(0)} KB)
+          </p>
+        )}
+      </div>
+    </div>
+    
+    {uploadError && (
+      <div className="bg-red-50 border border-red-200 rounded-lg p-3 text-red-600 text-[12px]">
+        {uploadError}
+      </div>
+    )}
+    
+    {uploadSuccess && (
+      <div className="bg-green-50 border border-green-200 rounded-lg p-3 text-green-700 text-[12px]">
+        {uploadSuccess}
+      </div>
+    )}
+    
+    <button 
+      type="submit" 
+      disabled={uploading}
+      className="btn-outline w-full flex items-center justify-center space-x-2 h-[42px] disabled:opacity-50"
+    >
+      {uploading ? (
+        <div className="w-4 h-4 border-2 border-gray-600 border-t-transparent rounded-full animate-spin" />
+      ) : (
+        <Upload className="w-4 h-4" />
+      )}
+      <span>{uploading ? 'Uploading...' : 'Upload & File Metadata'}</span>
+    </button>
+  </form>
+</div>
         </div>
       );
     }
@@ -1512,8 +1722,10 @@ if (activeTab === 'application-details' && selectedApplication) {
                           {doc.status === 'uploaded' ? <span className="badge badge-green">Uploaded</span> : (
                             <label className="px-3 py-1.5 rounded-md bg-white border border-[#e0e8e4] text-gray-700 text-[12px] font-semibold hover:bg-gray-50 cursor-pointer flex items-center gap-1.5">
                               <Upload className="w-3.5 h-3.5" /><span>Choose File</span>
-                              <input type="file" accept=".pdf,.jpg,.png" className="hidden" onChange={(e) => { const file = e.target.files?.[0]; if (file) handleGeoaDocSimulate(doc.key, file.name); }} />
-                            </label>
+                              <input type="file" className="hidden" id={`file-${doc.key}`} onChange={(e) => { 
+                                const file = e.target.files?.[0]; 
+                                if (file) handleGeoaDocUpload(doc.key, file); 
+                              }} />                          </label>
                           )}
                           {doc.status === 'uploaded' && (
                             <button type="button" onClick={() => setGeoaDocs(prev => prev.map(d => d.key === doc.key ? { ...d, fileName: '', status: 'pending' } : d))} className="w-7 h-7 rounded-md border border-[#e0e8e4] flex items-center justify-center hover:bg-red-50">

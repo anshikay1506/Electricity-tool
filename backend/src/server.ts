@@ -47,6 +47,7 @@ app.use('/api/payments', ...protectedApiMiddleware, payRoutes);
 app.use('/api/suppliers', ...protectedApiMiddleware, supplierRoutes);
 
 
+
 // Health check endpoint
 app.get('/', (req, res) => {
   res.json({
@@ -72,6 +73,6 @@ if (fs.existsSync(frontendDist)) {
 // App launch
 app.listen(PORT, () => {
   console.log(`========================================`);
-  console.log(` GOAR / NOAR Grid Server Running on :${PORT}`);
+  console.log(`Server Running on :${PORT}`);
   console.log(`========================================`);
 });

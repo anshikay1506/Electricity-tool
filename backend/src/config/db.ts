@@ -113,7 +113,7 @@ export interface Application {
 // }
 
 export interface Schedule {
-  id: string;
+  id?: string;
   applicationId: string;
   supplierId: string;
   consumerId: string;
@@ -123,15 +123,15 @@ export interface Schedule {
   createdAt?: string;
 }
 
-export interface Document {
-  id: string;
-  title: string;
-  category: string;
-  fileUrl: string;
-  status: string;
-  userId: string;
-  createdAt?: string;
-}
+// export interface Document {
+//   id: string;
+//   title: string;
+//   category: string;
+//   fileUrl: string;
+//   status: string;
+//   userId: string;
+//   createdAt?: string;
+// }
 
 export interface Payment {
   id: string;
@@ -387,27 +387,77 @@ export const db = {
   },
 
   async getDocuments() {
-    return formatRecords(await prisma.document.findMany());
-  },
+  try {
+    const docs = await prisma.document.findMany({
+      include: { user: true }  // Include user relation if needed
+    });
+    return docs.map(doc => ({
+      ...doc,
+      createdAt: doc.createdAt?.toISOString(),
+      userId: doc.userId
+    }));
+  } catch (error) {
+    console.log("DB ERROR getDocuments", error);
+    return [];
+  }
+},
 
-  async getDocumentsByUserId(userId: string) {
-    return formatRecords(await prisma.document.findMany({ where: { userId } }));
-  },
+async getDocumentsByUserId(userId: string) {
+  try {
+    const docs = await prisma.document.findMany({ 
+      where: { userId },
+      include: { user: true }
+    });
+    return docs.map(doc => ({
+      ...doc,
+      createdAt: doc.createdAt?.toISOString(),
+      userId: doc.userId
+    }));
+  } catch (error) {
+    console.log("DB ERROR getDocumentsByUserId", error);
+    return [];
+  }
+},
 
-  async addDocument(doc: Document) {
-    return formatRecord(
-      await prisma.document.create({
-        data: {
-          ...doc,
-          createdAt: parseDate(doc.createdAt)
+  async addDocument(doc: { id?: string; title: string; category: string; fileUrl: string; status: string; userId: string; createdAt?: string }) {
+  try {
+    const result = await prisma.document.create({
+      data: {
+        title: doc.title,
+        category: doc.category,
+        fileUrl: doc.fileUrl,
+        status: doc.status,
+        user: {
+          connect: { id: doc.userId }  // Connect to existing user instead of creating new
         }
-      })
-    );
-  },
+      }
+    });
+    
+    return {
+      ...result,
+      createdAt: result.createdAt?.toISOString()
+    };
+  } catch (error) {
+    console.log("DB ERROR addDocument", error);
+    throw error;
+  }
+},
 
   async updateDocumentStatus(id: string, status: string) {
-    return formatRecord(await prisma.document.update({ where: { id }, data: { status } }));
-  },
+  try {
+    const result = await prisma.document.update({ 
+      where: { id }, 
+      data: { status } 
+    });
+    return {
+      ...result,
+      createdAt: result.createdAt?.toISOString()
+    };
+  } catch (error) {
+    console.log("DB ERROR updateDocumentStatus", error);
+    throw error;
+  }
+},
 
   async getPayments() {
     return formatRecords(await prisma.payment.findMany());

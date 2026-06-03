@@ -33,6 +33,7 @@ export const SupplierDashboard: React.FC<SupplierDashboardProps> = ({ activeTab 
   const [revenueLedger, setRevenueLedger] = useState<any[]>([]);
   const [consumerProfile, setConsumerProfile] = useState<any>(null);
   const [isRefreshing, setIsRefreshing] = useState(false);
+  const [uploading, setUploading] = useState(false);
 
   // Document uploads
   const [documents, setDocuments] = useState<DocumentUpload[]>([]);
@@ -355,28 +356,58 @@ const loadRequests = useCallback(async () => {
 
 
   const handleUploadDocument = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!selectedFile || !docName) {
-      setUploadError('Please provide document name and file');
-      return;
+  e.preventDefault();
+  if (!selectedFile || !docName) {
+    setUploadError('Please provide document name and file');
+    return;
+  }
+
+  setUploading(true);
+  setUploadError(null);
+
+  const formData = new FormData();
+  formData.append('file', selectedFile);
+  formData.append('title', docName);
+  formData.append('category', docCategory);
+
+  try {
+    const res = await fetch(`${API_BASE}/api/documents/upload`, {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${token}`
+      },
+      body: formData
+    });
+
+    if (!res.ok) {
+      const error = await res.json();
+      throw new Error(error.error || 'Upload failed');
     }
+
+    const data = await res.json();
     
-    // Simulate upload to backend
+    // Add to documents list
     const newDoc: DocumentUpload = {
-      id: `doc-${Date.now()}`,
+      id: data.document.id,
       name: docName,
       category: docCategory,
       fileName: selectedFile.name,
       uploadedAt: new Date().toLocaleString(),
-      status: 'PENDING'
+      status: data.document.status || 'PENDING'
     };
     
     setDocuments(prev => [newDoc, ...prev]);
-    setUploadSuccess(`Document "${docName}" uploaded successfully! Pending admin approval.`);
+    setUploadSuccess(`Document "${docName}" uploaded successfully!`);
     setSelectedFile(null);
     setDocName('');
+    
     setTimeout(() => setUploadSuccess(null), 3000);
-  };
+  } catch (err: any) {
+    setUploadError(err.message);
+  } finally {
+    setUploading(false);
+  }
+};
 
   // Load documents (simulated - replace with API call)
   const loadDocuments = useCallback(async () => {

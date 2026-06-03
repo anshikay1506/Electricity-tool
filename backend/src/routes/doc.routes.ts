@@ -2,7 +2,7 @@ import { Router, Response } from 'express';
 import multer from 'multer';
 import fs from 'fs';
 import path from 'path';
-import { db, Document } from '../config/db';
+import { db } from '../config/db';
 import { AuthenticatedRequest } from '../middleware/auth';
 
 const router = Router();
@@ -43,7 +43,7 @@ router.post('/upload', upload.single('file'), async (req: AuthenticatedRequest, 
 
   const fileUrl = `/uploads/${req.file.filename}`;
 
-  const newDoc: Document = {
+  const newDoc = {
     id: `doc-${Date.now()}`,
     title,
     category,

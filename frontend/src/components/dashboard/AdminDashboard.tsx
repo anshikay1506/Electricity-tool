@@ -285,9 +285,33 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ activeTab, setTa
     }
   };
 
-  const handleVerifyDocument = (id: string, action: 'VERIFIED' | 'REJECTED') => {
-    setDocuments(documents.map(d => d.id === id ? { ...d, status: action } : d));
-  };
+  const handleVerifyDocument = async (id: string, action: 'VERIFIED' | 'REJECTED') => {
+  if (!token) return;
+  
+  try {
+    const res = await fetch(`${API_BASE}/api/documents/verify/${id}`, {
+      method: 'PATCH',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${token}`
+      },
+      body: JSON.stringify({ status: action })
+    });
+    
+    if (!res.ok) throw new Error('Verification failed');
+    
+    const data = await res.json();
+    
+    setDocuments(documents.map(d => 
+      d.id === id ? { ...d, status: action, verifiedBy: 'Admin', verifiedAt: new Date().toISOString() } : d
+    ));
+    
+    console.log(`Document ${action}:`, data);
+  } catch (error) {
+    console.error('Verification failed:', error);
+    alert('Failed to verify document');
+  }
+};
 
   // ══════════════════════════════════════════════════════════════════════════
   // DASHBOARD TAB
