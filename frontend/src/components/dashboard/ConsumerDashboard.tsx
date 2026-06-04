@@ -800,7 +800,7 @@ const SupplierDetailsModal = () => {
           <table className="w-full text-left border-collapse">
             <thead>
               <tr>
-                {['Supplier Name','Type','Available MW','Base Price','OA Charges','Final Price','Injection Point','Actions'].map(h => (
+                {['Supplier Name','Type','Available MW','Base Price','OA Charges','Final Price','Drawal Point','Actions'].map(h => (
                   <th key={h} className="bg-green-dark text-white text-[12px] font-semibold px-5 py-3 uppercase whitespace-nowrap">{h}</th>
                 ))}
               </tr>
