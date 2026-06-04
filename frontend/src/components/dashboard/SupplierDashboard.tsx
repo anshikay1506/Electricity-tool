@@ -2,7 +2,7 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { useAuth } from '../../context/AuthContext';
 import { 
   Zap, Award, Users, ShieldCheck,
-  Plus, BarChart2, Edit2, Save, X, Phone, Mail, MapPin, FileText, CheckCircle, Lock,
+  Plus, BarChart2, Edit2, Building, Save, X, Phone, Mail, MapPin, FileText, CheckCircle, Lock,
   RefreshCw, Upload, AlertCircle, Clock 
 } from 'lucide-react';
 
@@ -33,6 +33,8 @@ export const SupplierDashboard: React.FC<SupplierDashboardProps> = ({ activeTab 
   const [revenueLedger, setRevenueLedger] = useState<any[]>([]);
   const [consumerProfile, setConsumerProfile] = useState<any>(null);
   const [isRefreshing, setIsRefreshing] = useState(false);
+  const [selectedConsumerForModal, setSelectedConsumerForModal] = useState<any>(null);
+  const [showConsumerModal, setShowConsumerModal] = useState(false);
 
   // Document uploads
   const [documents, setDocuments] = useState<DocumentUpload[]>([]);
@@ -435,6 +437,25 @@ const loadRequests = useCallback(async () => {
 
   const viewConsumerProfile = (consumerId: string) => { fetchConsumerProfile(consumerId); };
 
+
+  const fetchConsumerDetails = async (consumerId: string) => {
+  if (!token) return;
+  try {
+    const res = await fetch(`${API_BASE}/api/users/consumers/${consumerId}`, {
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` }
+    });
+    if (!res.ok) return;
+    const data = await res.json();
+    setSelectedConsumerForModal(data);
+    setShowConsumerModal(true);
+  } catch (error) {
+    console.error('Error fetching consumer details:', error);
+  }
+};
+
+
+
+
   // ══════════════════════════════════════════════════════════════════════════
   // DASHBOARD TAB
   // ══════════════════════════════════════════════════════════════════════════
@@ -595,87 +616,166 @@ const loadRequests = useCallback(async () => {
 
 
 
-  if (normalizedTab === 'consumer-requests') {
+    if (normalizedTab === 'consumer-requests') {
     return (
-      <div className="space-y-8 animate-fadeIn">
-        <div className="pb-4 border-b border-[#e0e8e4] flex flex-col md:flex-row md:items-center md:justify-between gap-3">
-          <div>
-            <h2 className="font-sora text-[22px] font-bold text-gray-900">Consumer Requests</h2>
-            <p className="text-gray-500 text-[13px] mt-1">
-              Admin-approved open access requests waiting for your action.
-            </p>
+      <>
+        <div className="space-y-8 animate-fadeIn">
+          <div className="pb-4 border-b border-[#e0e8e4] flex flex-col md:flex-row md:items-center md:justify-between gap-3">
+            <div>
+              <h2 className="font-sora text-[22px] font-bold text-gray-900">Consumer Requests</h2>
+              <p className="text-gray-500 text-[13px] mt-1">
+                Admin-approved open access requests waiting for your action.
+              </p>
+            </div>
+            <button onClick={handleRefresh} disabled={isRefreshing} className="flex items-center gap-2 border border-[#e0e8e4] bg-white text-gray-700 text-[12px] font-bold px-4 py-2 rounded-lg hover:bg-gray-50">
+              <RefreshCw className={`w-3.5 h-3.5 ${isRefreshing ? 'animate-spin' : ''}`} />
+              <span>Refresh</span>
+            </button>
           </div>
-          <button onClick={handleRefresh} disabled={isRefreshing} className="flex items-center gap-2 border border-[#e0e8e4] bg-white text-gray-700 text-[12px] font-bold px-4 py-2 rounded-lg hover:bg-gray-50">
-            <RefreshCw className={`w-3.5 h-3.5 ${isRefreshing ? 'animate-spin' : ''}`} />
-            <span>Refresh</span>
-          </button>
+
+          {requests.length === 0 ? (
+            <div className="bg-white rounded-lg border border-[#e0e8e4] p-12 text-center">
+              <div className="w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                <Users className="w-8 h-8 text-gray-400" />
+              </div>
+              <p className="text-gray-500 text-[15px] font-medium">No pending consumer requests</p>
+              <p className="text-gray-400 text-[13px] mt-1">Admin-approved requests will appear here for your action.</p>
+            </div>
+          ) : (
+            <div className="bg-white rounded-lg border border-[#e0e8e4] overflow-x-auto">
+              <table className="w-full text-left border-collapse min-w-[900px]">
+                <thead>
+                  <tr>
+                    {['Consumer','Capacity (MW)','Offered Price (₹)','Injection Point','Duration','Submitted','Action'].map(h => (
+                      <th key={h} className="bg-[#1b4d3e] text-white text-[12px] font-semibold px-5 py-3 uppercase whitespace-nowrap">{h}</th>
+                    ))}
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-[#f0f4f2] text-[13px]">
+                  {requests.map((r, i) => (
+                    <tr key={r.id} className={`hover:bg-gray-50 transition-colors ${i % 2 !== 0 ? 'bg-[#f9fcfa]' : ''}`}>
+                      <td className="py-3.5 px-5 font-semibold text-gray-900">
+                        <button onClick={() => fetchConsumerDetails(r.consumerId)} className="text-blue-dark hover:text-blue-mid hover:underline font-semibold cursor-pointer transition-colors">{r.consumerName}</button>
+                      </td>
+                      <td className="py-3.5 px-5 font-bold text-gray-900">{r.mw} MW</td>
+                      <td className="py-3.5 px-5 font-bold text-[#1b4d3e]">₹{r.requestedPrice?.toFixed(2) || '—'}</td>
+                      <td className="py-3.5 px-5 text-gray-600 text-[12px] max-w-[180px] truncate">{r.injectionPoint || '—'}</td>
+                      <td className="py-3.5 px-5 text-gray-600">{r.duration}</td>
+                      <td className="py-3.5 px-5 text-gray-500 text-[12px]">{r.requestDate || '—'}</td>
+                      <td className="py-3.5 px-5">
+                        <div className="flex gap-2">
+                          <button
+                            onClick={() => handleRequestAction(r.id, 'APPROVED')}
+                            className="px-3 py-1.5 rounded-md bg-[#1b4d3e] text-white text-[12px] font-bold hover:bg-[#2d6a4f] transition-colors shadow-sm"
+                          >
+                            ✓ Accept
+                          </button>
+                          <button
+                            onClick={() => handleRequestAction(r.id, 'REJECTED')}
+                            className="px-3 py-1.5 rounded-md bg-white border border-red-200 text-red-600 text-[12px] font-bold hover:bg-red-50 transition-colors"
+                          >
+                            ✗ Reject
+                          </button>
+                        </div>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
         </div>
 
-        {requests.length === 0 ? (
-          <div className="bg-white rounded-lg border border-[#e0e8e4] p-12 text-center">
-            <div className="w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-4">
-              <Users className="w-8 h-8 text-gray-400" />
+        {/* Modal */}
+        {showConsumerModal && selectedConsumerForModal && (
+          <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4 animate-fadeIn" onClick={() => setShowConsumerModal(false)}>
+            <div className="bg-white rounded-2xl max-w-3xl w-full max-h-[85vh] overflow-y-auto shadow-2xl" onClick={(e) => e.stopPropagation()}>
+              <div className="sticky top-0 bg-white border-b border-[#e0e8e4] px-6 py-4 flex items-center justify-between">
+                <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 bg-blue-dark rounded-full flex items-center justify-center text-white font-bold">
+                    {selectedConsumerForModal.name?.charAt(0) || 'C'}
+                  </div>
+                  <div>
+                    <h3 className="font-sora text-xl font-bold text-gray-900">{selectedConsumerForModal.name}</h3>
+                    <p className="text-[13px] text-gray-500">Consumer Profile</p>
+                  </div>
+                </div>
+                <button onClick={() => setShowConsumerModal(false)} className="p-2 hover:bg-gray-100 rounded-full transition-colors">
+                  <X className="w-5 h-5 text-gray-500" />
+                </button>
+              </div>
+              
+              <div className="p-6 space-y-6">
+                <div>
+                  <h4 className="font-semibold text-gray-900 mb-3 flex items-center gap-2">
+                    <Building className="w-4 h-4 text-blue-dark" />
+                    Company Information
+                  </h4>
+                  <div className="grid grid-cols-2 gap-4 bg-gray-50 rounded-xl p-4">
+                    <div>
+                      <p className="text-[11px] text-gray-400 uppercase font-semibold">Entity Type</p>
+                      <p className="font-semibold text-gray-900">{selectedConsumerForModal.entityType || 'Industrial'}</p>
+                    </div>
+                    <div>
+                      <p className="text-[11px] text-gray-400 uppercase font-semibold">State</p>
+                      <p className="font-semibold text-gray-900">{selectedConsumerForModal.state || '—'}</p>
+                    </div>
+                    <div className="col-span-2">
+                      <p className="text-[11px] text-gray-400 uppercase font-semibold">Address</p>
+                      <p className="text-gray-700">{selectedConsumerForModal.address || '—'}</p>
+                    </div>
+                  </div>
+                </div>
+                
+                <div>
+                  <h4 className="font-semibold text-gray-900 mb-3 flex items-center gap-2">
+                    <Phone className="w-4 h-4 text-blue-dark" />
+                    Contact Information
+                  </h4>
+                  <div className="grid grid-cols-2 gap-4 bg-gray-50 rounded-xl p-4">
+                    <div>
+                      <p className="text-[11px] text-gray-400 uppercase font-semibold">Contact Person</p>
+                      <p className="font-semibold text-gray-900">{selectedConsumerForModal.contactPerson || '—'}</p>
+                    </div>
+                    <div>
+                      <p className="text-[11px] text-gray-400 uppercase font-semibold">Email</p>
+                      <p className="text-gray-700">{selectedConsumerForModal.email || '—'}</p>
+                    </div>
+                    <div>
+                      <p className="text-[11px] text-gray-400 uppercase font-semibold">Phone</p>
+                      <p className="text-gray-700">{selectedConsumerForModal.mobile || selectedConsumerForModal.phone || '—'}</p>
+                    </div>
+                  </div>
+                </div>
+                
+                <div>
+                  <h4 className="font-semibold text-gray-900 mb-3 flex items-center gap-2">
+                    <Zap className="w-4 h-4 text-blue-dark" />
+                    Power Requirements
+                  </h4>
+                  <div className="grid grid-cols-2 gap-4 bg-gray-50 rounded-xl p-4">
+                    <div>
+                      <p className="text-[11px] text-gray-400 uppercase font-semibold">Connected Load</p>
+                      <p className="font-bold text-xl text-blue-dark">{selectedConsumerForModal.loadMw || '—'} MW</p>
+                    </div>
+                    <div>
+                      <p className="text-[11px] text-gray-400 uppercase font-semibold">Voltage Level</p>
+                      <p className="font-bold text-xl text-gray-900">{selectedConsumerForModal.voltageLevel || '33kV'}</p>
+                    </div>
+                  </div>
+                </div>
+              </div>
             </div>
-            <p className="text-gray-500 text-[15px] font-medium">No pending consumer requests</p>
-            <p className="text-gray-400 text-[13px] mt-1">Admin-approved requests will appear here for your action.</p>
-          </div>
-        ) : (
-          <div className="bg-white rounded-lg border border-[#e0e8e4] overflow-x-auto">
-            <table className="w-full text-left border-collapse min-w-[900px]">
-              <thead>
-                <tr>
-                  {['Consumer','Capacity (MW)','Offered Price (₹)','Injection Point','Duration','Submitted','Action'].map(h => (
-                    <th key={h} className="bg-[#1b4d3e] text-white text-[12px] font-semibold px-5 py-3 uppercase whitespace-nowrap">{h}</th>
-                  ))}
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-[#f0f4f2] text-[13px]">
-                {requests.map((r, i) => (
-                  <tr key={r.id} className={`hover:bg-gray-50 transition-colors ${i % 2 !== 0 ? 'bg-[#f9fcfa]' : ''}`}>
-                    <td className="py-3.5 px-5 font-semibold text-gray-900">{r.consumerName}</td>
-                    <td className="py-3.5 px-5 font-bold text-gray-900">{r.mw} MW</td>
-                    <td className="py-3.5 px-5 font-bold text-[#1b4d3e]">₹{r.requestedPrice?.toFixed(2) || '—'}</td>
-                    <td className="py-3.5 px-5 text-gray-600 text-[12px] max-w-[180px] truncate">{r.injectionPoint || '—'}</td>
-                    <td className="py-3.5 px-5 text-gray-600">{r.duration}</td>
-                    <td className="py-3.5 px-5 text-gray-500 text-[12px]">{r.requestDate || '—'}</td>
-                    <td className="py-3.5 px-5">
-                      <div className="flex gap-2">
-                        <button
-                          onClick={() => handleRequestAction(r.id, 'APPROVED')}
-                          className="px-3 py-1.5 rounded-md bg-[#1b4d3e] text-white text-[12px] font-bold hover:bg-[#2d6a4f] transition-colors shadow-sm"
-                        >
-                          ✓ Accept
-                        </button>
-                        <button
-                          onClick={() => handleRequestAction(r.id, 'REJECTED')}
-                          className="px-3 py-1.5 rounded-md bg-white border border-red-200 text-red-600 text-[12px] font-bold hover:bg-red-50 transition-colors"
-                        >
-                          ✗ Reject
-                        </button>
-                      </div>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
           </div>
         )}
-      </div>
+      </>
     );
   }
 
 
-  // ══════════════════════════════════════════════════════════════════════════
-  // CONTRACTS / CONSUMER REQUESTS TAB
-  // Key fix: auto-reloads on tab switch via useEffect above.
-  // Shows all applications assigned to this supplier from the backend.
-  // - ADMIN_PENDING = still waiting for admin to approve → supplier can't act yet
-  // - APPROVED = admin approved → supplier can Accept or Reject
-  // - SUPPLIER_APPROVED = supplier accepted → active contract
-  // - REJECTED = rejected
-  // ══════════════════════════════════════════════════════════════════════════
   if (normalizedTab === 'contracts') {
-    return (
+  return (
+    <>
       <div className="space-y-8 animate-fadeIn">
         <div className="pb-4 border-b border-[#e0e8e4]">
           <h2 className="font-sora text-[22px] font-bold text-gray-900">Active Contracts</h2>
@@ -706,7 +806,14 @@ const loadRequests = useCallback(async () => {
                 {contracts.map((c, i) => (
                   <tr key={c.id} className={`hover:bg-gray-50 transition-colors ${i % 2 !== 0 ? 'bg-[#f9fcfa]' : ''}`}>
                     <td className="py-3.5 px-5 font-mono text-[11px] font-bold text-gray-600">#{c.id.slice(-8)}</td>
-                    <td className="py-3.5 px-5 font-semibold text-gray-900">{c.consumerName}</td>
+                    <td className="py-3.5 px-5 font-semibold text-gray-900">
+                      <button 
+                        onClick={() => fetchConsumerDetails(c.consumerId)} 
+                        className="text-blue-dark hover:text-blue-mid hover:underline font-semibold cursor-pointer transition-colors"
+                      >
+                        {c.consumerName}
+                      </button>
+                    </td>
                     <td className="py-3.5 px-5 font-bold text-gray-900">{c.mw} MW</td>
                     <td className="py-3.5 px-5 font-bold text-[#1b4d3e]">₹{c.finalPrice?.toFixed(2) || c.requestedPrice?.toFixed(2) || '—'}</td>
                     <td className="py-3.5 px-5 text-gray-600">{c.duration}</td>
@@ -733,8 +840,92 @@ const loadRequests = useCallback(async () => {
           </div>
         )}
       </div>
-    );
-  };
+      
+      {/* Consumer Details Modal */}
+      {showConsumerModal && selectedConsumerForModal && (
+        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4 animate-fadeIn" onClick={() => setShowConsumerModal(false)}>
+          <div className="bg-white rounded-2xl max-w-3xl w-full max-h-[85vh] overflow-y-auto shadow-2xl" onClick={(e) => e.stopPropagation()}>
+            <div className="sticky top-0 bg-white border-b border-[#e0e8e4] px-6 py-4 flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 bg-blue-dark rounded-full flex items-center justify-center text-white font-bold">
+                  {selectedConsumerForModal.name?.charAt(0) || 'C'}
+                </div>
+                <div>
+                  <h3 className="font-sora text-xl font-bold text-gray-900">{selectedConsumerForModal.name}</h3>
+                  <p className="text-[13px] text-gray-500">Consumer Profile</p>
+                </div>
+              </div>
+              <button onClick={() => setShowConsumerModal(false)} className="p-2 hover:bg-gray-100 rounded-full transition-colors">
+                <X className="w-5 h-5 text-gray-500" />
+              </button>
+            </div>
+            
+            <div className="p-6 space-y-6">
+              <div>
+                <h4 className="font-semibold text-gray-900 mb-3 flex items-center gap-2">
+                  <Building className="w-4 h-4 text-blue-dark" />
+                  Company Information
+                </h4>
+                <div className="grid grid-cols-2 gap-4 bg-gray-50 rounded-xl p-4">
+                  <div>
+                    <p className="text-[11px] text-gray-400 uppercase font-semibold">Entity Type</p>
+                    <p className="font-semibold text-gray-900">{selectedConsumerForModal.entityType || 'Industrial'}</p>
+                  </div>
+                  <div>
+                    <p className="text-[11px] text-gray-400 uppercase font-semibold">State</p>
+                    <p className="font-semibold text-gray-900">{selectedConsumerForModal.state || '—'}</p>
+                  </div>
+                  <div className="col-span-2">
+                    <p className="text-[11px] text-gray-400 uppercase font-semibold">Address</p>
+                    <p className="text-gray-700">{selectedConsumerForModal.address || '—'}</p>
+                  </div>
+                </div>
+              </div>
+              
+              <div>
+                <h4 className="font-semibold text-gray-900 mb-3 flex items-center gap-2">
+                  <Phone className="w-4 h-4 text-blue-dark" />
+                  Contact Information
+                </h4>
+                <div className="grid grid-cols-2 gap-4 bg-gray-50 rounded-xl p-4">
+                  <div>
+                    <p className="text-[11px] text-gray-400 uppercase font-semibold">Contact Person</p>
+                    <p className="font-semibold text-gray-900">{selectedConsumerForModal.contactPerson || '—'}</p>
+                  </div>
+                  <div>
+                    <p className="text-[11px] text-gray-400 uppercase font-semibold">Email</p>
+                    <p className="text-gray-700">{selectedConsumerForModal.email || '—'}</p>
+                  </div>
+                  <div>
+                    <p className="text-[11px] text-gray-400 uppercase font-semibold">Phone</p>
+                    <p className="text-gray-700">{selectedConsumerForModal.mobile || selectedConsumerForModal.phone || '—'}</p>
+                  </div>
+                </div>
+              </div>
+              
+              <div>
+                <h4 className="font-semibold text-gray-900 mb-3 flex items-center gap-2">
+                  <Zap className="w-4 h-4 text-blue-dark" />
+                  Power Requirements
+                </h4>
+                <div className="grid grid-cols-2 gap-4 bg-gray-50 rounded-xl p-4">
+                  <div>
+                    <p className="text-[11px] text-gray-400 uppercase font-semibold">Connected Load</p>
+                    <p className="font-bold text-xl text-blue-dark">{selectedConsumerForModal.loadMw || selectedConsumerForModal.connectedLoad || '—'} MW</p>
+                  </div>
+                  <div>
+                    <p className="text-[11px] text-gray-400 uppercase font-semibold">Voltage Level</p>
+                    <p className="font-bold text-xl text-gray-900">{selectedConsumerForModal.voltageLevel || '33kV'}</p>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+    </>
+  );
+};
 
   if (normalizedTab === 'consumer-marketplace') {
     return (
@@ -1103,7 +1294,94 @@ const loadRequests = useCallback(async () => {
     );
   }
 
-  return null;
+  const ConsumerDetailsModal = () => {
+  if (!showConsumerModal || !selectedConsumerForModal) return null;
+  
+  return (
+    <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4 animate-fadeIn" onClick={() => setShowConsumerModal(false)}>
+      <div className="bg-white rounded-2xl max-w-3xl w-full max-h-[85vh] overflow-y-auto shadow-2xl" onClick={(e) => e.stopPropagation()}>
+        <div className="sticky top-0 bg-white border-b border-[#e0e8e4] px-6 py-4 flex items-center justify-between">
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 bg-blue-dark rounded-full flex items-center justify-center text-white font-bold">
+              {selectedConsumerForModal.name?.charAt(0) || 'C'}
+            </div>
+            <div>
+              <h3 className="font-sora text-xl font-bold text-gray-900">{selectedConsumerForModal.name}</h3>
+              <p className="text-[13px] text-gray-500">Consumer Profile</p>
+            </div>
+          </div>
+          <button onClick={() => setShowConsumerModal(false)} className="p-2 hover:bg-gray-100 rounded-full transition-colors">
+            <X className="w-5 h-5 text-gray-500" />
+          </button>
+        </div>
+        
+        <div className="p-6 space-y-6">
+          {/* Company Information */}
+          <div>
+            <h4 className="font-semibold text-gray-900 mb-3 flex items-center gap-2">
+              <Building className="w-4 h-4 text-blue-dark" />
+              Company Information
+            </h4>
+            <div className="grid grid-cols-2 gap-4 bg-gray-50 rounded-xl p-4">
+              <div>
+                <p className="text-[11px] text-gray-400 uppercase font-semibold">Entity Type</p>
+                <p className="font-semibold text-gray-900">{selectedConsumerForModal.entityType || 'Industrial'}</p>
+              </div>
+              <div>
+                <p className="text-[11px] text-gray-400 uppercase font-semibold">State</p>
+                <p className="font-semibold text-gray-900">{selectedConsumerForModal.state || '—'}</p>
+              </div>
+              <div className="col-span-2">
+                <p className="text-[11px] text-gray-400 uppercase font-semibold">Address</p>
+                <p className="text-gray-700">{selectedConsumerForModal.address || '—'}</p>
+              </div>
+            </div>
+          </div>
+          
+          {/* Contact Information */}
+          <div>
+            <h4 className="font-semibold text-gray-900 mb-3 flex items-center gap-2">
+              <Phone className="w-4 h-4 text-blue-dark" />
+              Contact Information
+            </h4>
+            <div className="grid grid-cols-2 gap-4 bg-gray-50 rounded-xl p-4">
+              <div>
+                <p className="text-[11px] text-gray-400 uppercase font-semibold">Contact Person</p>
+                <p className="font-semibold text-gray-900">{selectedConsumerForModal.contactPerson || '—'}</p>
+              </div>
+              <div>
+                <p className="text-[11px] text-gray-400 uppercase font-semibold">Email</p>
+                <p className="text-gray-700">{selectedConsumerForModal.email || '—'}</p>
+              </div>
+              <div>
+                <p className="text-[11px] text-gray-400 uppercase font-semibold">Phone</p>
+                <p className="text-gray-700">{selectedConsumerForModal.mobile || selectedConsumerForModal.phone || '—'}</p>
+              </div>
+            </div>
+          </div>
+          
+          {/* Power Requirements */}
+          <div>
+            <h4 className="font-semibold text-gray-900 mb-3 flex items-center gap-2">
+              <Zap className="w-4 h-4 text-blue-dark" />
+              Power Requirements
+            </h4>
+            <div className="grid grid-cols-2 gap-4 bg-gray-50 rounded-xl p-4">
+              <div>
+                <p className="text-[11px] text-gray-400 uppercase font-semibold">Connected Load</p>
+                <p className="font-bold text-xl text-blue-dark">{selectedConsumerForModal.loadMw || '—'} MW</p>
+              </div>
+              <div>
+                <p className="text-[11px] text-gray-400 uppercase font-semibold">Voltage Level</p>
+                <p className="font-bold text-xl text-gray-900">{selectedConsumerForModal.voltageLevel || '33kV'}</p>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+};
 };
 
 export default SupplierDashboard;

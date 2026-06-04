@@ -3,7 +3,8 @@ import { useAuth } from '../../context/AuthContext';
 import {
   Zap, ShieldAlert, Award, Clock,
   Search, ArrowRight, Upload, DollarSign, BarChart2, Settings,
-  FileText, CheckCircle, ChevronRight, ClipboardList, AlertCircle, X, Eye, Save, Download
+  FileText, CheckCircle, ChevronRight, ClipboardList, AlertCircle, X, Eye, Save, Download,
+  Building, Phone, MapPin  
 } from 'lucide-react';
 
 interface DraftApplication {
@@ -87,6 +88,9 @@ export const ConsumerDashboard: React.FC<ConsumerDashboardProps> = ({ activeTab,
   const [validationErrors, setValidationErrors] = useState<{
     mobile?: string; legalIdentifier?: string; discomConsumerNo?: string;
   }>({});
+
+  const [selectedSupplierForModal, setSelectedSupplierForModal] = useState<any>(null);
+  const [showSupplierModal, setShowSupplierModal] = useState(false);
 
   // Filter states
   const [searchQuery, setSearchQuery] = useState('');
@@ -185,8 +189,7 @@ export const ConsumerDashboard: React.FC<ConsumerDashboardProps> = ({ activeTab,
   const GEOA_STEPS = [
     { num: 1, label: 'Applicant Details' },
     { num: 2, label: 'Technical Details' },
-    { num: 3, label: 'Upload Documents' },
-    { num: 4, label: 'Review & Submit' },
+    { num: 3, label: 'Review & Submit' },
   ];
 
   const API_BASE = (import.meta as any)?.env?.VITE_API_URL || 'http://localhost:5000';
@@ -542,6 +545,113 @@ export const ConsumerDashboard: React.FC<ConsumerDashboardProps> = ({ activeTab,
     }
   };
 
+
+  const fetchSupplierDetails = async (supplierId: string) => {
+  if (!token) return;
+  try {
+    const res = await fetch(`${API_BASE}/api/suppliers/${supplierId}`, {
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` }
+    });
+    if (!res.ok) return;
+    const data = await res.json();
+    setSelectedSupplierForModal(data);
+    setShowSupplierModal(true);
+  } catch (error) {
+    console.error('Error fetching supplier details:', error);
+  }
+};
+
+const SupplierDetailsModal = () => {
+  if (!showSupplierModal || !selectedSupplierForModal) return null;
+  
+  return (
+    <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4" onClick={() => setShowSupplierModal(false)}>
+      <div className="bg-white rounded-2xl max-w-3xl w-full max-h-[85vh] overflow-y-auto shadow-2xl" onClick={(e) => e.stopPropagation()}>
+        <div className="sticky top-0 bg-white border-b px-6 py-4 flex items-center justify-between">
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 bg-green-dark rounded-full flex items-center justify-center text-white font-bold">
+              {selectedSupplierForModal.name?.charAt(0) || 'S'}
+            </div>
+            <div>
+              <h3 className="font-sora text-xl font-bold text-gray-900">{selectedSupplierForModal.name}</h3>
+              <p className="text-[13px] text-gray-500">Supplier Profile</p>
+            </div>
+          </div>
+          <button onClick={() => setShowSupplierModal(false)} className="p-2 hover:bg-gray-100 rounded-full">
+            <X className="w-5 h-5 text-gray-500" />
+          </button>
+        </div>
+        
+        <div className="p-6 space-y-6">
+          <div>
+            <h4 className="font-semibold mb-3 flex items-center gap-2">
+              <Building className="w-4 h-4 text-green-dark" />
+              Company Information
+            </h4>
+            <div className="grid grid-cols-2 gap-4 bg-gray-50 rounded-xl p-4">
+              <div>
+                <p className="text-[11px] text-gray-400">Registered State</p>
+                <p className="font-semibold">{selectedSupplierForModal.state || '—'}</p>
+              </div>
+              <div>
+                <p className="text-[11px] text-gray-400">Registration No.</p>
+                <p className="font-semibold">{selectedSupplierForModal.registrationNo || '—'}</p>
+              </div>
+              <div className="col-span-2">
+                <p className="text-[11px] text-gray-400">Address</p>
+                <p className="text-gray-700">{selectedSupplierForModal.address || '—'}</p>
+              </div>
+            </div>
+          </div>
+          
+          <div>
+            <h4 className="font-semibold mb-3 flex items-center gap-2">
+              <Phone className="w-4 h-4 text-green-dark" />
+              Contact Information
+            </h4>
+            <div className="grid grid-cols-2 gap-4 bg-gray-50 rounded-xl p-4">
+              <div>
+                <p className="text-[11px] text-gray-400">Contact Person</p>
+                <p className="font-semibold">{selectedSupplierForModal.contactPerson || '—'}</p>
+              </div>
+              <div>
+                <p className="text-[11px] text-gray-400">Email</p>
+                <p className="text-gray-700">{selectedSupplierForModal.email || '—'}</p>
+              </div>
+              <div>
+                <p className="text-[11px] text-gray-400">Phone</p>
+                <p className="text-gray-700">{selectedSupplierForModal.phone || '—'}</p>
+              </div>
+            </div>
+          </div>
+          
+          <div>
+            <h4 className="font-semibold mb-3 flex items-center gap-2">
+              <Zap className="w-4 h-4 text-green-dark" />
+              Capacity & Pricing
+            </h4>
+            <div className="grid grid-cols-3 gap-4 bg-gray-50 rounded-xl p-4">
+              <div>
+                <p className="text-[11px] text-gray-400">Total Capacity</p>
+                <p className="font-bold text-xl text-green-dark">{selectedSupplierForModal.totalCapacity || selectedSupplierForModal.generationCapacity || '—'} MW</p>
+              </div>
+              <div>
+                <p className="text-[11px] text-gray-400">Base Price</p>
+                <p className="font-bold text-xl">₹{Number(selectedSupplierForModal.price || 4.2).toFixed(2)}/unit</p>
+              </div>
+              <div>
+                <p className="text-[11px] text-gray-400">Injection Point</p>
+                <p className="text-gray-700 text-sm">{selectedSupplierForModal.injectionPoint || '—'}</p>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+};
+
+
   const geoaStatusBadge = (status: GeoaApplication['status']) => {
     const map: Record<string, string> = {
       SUBMITTED: 'badge-blue', UNDER_REVIEW: 'badge-amber',
@@ -724,6 +834,7 @@ export const ConsumerDashboard: React.FC<ConsumerDashboardProps> = ({ activeTab,
   // ══════════════════════════════════════════════════════════════════════════
   if (activeTab === 'my-applications') {
     return (
+      <>
       <div className="space-y-8 animate-fadeIn">
         <div className="pb-4 border-b border-[#e0e8e4] flex items-center justify-between">
           <div>
@@ -746,7 +857,9 @@ export const ConsumerDashboard: React.FC<ConsumerDashboardProps> = ({ activeTab,
             <tbody className="divide-y divide-[#f0f4f2] text-[13px]">
               {applications.length > 0 ? applications.map((app, i) => (
                 <tr key={app.id} className={`hover:bg-gray-50 transition-colors ${i % 2 !== 0 ? 'bg-[#f9fcfa]' : ''}`}>
-                  <td className="py-3.5 px-5 font-semibold text-gray-900">{app.supplierName}</td>
+                  <td className="py-3.5 px-5 font-semibold text-gray-900">
+                     <button onClick={() => fetchSupplierDetails(app.supplierId)} className="text-green-dark hover:text-green-mid hover:underline font-semibold cursor-pointer transition-colors">{app.supplierName}</button>
+                  </td>
                   <td className="py-3.5 px-5 text-gray-700">{app.requestedMw} MW</td>
                   <td className="py-3.5 px-5 text-gray-700">{app.duration}</td>
                   <td className="py-3.5 px-5 text-gray-900">₹{app.basePrice?.toFixed(2) || '—'}</td>
@@ -773,6 +886,8 @@ export const ConsumerDashboard: React.FC<ConsumerDashboardProps> = ({ activeTab,
           </table>
         </div>
       </div>
+      {showSupplierModal && selectedSupplierForModal && <SupplierDetailsModal />}
+      </>
     );
   }
 
@@ -1488,61 +1603,9 @@ if (activeTab === 'application-details' && selectedApplication) {
                 </div>
               )}
 
-              {/* ── STEP 3 ── */}
-              {geoaStep === 3 && (
-                <div className="form-card space-y-5">
-                  <div className="pb-4 border-b border-[#f0f4f2]">
-                    <h3 className="font-sora text-[16px] font-bold text-gray-900">Step 3: Upload Supporting Documents</h3>
-                    <p className="text-gray-500 text-[13px] mt-1">Upload required files (PDF/JPG/PNG, max 5MB). Mandatory fields marked <span className="text-red font-semibold">*</span>.</p>
-                  </div>
-
-                  <div className="space-y-3">
-                    {geoaDocs.map((doc) => (
-                      <div key={doc.key} className={`flex items-center justify-between p-4 rounded-xl border transition-all ${doc.status === 'uploaded' ? 'border-green-mid bg-green-pale/30' : 'border-[#e0e8e4] bg-white'}`}>
-                        <div className="flex items-center gap-3 min-w-0">
-                          <div className={`w-9 h-9 rounded-lg flex items-center justify-center shrink-0 ${doc.status === 'uploaded' ? 'bg-green-mid/20' : 'bg-gray-100'}`}>
-                            {doc.status === 'uploaded' ? <CheckCircle className="w-5 h-5 text-green-dark" /> : <FileText className="w-5 h-5 text-gray-400" />}
-                          </div>
-                          <div className="min-w-0">
-                            <p className="text-[13px] font-semibold text-gray-900 truncate">{doc.label}{doc.required && <span className="text-red ml-1">*</span>}</p>
-                            {doc.fileName && <p className="text-[11px] text-green-dark font-medium truncate">{doc.fileName}</p>}
-                          </div>
-                        </div>
-                        <div className="flex items-center gap-2 shrink-0 ml-3">
-                          {doc.status === 'uploaded' ? <span className="badge badge-green">Uploaded</span> : (
-                            <label className="px-3 py-1.5 rounded-md bg-white border border-[#e0e8e4] text-gray-700 text-[12px] font-semibold hover:bg-gray-50 cursor-pointer flex items-center gap-1.5">
-                              <Upload className="w-3.5 h-3.5" /><span>Choose File</span>
-                              <input type="file" accept=".pdf,.jpg,.png" className="hidden" onChange={(e) => { const file = e.target.files?.[0]; if (file) handleGeoaDocSimulate(doc.key, file.name); }} />
-                            </label>
-                          )}
-                          {doc.status === 'uploaded' && (
-                            <button type="button" onClick={() => setGeoaDocs(prev => prev.map(d => d.key === doc.key ? { ...d, fileName: '', status: 'pending' } : d))} className="w-7 h-7 rounded-md border border-[#e0e8e4] flex items-center justify-center hover:bg-red-50">
-                              <X className="w-3.5 h-3.5 text-gray-400" />
-                            </button>
-                          )}
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-
-                  <div className="bg-amber-light border border-[#fac775] rounded-lg p-4">
-                    <p className="text-[12px] text-amber leading-relaxed"><span className="font-semibold">Note:</span> All mandatory documents must be uploaded before proceeding. Files verified by Nodal Agency within 3–5 working days.</p>
-                  </div>
-
-                  <div className="flex items-center justify-between pt-2">
-                    <div className="flex items-center gap-3">
-                      <button type="button" onClick={() => setGeoaStep(2)} className="btn-outline flex items-center gap-2"><ArrowRight className="w-4 h-4 rotate-180" /><span>Back</span></button>
-                      <button type="button" onClick={saveGeoaDraft} className="btn-outline flex items-center gap-2 text-[13px]"><Save className="w-4 h-4" /><span>Save Draft</span></button>
-                    </div>
-                    <button type="button" disabled={!step3Valid} onClick={() => setGeoaStep(4)} className={`btn-green flex items-center gap-2 px-8 ${!step3Valid ? 'opacity-50 cursor-not-allowed' : ''}`}>
-                      <span>Next: Review & Submit</span><ChevronRight className="w-4 h-4" />
-                    </button>
-                  </div>
-                </div>
-              )}
 
               {/* ── STEP 4 ── */}
-              {geoaStep === 4 && (
+              {geoaStep === 3 && (
                 <div className="form-card space-y-6">
                   <div className="pb-4 border-b border-[#f0f4f2]">
                     <h3 className="font-sora text-[16px] font-bold text-gray-900">Step 4: Review & Submit Application</h3>
@@ -1586,29 +1649,13 @@ if (activeTab === 'application-details' && selectedApplication) {
                   </div>
 
                   {/* Review – Documents */}
-                  <div>
-                    <h4 className="text-[12px] font-bold text-gray-500 uppercase tracking-wider mb-3 flex items-center gap-2">
-                      <span className="w-5 h-5 rounded-full bg-green-pale text-green-dark text-[10px] font-bold flex items-center justify-center">3</span>Documents
-                    </h4>
-                    <div className="space-y-2">
-                      {geoaDocs.map(doc => (
-                        <div key={doc.key} className="flex items-center justify-between py-2 border-b border-[#f0f4f2]">
-                          <div className="flex items-center gap-2"><FileText className="w-4 h-4 text-gray-400" /><span className="text-[13px] text-gray-700">{doc.label}{doc.required && <span className="text-red ml-1">*</span>}</span></div>
-                          <div className="flex items-center gap-2">
-                            {doc.fileName && <span className="text-[12px] text-gray-500 max-w-[140px] truncate">{doc.fileName}</span>}
-                            <span className={`badge ${doc.status === 'uploaded' ? 'badge-green' : 'badge-amber'}`}>{doc.status === 'uploaded' ? 'Ready' : 'Not Uploaded'}</span>
-                          </div>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-
+                  
                   <div className="bg-green-pale border border-[#9fe1cb] rounded-lg p-4">
                     <p className="text-[12px] text-green-dark leading-relaxed"><span className="font-bold">Declaration:</span> I hereby declare that the information provided is true and correct. I understand that any false information may result in rejection or cancellation of Open Access permission.</p>
                   </div>
 
                   <div className="flex items-center justify-between pt-2">
-                    <button type="button" onClick={() => setGeoaStep(3)} className="btn-outline flex items-center gap-2"><ArrowRight className="w-4 h-4 rotate-180" /><span>Back</span></button>
+                    <button type="button" onClick={() => setGeoaStep(2)} className="btn-outline flex items-center gap-2"><ArrowRight className="w-4 h-4 rotate-180" /><span>Back</span></button>
                     <button type="button" onClick={submitGeoaApplication} className="btn-green flex items-center gap-2 px-10 py-3 text-[15px]">
                       <CheckCircle className="w-5 h-5" /><span>Submit GEOA Application</span>
                     </button>
@@ -1625,8 +1672,7 @@ if (activeTab === 'application-details' && selectedApplication) {
                   {[
                     {label:'Applicant Details',done:step1Valid,step:1},
                     {label:'Technical Parameters',done:step2Valid,step:2},
-                    {label:'All Mandatory Docs',done:step3Valid,step:3},
-                    {label:'Review Complete',done:geoaStep===4,step:4},
+                    {label:'Review Complete',done:geoaStep===3,step:3},
                   ].map(item => (
                     <div key={item.label} className="flex items-center justify-between text-[13px]">
                       <div className="flex items-center gap-2">
@@ -1643,17 +1689,7 @@ if (activeTab === 'application-details' && selectedApplication) {
                 </div>
               </div>
 
-              <div className="tracker-card p-5 !mb-0">
-                <h4 className="font-sora font-bold text-[14px] text-gray-900 mb-3">Required Documents</h4>
-                <div className="space-y-2">
-                  {geoaDocs.map(doc => (
-                    <div key={doc.key} className="flex items-center gap-2 text-[12px]">
-                      {doc.status === 'uploaded' ? <CheckCircle className="w-3.5 h-3.5 text-green-dark shrink-0" /> : <div className={`w-3.5 h-3.5 rounded-full border shrink-0 ${doc.required ? 'border-red' : 'border-gray-300'}`} />}
-                      <span className={doc.status === 'uploaded' ? 'text-gray-500 line-through' : doc.required ? 'text-gray-700' : 'text-gray-400'}>{doc.label}</span>
-                    </div>
-                  ))}
-                </div>
-              </div>
+              
 
               <div className="bg-blue-light border border-[#b5d4f4] rounded-[var(--radius-md)] p-4">
                 <p className="text-[12px] text-blue-dark font-semibold mb-1">RERC Helpdesk</p>
@@ -1750,4 +1786,5 @@ if (activeTab === 'application-details' && selectedApplication) {
   }
 
   return null;
+
 };
