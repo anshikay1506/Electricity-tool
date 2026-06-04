@@ -3,7 +3,7 @@ import { useAuth } from '../../context/AuthContext';
 import { 
   Zap, Award, Users, ShieldCheck,
   Plus, BarChart2, Edit2, Building, Save, X, Phone, Mail, MapPin, FileText, CheckCircle, Lock,
-  RefreshCw, Upload, AlertCircle, Clock 
+  RefreshCw, Upload, AlertCircle, Clock, Download, Eye, DollarSign 
 } from 'lucide-react';
 
 interface SupplierDashboardProps {
@@ -92,8 +92,7 @@ export const SupplierDashboard: React.FC<SupplierDashboardProps> = ({ activeTab 
 
 
 useEffect(() => {
-  console.log('Current supplier user:', user);
-  console.log('Supplier ID:', user?.id);
+  
 }, [user]);
 
   // ── Map backend application to supplier view ────────────────────────────
@@ -116,7 +115,6 @@ useEffect(() => {
 
 const loadRequests = useCallback(async () => {
   if (!token) {
-    console.log('No token available!');
     return;
   }
   
@@ -129,7 +127,7 @@ const loadRequests = useCallback(async () => {
     const data = await res.json();
     
     data.forEach((app: any) => {
-      console.log(`App ID: ${app.id}, Status: ${app.approvalStatus}, SupplierId: ${app.supplierId}, Consumer: ${app.consumerName}`);
+      // console.log(`App ID: ${app.id}, Status: ${app.approvalStatus}, SupplierId: ${app.supplierId}, Consumer: ${app.consumerName}`);
     });
     
     // Filter for this supplier only
@@ -146,10 +144,7 @@ const loadRequests = useCallback(async () => {
     setRequests(pendingRequests.map(mapRequest));
     setContracts(activeContracts.map(mapRequest));
 
-    console.log('Pending requests (need action):', pendingRequests.length);
-    console.log('Active contracts:', activeContracts.length);
   } catch (error) {
-    console.error('Error loading requests:', error);
     setRequests([]);
     setContracts([]);
   }
@@ -1000,28 +995,360 @@ const loadRequests = useCallback(async () => {
   }
 
   if (normalizedTab === 'revenue') {
-    return (
-      <div className="space-y-8">
-        <div className="pb-4 border-b border-[#e0e8e4]"><h2 className="font-sora text-[22px] font-bold text-gray-900">Revenue & Settlement Ledger</h2><p className="text-gray-500 text-[13px] mt-1">Audit grid production wire clearings</p></div>
-        <div className="bg-white rounded-lg border border-[#e0e8e4] overflow-hidden">
-          <table className="w-full text-left border-collapse">
-            <thead><tr>{['Billing Month','Total Matched Energy','Avg Rate','Total Earned','Status'].map(h=><th key={h} className="bg-[#1b4d3e] text-white text-[12px] font-semibold px-5 py-3 tracking-[0.03em] uppercase">{h}</th>)}</tr></thead>
-            <tbody className="divide-y divide-[#f0f4f2] text-[13px]">
-              {revenueLedger.map((rev,i)=>(
-                <tr key={rev.id} className={`hover:bg-gray-50 transition-colors ${i%2!==0?'bg-[#f9fcfa]':''}`}>
-                  <td className="py-3.5 px-5 font-semibold text-gray-900">{rev.month}</td>
-                  <td className="py-3.5 px-5 text-gray-700">{rev.totalMwh.toLocaleString()} MWh</td>
-                  <td className="py-3.5 px-5 font-bold text-gray-900">₹{rev.rate}</td>
-                  <td className="py-3.5 px-5 font-bold text-[#1b4d3e] text-[14px]">₹{rev.earned.toLocaleString('en-IN')}</td>
-                  <td className="py-3.5 px-5"><span className={`px-2 py-1 rounded-full text-[11px] font-semibold ${rev.status==='SETTLED'?'bg-green-100 text-green-800':'bg-yellow-100 text-yellow-800'}`}>{rev.status}</span></td>
+  // Sample consumer revenue data (replace with API data later)
+  const consumerRevenueData = [
+    { id: 'consumer-1', name: 'Tata Steel Limited', state: 'Jharkhand', mw: 50, energy: 36500, rate: 4.45, revenue: 16242500, status: 'PAID', paymentDate: '2026-05-10' },
+    { id: 'consumer-2', name: 'JSW Steel Ltd', state: 'Karnataka', mw: 35, energy: 25550, rate: 4.38, revenue: 11190900, status: 'PAID', paymentDate: '2026-05-08' },
+    { id: 'consumer-3', name: 'UltraTech Cement', state: 'Rajasthan', mw: 25, energy: 18250, rate: 4.42, revenue: 8066500, status: 'PENDING', paymentDate: '2026-05-25' },
+    { id: 'consumer-4', name: 'Hindustan Zinc', state: 'Rajasthan', mw: 20, energy: 14600, rate: 4.35, revenue: 6351000, status: 'PARTIAL', paymentDate: '2026-05-15' },
+    { id: 'consumer-5', name: 'Adani Green', state: 'Gujarat', mw: 15, energy: 10950, rate: 4.50, revenue: 4927500, status: 'PAID', paymentDate: '2026-05-05' },
+  ];
+
+  // Monthly revenue data for chart
+  const monthlyData = [
+    { month: 'Apr', revenue: 850000 },
+    { month: 'May', revenue: 920000 },
+    { month: 'Jun', revenue: 1100000 },
+    { month: 'Jul', revenue: 1250000 },
+    { month: 'Aug', revenue: 1180000 },
+    { month: 'Sep', revenue: 1350000 },
+    { month: 'Oct', revenue: 1420000 },
+    { month: 'Nov', revenue: 1280000 },
+    { month: 'Dec', revenue: 1510000 },
+    { month: 'Jan', revenue: 1650000 },
+    { month: 'Feb', revenue: 1580000 },
+    { month: 'Mar', revenue: 1720000 },
+  ];
+
+  const maxRevenue = 2000000;
+
+  return (
+    <>
+      <div className="space-y-6 animate-fadeIn">
+        {/* Header with Year Filter */}
+        <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4 pb-4 border-b border-[#e0e8e4]">
+          <div>
+            <h2 className="font-sora text-[22px] font-bold text-gray-900">Revenue & Settlement Ledger</h2>
+            <p className="text-gray-500 text-[13px] mt-1">Track consumer-wise revenue, payments, and settlements</p>
+          </div>
+          
+          {/* Year Filter */}
+          <div className="flex items-center gap-3">
+            <select className="border border-[#e0e8e4] rounded-lg px-4 py-2 text-[13px] font-semibold bg-white">
+              <option value="2026">Financial Year 2025-26</option>
+              <option value="2025">Financial Year 2024-25</option>
+              <option value="2024">Financial Year 2023-24</option>
+            </select>
+            <button className="bg-[#2d6a4f] text-white px-4 py-2 rounded-lg text-[12px] font-semibold hover:bg-[#1b4d3e] transition-colors flex items-center gap-2">
+              <Download className="w-3.5 h-3.5" />
+              Export Report
+            </button>
+          </div>
+        </div>
+
+        {/* Key Metrics Cards */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+          <div className="bg-white rounded-xl p-5 border border-[#e0e8e4] shadow-sm">
+            <div className="flex items-center justify-between mb-2">
+              <span className="text-[11px] font-bold text-gray-500 uppercase tracking-wider">Total Revenue</span>
+              <DollarSign className="w-4 h-4 text-green-dark" />
+            </div>
+            <p className="font-sora text-[28px] font-bold text-gray-900">₹1,28,45,000</p>
+            <p className="text-[11px] text-green-600 mt-1">↑ 12.5% from last year</p>
+          </div>
+          
+          <div className="bg-white rounded-xl p-5 border border-[#e0e8e4] shadow-sm">
+            <div className="flex items-center justify-between mb-2">
+              <span className="text-[11px] font-bold text-gray-500 uppercase tracking-wider">Active Consumers</span>
+              <Users className="w-4 h-4 text-blue-dark" />
+            </div>
+            <p className="font-sora text-[28px] font-bold text-gray-900">{consumerRevenueData.length}</p>
+            <p className="text-[11px] text-gray-500 mt-1">Across 4 states</p>
+          </div>
+          
+          <div className="bg-white rounded-xl p-5 border border-[#e0e8e4] shadow-sm">
+            <div className="flex items-center justify-between mb-2">
+              <span className="text-[11px] font-bold text-gray-500 uppercase tracking-wider">Total Energy Delivered</span>
+              <Zap className="w-4 h-4 text-amber" />
+            </div>
+            <p className="font-sora text-[28px] font-bold text-gray-900">42,850 MWh</p>
+            <p className="text-[11px] text-gray-500 mt-1">YTD volume</p>
+          </div>
+          
+          <div className="bg-white rounded-xl p-5 border border-[#e0e8e4] shadow-sm">
+            <div className="flex items-center justify-between mb-2">
+              <span className="text-[11px] font-bold text-gray-500 uppercase tracking-wider">Avg. Realized Price</span>
+              <BarChart2 className="w-4 h-4 text-green-dark" />
+            </div>
+            <p className="font-sora text-[28px] font-bold text-gray-900">₹4.35</p>
+            <p className="text-[11px] text-gray-500 mt-1">per unit</p>
+          </div>
+        </div>
+
+        {/* Consumer-wise Revenue Table */}
+        <div className="bg-white rounded-xl border border-[#e0e8e4] overflow-hidden shadow-sm">
+          <div className="px-6 py-4 bg-gray-50 border-b border-[#e0e8e4]">
+            <h3 className="font-sora font-bold text-[16px] text-gray-900">Consumer-wise Revenue Breakdown</h3>
+            <p className="text-gray-500 text-[12px] mt-0.5">Monthly and cumulative revenue by consumer</p>
+          </div>
+          
+          <div className="overflow-x-auto">
+            <table className="w-full text-left border-collapse">
+              <thead>
+                <tr className="bg-[#1b4d3e]">
+                  <th className="text-white text-[12px] font-semibold px-5 py-3">Consumer Name</th>
+                  <th className="text-white text-[12px] font-semibold px-5 py-3">State</th>
+                  <th className="text-white text-[12px] font-semibold px-5 py-3">Contract MW</th>
+                  <th className="text-white text-[12px] font-semibold px-5 py-3">Energy (MWh)</th>
+                  <th className="text-white text-[12px] font-semibold px-5 py-3">Rate (₹)</th>
+                  <th className="text-white text-[12px] font-semibold px-5 py-3">Revenue (₹)</th>
+                  <th className="text-white text-[12px] font-semibold px-5 py-3">Status</th>
+                  <th className="text-white text-[12px] font-semibold px-5 py-3">Action</th>
                 </tr>
+              </thead>
+              <tbody className="divide-y divide-[#f0f4f2]">
+                {consumerRevenueData.map((consumer, idx) => (
+                  <tr key={consumer.id} className={`hover:bg-gray-50 transition-colors ${idx % 2 !== 0 ? 'bg-[#f9fcfa]' : ''}`}>
+                    <td className="py-3.5 px-5 font-semibold text-gray-900">
+                      <button 
+                        onClick={() => fetchConsumerDetails(consumer.id)}
+                        className="text-blue-dark hover:text-blue-mid hover:underline font-semibold cursor-pointer"
+                      >
+                        {consumer.name}
+                      </button>
+                    </td>
+                    <td className="py-3.5 px-5 text-gray-600">{consumer.state}</td>
+                    <td className="py-3.5 px-5 font-semibold text-gray-900">{consumer.mw} MW</td>
+                    <td className="py-3.5 px-5 text-gray-700">{consumer.energy.toLocaleString()} MWh</td>
+                    <td className="py-3.5 px-5 font-semibold text-gray-900">₹{consumer.rate}</td>
+                    <td className="py-3.5 px-5 font-bold text-green-dark">₹{consumer.revenue.toLocaleString('en-IN')}</td>
+                    <td className="py-3.5 px-5">
+                      <span className={`px-2 py-1 rounded-full text-[10px] font-semibold ${
+                        consumer.status === 'PAID' ? 'bg-green-100 text-green-800' :
+                        consumer.status === 'PARTIAL' ? 'bg-yellow-100 text-yellow-800' :
+                        'bg-red-100 text-red-800'
+                      }`}>
+                        {consumer.status === 'PAID' ? '✓ Paid' : consumer.status === 'PARTIAL' ? '⚠ Partial' : '⏳ Pending'}
+                      </span>
+                    </td>
+                    <td className="py-3.5 px-5">
+                      <button className="text-gray-500 hover:text-green-dark transition-colors">
+                        <Eye className="w-4 h-4" />
+                      </button>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        {/* Monthly Revenue Trend */}
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+          {/* Monthly Chart Card */}
+          <div className="bg-white rounded-xl border border-[#e0e8e4] p-5 shadow-sm">
+            <div className="flex items-center justify-between mb-5">
+              <div>
+                <h3 className="font-sora font-bold text-[16px] text-gray-900">Monthly Revenue Trend</h3>
+                <p className="text-gray-500 text-[11px] mt-0.5">April 2025 - March 2026</p>
+              </div>
+              <select className="border border-[#e0e8e4] rounded-lg px-3 py-1.5 text-[12px] bg-white">
+                <option>2025-26</option>
+                <option>2024-25</option>
+              </select>
+            </div>
+            
+            {/* Bar Chart Visualization */}
+            <div className="relative h-64 mt-4">
+              <div className="absolute left-0 right-0 bottom-0 flex items-end justify-between h-full pt-6">
+                {monthlyData.map((item, idx) => {
+                  const height = (item.revenue / maxRevenue) * 180;
+                  return (
+                    <div key={idx} className="flex flex-col items-center flex-1 mx-1 group">
+                      <div 
+                        className="w-full bg-gradient-to-t from-green-dark to-green-mid rounded-t-md transition-all duration-300 group-hover:opacity-80"
+                        style={{ height: `${height}px` }}
+                      >
+                        <div className="opacity-0 group-hover:opacity-100 transition-opacity absolute -mt-8 bg-gray-900 text-white text-[10px] rounded px-2 py-1 whitespace-nowrap">
+                          ₹{(item.revenue / 100000).toFixed(1)}L
+                        </div>
+                      </div>
+                      <span className="text-[10px] text-gray-500 mt-2">{item.month}</span>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          </div>
+
+          {/* Recent Transactions */}
+          <div className="bg-white rounded-xl border border-[#e0e8e4] p-5 shadow-sm">
+            <div className="flex items-center justify-between mb-4">
+              <div>
+                <h3 className="font-sora font-bold text-[16px] text-gray-900">Recent Transactions</h3>
+                <p className="text-gray-500 text-[11px] mt-0.5">Last 5 settlement records</p>
+              </div>
+              <button className="text-green-dark text-[11px] font-semibold hover:underline">View All →</button>
+            </div>
+            
+            <div className="space-y-3">
+              {[
+                { ref: 'TRX-202605001', consumer: 'Tata Steel', amount: 16242500, date: '2026-05-10', status: 'settled' },
+                { ref: 'TRX-202605002', consumer: 'JSW Steel', amount: 11190900, date: '2026-05-08', status: 'settled' },
+                { ref: 'TRX-202605003', consumer: 'UltraTech', amount: 8066500, date: '2026-05-25', status: 'pending' },
+                { ref: 'TRX-202605004', consumer: 'Hindustan Zinc', amount: 6351000, date: '2026-05-15', status: 'processing' },
+                { ref: 'TRX-202605005', consumer: 'Adani Green', amount: 4927500, date: '2026-05-05', status: 'settled' },
+              ].map((tx, idx) => (
+                <div key={idx} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg border border-[#e0e8e4]">
+                  <div className="flex items-center gap-3">
+                    <div className={`w-2 h-2 rounded-full ${
+                      tx.status === 'settled' ? 'bg-green-500' :
+                      tx.status === 'processing' ? 'bg-yellow-500' : 'bg-red-500'
+                    }`} />
+                    <div>
+                      <p className="text-[12px] font-semibold text-gray-900">{tx.ref}</p>
+                      <p className="text-[10px] text-gray-500">{tx.consumer} • {tx.date}</p>
+                    </div>
+                  </div>
+                  <div className="text-right">
+                    <p className="text-[13px] font-bold text-gray-900">₹{(tx.amount / 100000).toFixed(1)}L</p>
+                    <span className={`text-[10px] font-semibold ${
+                      tx.status === 'settled' ? 'text-green-600' :
+                      tx.status === 'processing' ? 'text-yellow-600' : 'text-red-600'
+                    }`}>
+                      {tx.status === 'settled' ? 'Settled' : tx.status === 'processing' ? 'Processing' : 'Pending'}
+                    </span>
+                  </div>
+                </div>
               ))}
-            </tbody>
-          </table>
+            </div>
+          </div>
+        </div>
+
+        {/* Yearly Summary Table */}
+        <div className="bg-white rounded-xl border border-[#e0e8e4] overflow-hidden shadow-sm">
+          <div className="px-6 py-4 bg-gray-50 border-b border-[#e0e8e4]">
+            <h3 className="font-sora font-bold text-[16px] text-gray-900">Yearly Performance Summary</h3>
+            <p className="text-gray-500 text-[12px] mt-0.5">Annual comparison across financial years</p>
+          </div>
+          <div className="overflow-x-auto">
+            <table className="w-full text-left border-collapse">
+              <thead>
+                <tr className="bg-[#1b4d3e]">
+                  <th className="text-white text-[12px] font-semibold px-5 py-3">Financial Year</th>
+                  <th className="text-white text-[12px] font-semibold px-5 py-3">Total Energy (MWh)</th>
+                  <th className="text-white text-[12px] font-semibold px-5 py-3">Avg Rate (₹)</th>
+                  <th className="text-white text-[12px] font-semibold px-5 py-3">Total Revenue (₹)</th>
+                  <th className="text-white text-[12px] font-semibold px-5 py-3">Growth (%)</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-[#f0f4f2]">
+                {[
+                  { year: '2025-26', energy: 128450, avgRate: 4.35, revenue: 55875750, growth: '+12.5%' },
+                  { year: '2024-25', energy: 114200, avgRate: 4.28, revenue: 48877600, growth: '+8.2%' },
+                  { year: '2023-24', energy: 105600, avgRate: 4.19, revenue: 44246400, growth: '+5.4%' },
+                ].map((year, idx) => (
+                  <tr key={idx} className={`hover:bg-gray-50 transition-colors ${idx % 2 !== 0 ? 'bg-[#f9fcfa]' : ''}`}>
+                    <td className="py-3.5 px-5 font-semibold text-gray-900">{year.year}</td>
+                    <td className="py-3.5 px-5 text-gray-700">{year.energy.toLocaleString()} MWh</td>
+                    <td className="py-3.5 px-5 font-semibold text-gray-900">₹{year.avgRate}</td>
+                    <td className="py-3.5 px-5 font-bold text-green-dark">₹{year.revenue.toLocaleString('en-IN')}</td>
+                    <td className="py-3.5 px-5">
+                      <span className="text-green-600 font-semibold text-[12px]">{year.growth}</span>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
         </div>
       </div>
-    );
-  }
+      
+      {/* Consumer Details Modal */}
+      {showConsumerModal && selectedConsumerForModal && (
+        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4 animate-fadeIn" onClick={() => setShowConsumerModal(false)}>
+          <div className="bg-white rounded-2xl max-w-3xl w-full max-h-[85vh] overflow-y-auto shadow-2xl" onClick={(e) => e.stopPropagation()}>
+            <div className="sticky top-0 bg-white border-b border-[#e0e8e4] px-6 py-4 flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 bg-blue-dark rounded-full flex items-center justify-center text-white font-bold">
+                  {selectedConsumerForModal.name?.charAt(0) || 'C'}
+                </div>
+                <div>
+                  <h3 className="font-sora text-xl font-bold text-gray-900">{selectedConsumerForModal.name}</h3>
+                  <p className="text-[13px] text-gray-500">Consumer Profile</p>
+                </div>
+              </div>
+              <button onClick={() => setShowConsumerModal(false)} className="p-2 hover:bg-gray-100 rounded-full transition-colors">
+                <X className="w-5 h-5 text-gray-500" />
+              </button>
+            </div>
+            
+            <div className="p-6 space-y-6">
+              <div>
+                <h4 className="font-semibold text-gray-900 mb-3 flex items-center gap-2">
+                  <Building className="w-4 h-4 text-blue-dark" />
+                  Company Information
+                </h4>
+                <div className="grid grid-cols-2 gap-4 bg-gray-50 rounded-xl p-4">
+                  <div>
+                    <p className="text-[11px] text-gray-400 uppercase font-semibold">Entity Type</p>
+                    <p className="font-semibold text-gray-900">{selectedConsumerForModal.entityType || 'Industrial'}</p>
+                  </div>
+                  <div>
+                    <p className="text-[11px] text-gray-400 uppercase font-semibold">State</p>
+                    <p className="font-semibold text-gray-900">{selectedConsumerForModal.state || '—'}</p>
+                  </div>
+                  <div className="col-span-2">
+                    <p className="text-[11px] text-gray-400 uppercase font-semibold">Address</p>
+                    <p className="text-gray-700">{selectedConsumerForModal.address || '—'}</p>
+                  </div>
+                </div>
+              </div>
+              
+              <div>
+                <h4 className="font-semibold text-gray-900 mb-3 flex items-center gap-2">
+                  <Phone className="w-4 h-4 text-blue-dark" />
+                  Contact Information
+                </h4>
+                <div className="grid grid-cols-2 gap-4 bg-gray-50 rounded-xl p-4">
+                  <div>
+                    <p className="text-[11px] text-gray-400 uppercase font-semibold">Contact Person</p>
+                    <p className="font-semibold text-gray-900">{selectedConsumerForModal.contactPerson || '—'}</p>
+                  </div>
+                  <div>
+                    <p className="text-[11px] text-gray-400 uppercase font-semibold">Email</p>
+                    <p className="text-gray-700">{selectedConsumerForModal.email || '—'}</p>
+                  </div>
+                  <div>
+                    <p className="text-[11px] text-gray-400 uppercase font-semibold">Phone</p>
+                    <p className="text-gray-700">{selectedConsumerForModal.mobile || selectedConsumerForModal.phone || '—'}</p>
+                  </div>
+                </div>
+              </div>
+              
+              <div>
+                <h4 className="font-semibold text-gray-900 mb-3 flex items-center gap-2">
+                  <Zap className="w-4 h-4 text-blue-dark" />
+                  Power Requirements
+                </h4>
+                <div className="grid grid-cols-2 gap-4 bg-gray-50 rounded-xl p-4">
+                  <div>
+                    <p className="text-[11px] text-gray-400 uppercase font-semibold">Connected Load</p>
+                    <p className="font-bold text-xl text-blue-dark">{selectedConsumerForModal.loadMw || selectedConsumerForModal.connectedLoad || '—'} MW</p>
+                  </div>
+                  <div>
+                    <p className="text-[11px] text-gray-400 uppercase font-semibold">Voltage Level</p>
+                    <p className="font-bold text-xl text-gray-900">{selectedConsumerForModal.voltageLevel || '33kV'}</p>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+    </>
+  );
+}
 
   if (normalizedTab === 'documents') {
     return (

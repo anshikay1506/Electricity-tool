@@ -759,69 +759,11 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ activeTab, setTa
                         </div>
                       </div>
 
-                      {/* Section 3 — Document Checklist */}
-                      {docChecklist.length > 0 && (
-                        <div>
-                          <div className="flex items-center gap-2 mb-3">
-                            <div className="w-6 h-6 rounded-full bg-[#1b4d3e] text-white text-[11px] font-bold flex items-center justify-center">3</div>
-                            <h5 className="font-sora font-bold text-[14px] text-gray-900">Submitted Documents</h5>
-                            <span className="text-[12px] text-gray-400">({docChecklist.filter((d: any) => d.uploaded).length}/{docChecklist.length} uploaded)</span>
-                          </div>
-                          <div className="bg-white rounded-xl border border-[#e0e8e4] overflow-hidden">
-                            <table className="w-full text-left border-collapse">
-                              <thead>
-                                <tr>
-                                  {['Document','File Name','Status'].map(h => (
-                                    <th key={h} className="bg-gray-50 border-b border-[#e0e8e4] text-[11px] font-semibold text-gray-500 uppercase px-4 py-2.5">{h}</th>
-                                  ))}
-                                </tr>
-                              </thead>
-                              <tbody className="divide-y divide-[#f0f4f2] text-[13px]">
-                                {docChecklist.map((doc: any) => (
-                                  <tr key={doc.key} className="hover:bg-gray-50">
-                                    <td className="px-4 py-3 font-medium text-gray-800 flex items-center gap-2">
-                                      <FileText className="w-4 h-4 text-gray-400 shrink-0" />{doc.label}
-                                    </td>
-                                    <td className="px-4 py-3 text-gray-500 text-[12px]">{doc.fileName || '—'}</td>
-                                    <td className="px-4 py-3">
-                                      <span className={`badge ${doc.uploaded ? 'badge-green' : 'badge-amber'}`}>
-                                        {doc.uploaded ? 'Uploaded' : 'Not Uploaded'}
-                                      </span>
-                                    </td>
-                                  </tr>
-                                ))}
-                              </tbody>
-                            </table>
-                          </div>
-                        </div>
-                      )}
-
+                      
                       {/* Section 4 — Annexure Workflow (existing flow) */}
-                      <div>
-                        <div className="flex items-center gap-2 mb-3">
-                          <div className="w-6 h-6 rounded-full bg-[#1b4d3e] text-white text-[11px] font-bold flex items-center justify-center">4</div>
-                          <h5 className="font-sora font-bold text-[14px] text-gray-900">Regulatory Annexure Workflow</h5>
-                        </div>
+                     
                         <div className="flex flex-wrap gap-2 items-center">
-                          {[
-                            { label: 'Annexure-C (SLDC Clearance)', field: 'annexureCStatus', trigger: 'CLEARANCE' },
-                            { label: 'Annexure-D (NOC)', field: 'annexureDStatus', trigger: null },
-                            { label: 'Annexure-E (Agreements)', field: 'annexureEStatus', trigger: 'AGREED' },
-                          ].map(step => (
-                            <React.Fragment key={step.label}>
-                              <button
-                                onClick={() => step.trigger ? handleAppStatusChange(app.id, step.trigger) : (setSelectedAppId(app.id), setTab('noc-management'))}
-                                className={`px-3 py-1.5 rounded-lg text-[11px] font-bold border transition-all ${
-                                  (app as any)[step.field] === 'ISSUED' || (app as any)[step.field] === 'SIGNED'
-                                    ? 'bg-green-pale text-green-dark border-[#9fe1cb]'
-                                    : 'bg-white text-gray-500 border-[#e0e8e4] hover:bg-gray-50'
-                                }`}
-                              >
-                                {(app as any)[step.field] === 'ISSUED' || (app as any)[step.field] === 'SIGNED' ? '✓ ' : ''}{step.label}
-                              </button>
-                              <span className="text-gray-300 text-[12px]">→</span>
-                            </React.Fragment>
-                          ))}
+                          
                           {isPending && (
                             <button
                               onClick={() => handleApprove(app.id)}
@@ -833,7 +775,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ activeTab, setTa
                             </button>
                           )}
                         </div>
-                      </div>
+                  
 
                       {/* Rejection reason if rejected */}
                       {status === 'REJECTED' && app.rejectionReason && (
