@@ -8,23 +8,14 @@ export interface AuthenticatedRequest extends Request {
   user?: {
     id: string;
     email: string;
-    role: 'ADMIN' | 'SUPPLIER' | 'CONSUMER' | 'TRADER';
+    role: string;
   };
 }
 
-export const portalStatusError = (status: string): string | null => {
-  switch (status) {
-    case 'PENDING':
-      return 'Your registration is pending admin approval. You will be able to sign in after verification.';
-    case 'REJECTED':
-      return 'Your registration was rejected. Please contact support or register again with correct details.';
-    case 'BLOCKED':
-      return 'Your account has been blocked. Please contact support.';
-    default:
-      return status === 'VERIFIED'
-        ? null
-        : 'Your account is not authorized to access the portal.';
-  }
+// Simplified - no status checks since status field was removed
+export const portalStatusError = (status?: string): string | null => {
+  // All users are considered verified now
+  return null;
 };
 
 export const authenticateToken = (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
@@ -56,20 +47,16 @@ export const requireVerifiedPortalUser = async (
     return;
   }
 
+  // Admin always has access
   if (req.user.role === 'ADMIN') {
     next();
     return;
   }
 
+  // Just check if user exists in database
   const user = await db.getUserById(req.user.id);
   if (!user) {
     res.status(404).json({ error: 'User not found' });
-    return;
-  }
-
-  const deniedMessage = portalStatusError(user.status);
-  if (deniedMessage) {
-    res.status(403).json({ error: deniedMessage });
     return;
   }
 

@@ -27,6 +27,7 @@ interface DraftApplication {
 interface ConsumerDashboardProps {
   activeTab: string;
   setTab: (tab: string) => void;
+  onNavigateToHome?: () => void;
 }
 
 interface GeoaDocField {
@@ -58,8 +59,9 @@ interface GeoaApplication {
 // ─── GEOA Draft storage key ───────────────────────────────────────────────────
 const GEOA_DRAFT_KEY = 'geoa_form_draft';
 
-export const ConsumerDashboard: React.FC<ConsumerDashboardProps> = ({ activeTab, setTab }) => {
+export const ConsumerDashboard: React.FC<ConsumerDashboardProps> = ({ activeTab, setTab, onNavigateToHome }) => {
   const { user, token } = useAuth();
+  console.log('ConsumerDashboard rendering with activeTab:', activeTab);
   const [profile, setProfile] = useState<any>(null);
   const [suppliers, setSuppliers] = useState<any[]>([]);
   const [applications, setApplications] = useState<any[]>([]);
@@ -800,7 +802,7 @@ const SupplierDetailsModal = () => {
           <table className="w-full text-left border-collapse">
             <thead>
               <tr>
-                {['Supplier Name','Type','Available MW','Base Price','OA Charges','Final Price','Drawal Point','Actions'].map(h => (
+                {['Supplier Name','Type','Available MW','Base Price','OA Charges','Final Price','Injection Point','Actions'].map(h => (
                   <th key={h} className="bg-green-dark text-white text-[12px] font-semibold px-5 py-3 uppercase whitespace-nowrap">{h}</th>
                 ))}
               </tr>
@@ -1725,7 +1727,7 @@ if (activeTab === 'application-details' && selectedApplication) {
             </div>
             <div className="pt-4 border-t border-[#f0f4f2] space-y-3">
               <div className="flex justify-between items-center text-[13px]"><span className="text-gray-500">Registered State</span><span className="font-semibold text-gray-900">{profile?.state || 'Rajasthan'}</span></div>
-              <div className="flex justify-between items-center text-[13px]"><span className="text-gray-500">Account Status</span><span className="badge badge-green">{user?.status || 'VERIFIED'}</span></div>
+              {/* <div className="flex justify-between items-center text-[13px]"><span className="text-gray-500">Account Status</span><span className="badge badge-green">{user?.status || 'VERIFIED'}</span></div> */}
             </div>
             <button className="btn-outline w-full flex items-center justify-center space-x-2"><Settings className="w-4 h-4" /><span>Account Settings</span></button>
           </div>

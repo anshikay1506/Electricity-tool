@@ -5,9 +5,10 @@ export interface User {
   email: string;
   name: string;
   role: 'ADMIN' | 'SUPPLIER' | 'CONSUMER' | 'TRADER';
-  state: string;
-  status: string;
   profile?: any;
+  k_number?: string;
+  connection_type?: string;
+  phoneNumber?: string;
 }
 
 interface AuthContextType {
@@ -32,16 +33,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
     if (savedToken && savedUser) {
       const parsedUser: User = JSON.parse(savedUser);
-      const isPortalUser = parsedUser.role !== 'ADMIN';
-      const needsApproval = parsedUser.status !== 'VERIFIED';
-
-      if (isPortalUser && needsApproval) {
-        localStorage.removeItem('goar_token');
-        localStorage.removeItem('goar_user');
-      } else {
-        setToken(savedToken);
-        setUser(parsedUser);
-      }
+      // Remove the status/state checks
+      setToken(savedToken);
+      setUser(parsedUser);
     }
     setLoading(false);
   }, []);
@@ -58,6 +52,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     localStorage.removeItem('goar_user');
     setToken(null);
     setUser(null);
+    window.location.href = '/auth';
   }, []);
 
   const updateUserRoleLocally = (newRole: 'ADMIN' | 'SUPPLIER' | 'CONSUMER' | 'TRADER') => {

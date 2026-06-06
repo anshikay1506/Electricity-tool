@@ -35,41 +35,51 @@ const AppContent: React.FC = () => {
   };
 
   const handleAuthSuccess = () => {
-    setActiveTab('dashboard');
+    // REMOVED: setActiveTab('dashboard'); - This was causing issues
     setViewState('DASHBOARD');
   };
 
   // When auth state initializes, if user is present navigate to dashboard
   useEffect(() => {
     if (!loading && user && token) {
-      const isPortalUser = user.role !== 'ADMIN';
-      const needsApproval = user.status !== 'VERIFIED';
-
-      if (isPortalUser && needsApproval) {
-        logout();
-        setViewState('AUTH');
-        return;
+      // REMOVED the status check since your User interface doesn't have status field
+      // Just check if user exists and has valid role
+      if (user && user.role) {
+        setViewState('DASHBOARD');
+        setActiveTab('dashboard'); // Set activeTab to dashboard when user logs in
       }
-
-      setViewState('DASHBOARD');
     }
-  }, [loading, user, token, logout]);
+  }, [loading, user, token]);
 
   // Show loading placeholder until auth is initialized
-  if (loading) return null;
+  if (loading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <div className="text-center">
+          <div className="w-12 h-12 border-4 border-green-dark border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
+          <p className="text-gray-600">Loading...</p>
+        </div>
+      </div>
+    );
+  }
 
   // If user is logged in and selected dashboard view, show Dashboard
   if (user && token && viewState === 'DASHBOARD') {
+    console.log('Rendering dashboard for role:', user.role, 'with activeTab:', activeTab);
+    
+    // Ensure activeTab is always 'dashboard' for consumer
+    const finalActiveTab = user.role === 'CONSUMER' && activeTab === '' ? 'dashboard' : activeTab;
+    
     return (
-      <DashboardLayout currentTab={activeTab} setTab={setActiveTab}>
+      <DashboardLayout currentTab={finalActiveTab} setTab={setActiveTab}>
         {user.role === 'CONSUMER' && (
-          <ConsumerDashboard activeTab={activeTab} setTab={setActiveTab} />
+          <ConsumerDashboard activeTab={finalActiveTab} setTab={setActiveTab} />
         )}
         {user.role === 'SUPPLIER' && (
-          <SupplierDashboard activeTab={activeTab} setTab={setActiveTab} />
+          <SupplierDashboard activeTab={finalActiveTab} setTab={setActiveTab} />
         )}
         {user.role === 'ADMIN' && (
-          <AdminDashboard activeTab={activeTab} setTab={setActiveTab} />
+          <AdminDashboard activeTab={finalActiveTab} setTab={setActiveTab} />
         )}
       </DashboardLayout>
     );
@@ -117,7 +127,6 @@ const AppContent: React.FC = () => {
     />
   );
 };
-
 
 function App() {
   return (

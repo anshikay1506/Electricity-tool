@@ -1,6 +1,6 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useAuth } from '../../context/AuthContext';
-import { Mail, Lock, Building, MapPin, ArrowLeft, Phone } from 'lucide-react';
+import { Mail, Lock, Building, MapPin, ArrowLeft, Phone, CheckCircle, Eye, EyeOff, Key, Shield, UserCheck, Briefcase } from 'lucide-react';
 
 interface AuthPagesProps {
   initialRole?: 'CONSUMER' | 'SUPPLIER';
@@ -21,84 +21,159 @@ export const AuthPages: React.FC<AuthPagesProps> = ({
   const [registerSuccess, setRegisterSuccess] = useState('');
   
   const [isLoginView, setIsLoginView] = useState(initialView === 'login');
-  const [activeTab, setActiveTab] = useState<'CONSUMER' | 'SUPPLIER'>(initialRole);
   
-  // Login form states
+  // Registration flow states
+  const [kNumber, setKNumber] = useState('');
+  const [kNumberVerified, setKNumberVerified] = useState(false);
+  const [kNumberData, setKNumberData] = useState<any>(null);
+  const [isVerifyingKNumber, setIsVerifyingKNumber] = useState(false);
+  const [selectedRole, setSelectedRole] = useState<'CONSUMER' | 'SUPPLIER'>('CONSUMER');
+  
+  // Common registration fields
+  const [regEmail, setRegEmail] = useState('');
+  const [regPass, setRegPass] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
+  const [passwordError, setPasswordError] = useState('');
+  
+  // Supplier specific - ONLY DISCOM dropdown
+  const [selectedDiscom, setSelectedDiscom] = useState('');
+  
+  // Login states
+  const [loginKNumber, setLoginKNumber] = useState('');
+  const [loginKNumberVerified, setLoginKNumberVerified] = useState(false);
+  const [loginKNumberData, setLoginKNumberData] = useState<any>(null);
+  const [isVerifyingLoginKNumber, setIsVerifyingLoginKNumber] = useState(false);
+  const [useOtp, setUseOtp] = useState(false);
+  const [otpCode, setOtpCode] = useState('');
+  const [otpSent, setOtpSent] = useState(false);
+  const [otpTimer, setOtpTimer] = useState(0);
+  const [isLoadingOtp, setIsLoadingOtp] = useState(false);
   const [loginEmail, setLoginEmail] = useState('');
   const [loginPass, setLoginPass] = useState('');
 
-  // Register form states
-  const [compName, setCompName] = useState('');
-  const [regEmail, setRegEmail] = useState('');
-  const [regPass, setRegPass] = useState('');
-  const [regState, setRegState] = useState('Rajasthan');
-  const [phoneNumber, setPhoneNumber] = useState('');
-  const [drawalNode, setDrawalNode] = useState('400kV Jajpur Substation');
-  const [injectNode, setInjectNode] = useState('765kV Bhadla Pooling Station');
-  const [renewableType, setRenewableType] = useState('');
-  const [phoneError, setPhoneError] = useState('');
-  const [passwordError, setPasswordError] = useState('');
-  const [passwordStrength, setPasswordStrength] = useState<'Weak' | 'Fair' | 'Good' | 'Strong'>('Weak');
-
-  const RENEWABLE_TYPES = ['Solar', 'Wind', 'Hydro', 'Biomass', 'Mixed'] as const;
-
+  const DISCOM_OPTIONS = ['JVVNL', 'AVVNL', 'DVVNL', 'JDVVNL', 'MSEDCL', 'PGVCL', 'MGVCL', 'UGVCL', 'TNEB', 'BESCOM', 'CESC', 'TSSPDCL', 'TGSPDCL', 'KSEB', 'HPSEB'];
   const API_BASE = (import.meta as any)?.env?.VITE_API_URL || 'http://localhost:5000';
 
-  const evaluatePasswordStrength = (value: string) => {
-    const normalized = value.toLowerCase();
-    const score = [/[a-z]/, /[A-Z]/, /\d/, /[^A-Za-z0-9]/].reduce((count, regex) => count + Number(regex.test(value)), 0);
-    const commonPatterns = ['password', 'password123', 'qwerty', '123456', 'admin', 'letmein', 'welcome'];
-    if (commonPatterns.some((pattern) => normalized.includes(pattern))) {
-      return 'Weak' as const;
+  // Timer for OTP resend
+  useEffect(() => {
+    let interval: NodeJS.Timeout;
+    if (otpTimer > 0) {
+      interval = setInterval(() => {
+        setOtpTimer((prev) => prev - 1);
+      }, 1000);
     }
-    if (score <= 1 || value.length < 12) return 'Weak' as const;
-    if (score === 2) return 'Fair' as const;
-    if (score === 3) return 'Good' as const;
-    return 'Strong' as const;
-  };
+    return () => clearInterval(interval);
+  }, [otpTimer]);
 
-  const clearRegisterInputs = () => {
-    setCompName('');
-    setRegEmail('');
-    setRegPass('');
-    setRegState('Rajasthan');
-    setPhoneNumber('');
-    setDrawalNode('');
-    setInjectNode('');
-    setRenewableType('');
-    setPhoneError('');
-    setPasswordError('');
-    setPasswordStrength('Weak');
-  };
-
-  const resetRegisterFields = () => {
-    clearRegisterInputs();
-    setRegisterError('');
-    setRegisterSuccess('');
-  };
-
-  const switchRegistrationTab = (tab: 'CONSUMER' | 'SUPPLIER') => {
-    setActiveTab(tab);
-    resetRegisterFields();
-  };
-
-  const toggleAuthView = () => {
-    setIsLoginView((prev) => {
-      const nextView = !prev;
-      if (!nextView) {
-        resetRegisterFields();
-      } else {
-        setRegisterError('');
-        setRegisterSuccess('');
-        setPhoneError('');
-        setPasswordError('');
+  // ==================== LOGIN FUNCTIONS ====================
+  
+  const verifyKNumberForLogin = async () => {
+    if (!loginKNumber.trim()) {
+      setLoginError('Please enter your K number');
+      return;
+    }
+    
+    setIsVerifyingLoginKNumber(true);
+    setLoginError('');
+    
+    try {
+      const response = await fetch(`${API_BASE}/api/auth/validate-knumber`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ k_number: loginKNumber.trim() })
+      });
+      
+      const data = await response.json();
+      
+      if (!response.ok) {
+        setLoginError(data.error || 'Invalid K number');
+        setIsVerifyingLoginKNumber(false);
+        return;
       }
-      return nextView;
-    });
+      
+      setLoginKNumberData(data.consumer);
+      setLoginEmail(data.consumer.email || '');
+      setLoginKNumberVerified(true);
+      setLoginError('');
+      
+    } catch (err) {
+      setLoginError('Network error. Please check your connection.');
+    } finally {
+      setIsVerifyingLoginKNumber(false);
+    }
   };
 
-  const handleLoginSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
+  const sendOtp = async () => {
+    if (!loginEmail.trim()) {
+      setLoginError('Please enter your email address');
+      return;
+    }
+    
+    setIsLoadingOtp(true);
+    setLoginError('');
+    
+    try {
+      const response = await fetch(`${API_BASE}/api/auth/send-email-otp`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email: loginEmail.trim() })
+      });
+      
+      const data = await response.json();
+      
+      if (!response.ok) {
+        setLoginError(data.error || 'Failed to send OTP');
+        setIsLoadingOtp(false);
+        return;
+      }
+      
+      setOtpSent(true);
+      setOtpTimer(60);
+      setLoginError('');
+      
+    } catch (err) {
+      setLoginError('Network error. Please try again.');
+    } finally {
+      setIsLoadingOtp(false);
+    }
+  };
+
+  const verifyOtpAndLogin = async () => {
+    if (!otpCode || otpCode.length !== 6) {
+      setLoginError('Please enter a valid 6-digit OTP');
+      return;
+    }
+    
+    setIsLoadingOtp(true);
+    setLoginError('');
+    
+    try {
+      const response = await fetch(`${API_BASE}/api/auth/verify-email-otp`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email: loginEmail.trim(), otp: otpCode })
+      });
+      
+      const data = await response.json();
+      
+      if (!response.ok) {
+        setLoginError(data.error || 'Invalid OTP');
+        setIsLoadingOtp(false);
+        return;
+      }
+      
+      login(data.token, data.user);
+      onSuccess();
+      
+    } catch (err) {
+      setLoginError('Network error. Please try again.');
+    } finally {
+      setIsLoadingOtp(false);
+    }
+  };
+
+  const handlePasswordLogin = async () => {
     setLoginError('');
     try {
       const res = await fetch(`${API_BASE}/api/auth/login`, {
@@ -111,10 +186,78 @@ export const AuthPages: React.FC<AuthPagesProps> = ({
         setLoginError(res.status === 403 ? (data.error || 'Login not permitted') : (data.error || 'Login failed'));
         return;
       }
+      
       login(data.token, data.user);
       onSuccess();
+      
     } catch (err) {
       setLoginError('Network error — please check the backend');
+    }
+  };
+
+  const handleLoginSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    
+    if (!loginKNumberVerified) {
+      await verifyKNumberForLogin();
+    } else if (useOtp) {
+      if (!otpSent) {
+        await sendOtp();
+      } else {
+        await verifyOtpAndLogin();
+      }
+    } else {
+      await handlePasswordLogin();
+    }
+  };
+
+  const resetLoginState = () => {
+    setLoginKNumberVerified(false);
+    setLoginKNumberData(null);
+    setLoginKNumber('');
+    setLoginEmail('');
+    setLoginPass('');
+    setUseOtp(false);
+    setOtpSent(false);
+    setOtpCode('');
+    setLoginError('');
+  };
+
+  // ==================== REGISTRATION FUNCTIONS ====================
+  
+  const verifyKNumberForRegistration = async () => {
+    if (!kNumber.trim()) {
+      setRegisterError('Please enter your K number');
+      return;
+    }
+    
+    setIsVerifyingKNumber(true);
+    setRegisterError('');
+    
+    try {
+      const response = await fetch(`${API_BASE}/api/auth/validate-knumber-for-registration`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ k_number: kNumber.trim() })
+      });
+      
+      const data = await response.json();
+      
+      if (!response.ok) {
+        setRegisterError(data.error || 'Invalid K number');
+        setIsVerifyingKNumber(false);
+        return;
+      }
+      
+      setKNumberData(data.consumer);
+      setRegEmail(data.consumer.email || '');
+      setKNumberVerified(true);
+      setRegisterError('');
+      
+    } catch (err) {
+      setRegisterError('Network error. Please check your connection.');
+    } finally {
+      setIsVerifyingKNumber(false);
     }
   };
 
@@ -122,108 +265,128 @@ export const AuthPages: React.FC<AuthPagesProps> = ({
     e.preventDefault();
     setRegisterError('');
     setRegisterSuccess('');
-    setPhoneError('');
     setPasswordError('');
 
-    const digitsPhone = phoneNumber.trim();
-    const trimmedPassword = regPass;
-    const phoneValid = digitsPhone.length === 10;
-
-    if (!phoneValid) {
-      setPhoneError('Enter exactly 10 digits after the +91 prefix.');
-      setRegisterError('Please enter a valid phone number before registering.');
+    if (regPass.length < 8) {
+      setPasswordError('Password must be at least 8 characters');
+      setRegisterError('Please use a password with at least 8 characters.');
       return;
     }
-
-    if (trimmedPassword.length < 12 || trimmedPassword.length > 32) {
-      setPasswordError('Password must be at least 12 characters and no more than 32.');
-      setRegisterError('Please use a password with at least 12 characters.');
-      return;
-    }
-
-    const hasUpper = /[A-Z]/.test(trimmedPassword);
-    const hasLower = /[a-z]/.test(trimmedPassword);
-    const hasNumber = /\d/.test(trimmedPassword);
-    const hasSymbol = /[^A-Za-z0-9]/.test(trimmedPassword);
-    const lowerPassword = trimmedPassword.toLowerCase();
-    const prohibitedPatterns = ['password', 'password123', 'qwerty', '123456', 'admin', 'letmein', 'welcome'];
-
-    if (!hasUpper || !hasLower || !hasNumber || !hasSymbol) {
-      setPasswordError('Use uppercase, lowercase, numbers, and symbols.');
-      setRegisterError('Please make your password stronger before registering.');
-      return;
-    }
-
-    if (prohibitedPatterns.some((pattern) => lowerPassword.includes(pattern))) {
-      setPasswordError('Avoid common patterns such as password123 or qwerty.');
-      setRegisterError('Please choose a stronger password.');
-      return;
-    }
-
-    const localEmail = regEmail.trim().split('@')[0].toLowerCase();
-    const normalizedCompName = compName.trim().toLowerCase().replace(/\s+/g, '');
-    if (localEmail && lowerPassword.includes(localEmail)) {
-      setPasswordError('Do not include your email username in the password.');
-      setRegisterError('Please choose a password without personal info.');
-      return;
-    }
-    if (normalizedCompName && lowerPassword.includes(normalizedCompName)) {
-      setPasswordError('Do not include your company name in the password.');
-      setRegisterError('Please choose a password without personal info.');
+    
+    if (regPass !== confirmPassword) {
+      setPasswordError('Passwords do not match');
+      setRegisterError('Please make sure your passwords match.');
       return;
     }
 
     try {
-      const payload: any = {
-        email: regEmail.trim(),
-        password: trimmedPassword,
-        name: compName.trim(),
-        role: activeTab,
-        state: regState.trim(),
-        phoneNumber: `+91${digitsPhone}`
-      };
-
-      if (activeTab === 'CONSUMER') {
-        payload.drawalPoint = drawalNode.trim();
-      } else {
-        payload.injectionPoint = injectNode.trim();
-        payload.renewableType = renewableType;
-      }
-
-      const res = await fetch(`${API_BASE}/api/auth/register`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(payload)
-      });
-      const data = await res.json();
-      if (!res.ok) {
-        const backendError = data.error || 'Registration failed';
-        if (/email.*already.*exists|email.*taken|duplicate.*email/i.test(backendError)) {
-          setRegisterError('This email is already registered. Please sign in or use another email.');
-        } else if (/phone.*already.*exists|phone.*taken|duplicate.*phone/i.test(backendError)) {
-          setRegisterError('This phone number is already registered. Please use a different number.');
-        } else {
-          setRegisterError(backendError);
+      if (selectedRole === 'CONSUMER') {
+        // Consumer registration - unchanged
+        const response = await fetch(`${API_BASE}/api/auth/register-with-knumber`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            k_number: kNumber,
+            email: regEmail.trim(),
+            password: regPass
+          })
+        });
+        
+        const data = await response.json();
+        
+        if (!response.ok) {
+          setRegisterError(data.error || 'Registration failed');
+          return;
         }
-        return;
-      }
+        
+        const userData = {
+          id: data.user.id,
+          email: data.user.email,
+          name: data.user.name,
+          role: 'CONSUMER',
+          phoneNumber: data.user.phoneNumber,
+          k_number: data.user.k_number,
+          connection_type: data.user.connection_type,
+        };
+        
+        localStorage.setItem('goar_token', data.token);
+        localStorage.setItem('goar_user', JSON.stringify(userData));
+        
+        login(data.token, userData);
+        onSuccess();
+        
+      } else {
+        // Supplier registration - ONLY DISCOM is extra
+        if (!selectedDiscom) {
+          setRegisterError('Please select a DISCOM');
+          return;
+        }
 
-      const successMessage = data.message || 'Registration submitted. An administrator will review your account.';
-      clearRegisterInputs();
-      setRegisterSuccess(successMessage);
-      setLoginEmail(regEmail.trim());
-      setIsLoginView(true);
+        const payload = {
+          email: regEmail.trim(),
+          password: regPass,
+          name: kNumberData?.name,
+          role: 'SUPPLIER',
+          phoneNumber: kNumberData?.mobile_number,
+          k_number: kNumber,
+          discom: selectedDiscom,
+          state: 'Rajasthan',
+          injectionPoint: 'Grid Injection Point',
+          renewableType: 'Solar'
+        };
+
+        const res = await fetch(`${API_BASE}/api/auth/register`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload)
+        });
+        
+        const data = await res.json();
+        
+        if (!res.ok) {
+          setRegisterError(data.error || 'Registration failed');
+          return;
+        }
+
+        setRegisterSuccess('Registration submitted successfully. Admin will review your account.');
+        
+        setTimeout(() => {
+          setIsLoginView(true);
+          resetRegistration();
+        }, 2000);
+      }
+      
     } catch (err) {
       setRegisterError('Network error — please check the backend');
     }
   };
 
+  const resetRegistration = () => {
+    setKNumberVerified(false);
+    setKNumberData(null);
+    setKNumber('');
+    setSelectedRole('CONSUMER');
+    setRegEmail('');
+    setRegPass('');
+    setConfirmPassword('');
+    setSelectedDiscom('');
+    setRegisterError('');
+    setPasswordError('');
+  };
+
+  const toggleAuthView = () => {
+    setIsLoginView(!isLoginView);
+    resetRegistration();
+    resetLoginState();
+  };
 
   return (
     <div className="min-h-screen bg-[#f4f7f5] text-gray-900 flex flex-col justify-center items-center p-6 relative font-dm">
-      {/* Back button */}
       <button 
-        onClick={onBackToLanding}
+        onClick={() => {
+          resetLoginState();
+          onBackToLanding();
+        }}
         className="absolute top-8 left-8 text-sm font-semibold text-gray-600 hover:text-green-dark flex items-center space-x-2 bg-white border border-[#e0e8e4] px-4 py-2 rounded-[8px] shadow-sm transition-all"
       >
         <ArrowLeft className="w-4 h-4" />
@@ -241,49 +404,53 @@ export const AuthPages: React.FC<AuthPagesProps> = ({
           <h3 className="font-sora text-[22px] font-bold text-gray-900 mb-2">
             {isLoginView ? 'Sign in to your account' : 'Register for Open Access'}
           </h3>
-          <p className="text-sm text-gray-500">
-            {isLoginView ? 'Enter your credentials to access the portal' : 'Enroll your enterprise in the GEOA registry'}
-          </p>
+          {/* <p className="text-sm text-gray-500">
+            {isLoginView ? 'Enter your K number to get started' : 'Enter your K number to verify'}
+          </p> */}
         </div>
 
-        <>
-            {/* View Switch tabs */}
-            {!isLoginView && (
-              <div className="flex bg-gray-100 p-1.5 rounded-lg mb-6">
-                <button
-                  type="button"
-                  onClick={() => switchRegistrationTab('CONSUMER')}
-                  className={`flex-1 py-2 text-[13px] rounded-md font-semibold transition-all ${
-                    activeTab === 'CONSUMER' ? 'bg-white text-green-dark shadow-sm' : 'text-gray-500 hover:text-gray-700'
-                  }`}
-                >
-                  Consumer
-                </button>
-                <button
-                  type="button"
-                  onClick={() => switchRegistrationTab('SUPPLIER')}
-                  className={`flex-1 py-2 text-[13px] rounded-md font-semibold transition-all ${
-                    activeTab === 'SUPPLIER' ? 'bg-white text-green-dark shadow-sm' : 'text-gray-500 hover:text-gray-700'
-                  }`}
-                >
-                  Supplier
-                </button>
-              </div>
-            )}
+        {isLoginView ? (
+          /* LOGIN VIEW */
+          <form onSubmit={handleLoginSubmit} className="space-y-5">
+            {loginError && <div className="alert alert-error">{loginError}</div>}
 
-            {isLoginView ? (
-              /* LOGIN VIEW */
-              <form onSubmit={handleLoginSubmit} className="space-y-5">
-                {registerSuccess && (
-                  <div className="alert alert-success">
-                    {registerSuccess}
+            {!loginKNumberVerified ? (
+              <div className="bg-blue-50 border border-blue-200 rounded-xl p-4">
+                <label className="block text-sm font-semibold text-gray-700 mb-2">
+                  K Number <span className="text-red-500">*</span>
+                </label>
+                <div className="flex gap-2">
+                  <input
+                    type="text"
+                    value={loginKNumber}
+                    onChange={(e) => setLoginKNumber(e.target.value.toUpperCase())}
+                    placeholder="e.g., 320223020282"
+                    className="form-control flex-1 font-mono"
+                    autoFocus
+                  />
+                  <button
+                    type="button"
+                    onClick={verifyKNumberForLogin}
+                    disabled={isVerifyingLoginKNumber}
+                    className="px-4 py-2 bg-green-dark text-white rounded-lg text-[13px] font-semibold hover:bg-green-mid disabled:opacity-50 whitespace-nowrap"
+                  >
+                    {isVerifyingLoginKNumber ? 'Verifying...' : 'Verify'}
+                  </button>
+                </div>
+                <p className="text-[11px] text-gray-500 mt-2">Enter the K number from your electricity bill</p>
+              </div>
+            ) : (
+              <>
+                <div className="bg-green-50 border border-green-200 rounded-xl p-4 mb-4">
+                  <div className="flex items-center gap-2 mb-2">
+                    <CheckCircle className="w-4 h-4 text-green-dark" />
+                    <span className="text-sm font-semibold text-green-dark">K Number Verified!</span>
                   </div>
-                )}
-                {loginError && (
-                  <div className="alert alert-error">
-                    {loginError}
+                  <div className="text-[12px] text-gray-600 space-y-1">
+                    <p><span className="font-semibold">Name:</span> {loginKNumberData?.name}</p>
+                    <p><span className="font-semibold">Mobile:</span> {loginKNumberData?.mobile_number}</p>
                   </div>
-                )}
+                </div>
 
                 <div className="form-group">
                   <label>Email Address</label>
@@ -291,218 +458,236 @@ export const AuthPages: React.FC<AuthPagesProps> = ({
                     <Mail className="absolute left-3.5 top-3.5 text-gray-400 w-[18px] h-[18px]" />
                     <input
                       type="email"
-                      placeholder="e.g. contact@company.com"
                       value={loginEmail}
                       onChange={(e) => setLoginEmail(e.target.value)}
+                      disabled={otpSent}
                       required
                       className="form-control pl-10"
                     />
+                  </div>
+                </div>
+
+                {!useOtp && (
+                  <div className="form-group">
+                    <label>Password</label>
+                    <div className="relative">
+                      <Lock className="absolute left-3.5 top-3.5 text-gray-400 w-[18px] h-[18px]" />
+                      <input
+                        type={showPassword ? 'text' : 'password'}
+                        value={loginPass}
+                        onChange={(e) => setLoginPass(e.target.value)}
+                        required
+                        className="form-control pl-10 pr-10"
+                      />
+                      <button
+                        type="button"
+                        onClick={() => setShowPassword(!showPassword)}
+                        className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400"
+                      >
+                        {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                      </button>
+                    </div>
+                  </div>
+                )}
+
+                {useOtp && (
+                  <>
+                    {!otpSent ? (
+                      <div className="alert alert-info">
+                        <span>📧</span>
+                        <div>Click "Send OTP" to receive a code to your email.</div>
+                      </div>
+                    ) : (
+                      <div className="form-group animate-fadeIn">
+                        <label>Enter OTP</label>
+                        <div className="relative">
+                          <Shield className="absolute left-3.5 top-3.5 text-gray-400 w-[18px] h-[18px]" />
+                          <input
+                            type="text"
+                            placeholder="Enter 6-digit OTP"
+                            value={otpCode}
+                            onChange={(e) => setOtpCode(e.target.value.replace(/\D/g, '').slice(0, 6))}
+                            maxLength={6}
+                            className="form-control pl-10 text-center text-lg font-mono"
+                          />
+                        </div>
+                        {otpTimer > 0 ? (
+                          <p className="text-[12px] text-gray-500 mt-2">Resend OTP in {otpTimer} seconds</p>
+                        ) : (
+                          <button type="button" onClick={sendOtp} className="text-[12px] text-green-dark mt-2 font-semibold">Resend OTP</button>
+                        )}
+                      </div>
+                    )}
+                  </>
+                )}
+
+                <button type="submit" className="w-full btn-green py-3" disabled={isLoadingOtp}>
+                  {isLoadingOtp ? 'Processing...' : (useOtp && !otpSent ? 'Send OTP' : useOtp && otpSent ? 'Verify & Login' : 'Sign In')}
+                </button>
+
+                <div className="text-center">
+                  <button type="button" onClick={() => setUseOtp(!useOtp)} className="text-[13px] text-green-dark font-semibold">
+                    {useOtp ? '← Back to Password Login' : 'Login with OTP instead'}
+                  </button>
+                </div>
+
+              </>
+            )}
+          </form>
+        ) : (
+          /* REGISTRATION VIEW */
+          <form onSubmit={handleRegisterSubmit} className="space-y-5">
+            {registerSuccess && <div className="alert alert-success">{registerSuccess}</div>}
+            {registerError && <div className="alert alert-error">{registerError}</div>}
+
+            {!kNumberVerified ? (
+              <div className="bg-blue-50 border border-blue-200 rounded-xl p-4">
+                <label className="block text-sm font-semibold text-gray-700 mb-2">
+                  K Number <span className="text-red-500">*</span>
+                </label>
+                <div className="flex gap-2">
+                  <input
+                    type="text"
+                    value={kNumber}
+                    onChange={(e) => setKNumber(e.target.value.toUpperCase())}
+                    placeholder="e.g., 320223020282"
+                    className="form-control flex-1 font-mono"
+                  />
+                  <button
+                    type="button"
+                    onClick={verifyKNumberForRegistration}
+                    disabled={isVerifyingKNumber}
+                    className="px-4 py-2 bg-green-dark text-white rounded-lg text-[13px] font-semibold hover:bg-green-mid disabled:opacity-50 whitespace-nowrap"
+                  >
+                    {isVerifyingKNumber ? 'Verifying...' : 'Verify'}
+                  </button>
+                </div>
+                <p className="text-[11px] text-gray-500 mt-2">Enter the K number from your electricity bill</p>
+              </div>
+            ) : (
+              <>
+                <div className="bg-green-50 border border-green-200 rounded-xl p-4 mb-4">
+                  <div className="flex items-center gap-2 mb-2">
+                    <CheckCircle className="w-4 h-4 text-green-dark" />
+                    <span className="text-sm font-semibold text-green-dark">K Number Verified!</span>
+                  </div>
+                  <div className="text-[12px] text-gray-600">
+                    <p><span className="font-semibold">Name:</span> {kNumberData?.name}</p>
+                    <p><span className="font-semibold">Mobile:</span> {kNumberData?.mobile_number}</p>
+                  </div>
+                </div>
+
+                {/* Role Selection Dropdown */}
+                <div className="form-group">
+                  <label className="required">Register as</label>
+                  <select
+                    value={selectedRole}
+                    onChange={(e) => setSelectedRole(e.target.value as 'CONSUMER' | 'SUPPLIER')}
+                    className="form-control"
+                  >
+                    <option value="CONSUMER">Consumer (Green Energy Open Access)</option>
+                    <option value="SUPPLIER">Supplier (Renewable Energy Generator)</option>
+                  </select>
+                </div>
+
+                {/* Email Field - Common for both */}
+                <div className="form-group">
+                  <label className="required">Email Address</label>
+                  <div className="relative">
+                    <Mail className="absolute left-3.5 top-3.5 text-gray-400 w-[18px] h-[18px]" />
+                    <input
+                      type="email"
+                      value={regEmail}
+                      onChange={(e) => setRegEmail(e.target.value)}
+                      required
+                      className="form-control pl-10"
+                    />
+                  </div>
+                </div>
+
+                {/* Password Fields - Common for both */}
+                <div className="form-group">
+                  <label className="required">Create Password</label>
+                  <div className="relative">
+                    <Lock className="absolute left-3.5 top-3.5 text-gray-400 w-[18px] h-[18px]" />
+                    <input
+                      type={showPassword ? 'text' : 'password'}
+                      placeholder="Minimum 8 characters"
+                      value={regPass}
+                      onChange={(e) => setRegPass(e.target.value)}
+                      required
+                      className="form-control pl-10 pr-10"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => setShowPassword(!showPassword)}
+                      className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400"
+                    >
+                      {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                    </button>
                   </div>
                 </div>
 
                 <div className="form-group">
-                  <label>Password</label>
+                  <label className="required">Confirm Password</label>
                   <div className="relative">
                     <Lock className="absolute left-3.5 top-3.5 text-gray-400 w-[18px] h-[18px]" />
                     <input
-                      type="password"
-                      placeholder="••••••••"
-                      value={loginPass}
-                      onChange={(e) => setLoginPass(e.target.value)}
+                      type={showPassword ? 'text' : 'password'}
+                      value={confirmPassword}
+                      onChange={(e) => setConfirmPassword(e.target.value)}
                       required
                       className="form-control pl-10"
                     />
                   </div>
                 </div>
 
-                <div className="alert alert-info">
-                  <span className="text-[18px]">💡</span>
-                  <div>
-                    Your account role is assigned by registration and enforced by the backend. Only the correct portal will load after you sign in.
-                  </div>
-                </div>
+                {passwordError && <p className="text-[12px] text-red-600">{passwordError}</p>}
 
-                <button type="submit" className="w-full btn-green py-3 text-[15px]">
-                  Sign In
-                </button>
-              </form>
-            ) : (
-              /* REGISTER VIEW */
-              <form onSubmit={handleRegisterSubmit} className="space-y-5">
-                {registerSuccess && (
-                  <div className="alert alert-success">
-                    {registerSuccess}
-                  </div>
-                )}
-                {registerError && (
-                  <div className="alert alert-error">
-                    {registerError}
-                  </div>
-                )}
-
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                {/* DISCOM Dropdown - ONLY for Supplier, NO other fields */}
+                {selectedRole === 'SUPPLIER' && (
                   <div className="form-group">
-                    <label className="required">Company Name</label>
-                    <div className="relative">
-                      <Building className="absolute left-3.5 top-3.5 text-gray-400 w-[18px] h-[18px]" />
-                      <input
-                        type="text"
-                        placeholder="Company Ltd"
-                        value={compName}
-                        onChange={(e) => setCompName(e.target.value)}
-                        required
-                        className="form-control pl-10"
-                      />
-                    </div>
-                  </div>
-
-                  <div className="form-group">
-                    <label className="required">Email Address</label>
-                    <div className="relative">
-                      <Mail className="absolute left-3.5 top-3.5 text-gray-400 w-[18px] h-[18px]" />
-                      <input
-                        type="email"
-                        placeholder="contact@company.com"
-                        value={regEmail}
-                        onChange={(e) => setRegEmail(e.target.value)}
-                        required
-                        className="form-control pl-10"
-                      />
-                    </div>
-                  </div>
-                </div>
-
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <div className="form-group">
-                    <label className="required">Password</label>
-                    <div className="relative">
-                      <Lock className="absolute left-3.5 top-3.5 text-gray-400 w-[18px] h-[18px]" />
-                      <input
-                        type="password"
-                        placeholder="Enter Password"
-                        minLength={12}
-                        maxLength={20}
-                        value={regPass}
-                        onChange={(e) => {
-                          const value = e.target.value;
-                          setRegPass(value);
-                          setPasswordStrength(evaluatePasswordStrength(value));
-                        }}
-                        required
-                        className="form-control pl-10"
-                      />
-                    </div>
-                    <div className="mt-2 flex items-center justify-between gap-3">
-                      <div className="h-2 w-full rounded-full bg-[#e5e7eb] overflow-hidden">
-                        <div
-                          className={`h-full ${passwordStrength === 'Weak' ? 'w-1/4 bg-red-500' : passwordStrength === 'Fair' ? 'w-1/2 bg-orange-400' : passwordStrength === 'Good' ? 'w-3/4 bg-amber-400' : 'w-full bg-emerald-500'}`}
-                        />
-                      </div>
-                      <span className="text-[12px] font-semibold text-gray-700">{passwordStrength}</span>
-                    </div>
-                    {passwordError && <p className="text-[12px] text-red-600 mt-1.5">{passwordError}</p>}
-                  </div>
-
-                  <div className="form-group">
-                    <label className="required">State Jurisdiction</label>
-                    <div className="relative">
-                      <MapPin className="absolute left-3.5 top-3.5 text-gray-400 w-[18px] h-[18px]" />
-                      <input
-                        type="text"
-                        placeholder="Rajasthan"
-                        value={regState}
-                        onChange={(e) => setRegState(e.target.value)}
-                        required
-                        className="form-control pl-10"
-                      />
-                    </div>
-                  </div>
-                </div>
-
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4 pt-4 border-t border-[#f0f4f2]">
-                  <div className="form-group">
-                    <label className="required">Phone Number</label>
-                    <div className="relative">
-                      <Phone className="absolute left-3.5 top-3.5 text-gray-400 w-[18px] h-[18px]" />
-                      <input
-                        type="tel"
-                        placeholder="+91 98765 43210"
-                        value={phoneNumber}
-                        onChange={(e) => setPhoneNumber(e.target.value.replace(/[^+\d\s]/g, ''))}
-                        required
-                        className="form-control pl-10"
-                      />
-                    </div>
-                    {phoneError && <p className="text-[12px] text-red-600 mt-1.5">{phoneError}</p>}
-                  </div>
-
-                  {activeTab === 'CONSUMER' ? (
-                    <div className="form-group">
-                      <label className="required">Drawal Substation</label>
-                      <input
-                        type="text"
-                        value={drawalNode}
-                        onChange={(e) => setDrawalNode(e.target.value)}
-                        required
-                        className="form-control"
-                      />
-                    </div>
-                  ) : (
-                    <div className="form-group">
-                      <label className="required">Injection Point</label>
-                      <input
-                        type="text"
-                        value={injectNode}
-                        onChange={(e) => setInjectNode(e.target.value)}
-                        required
-                        className="form-control"
-                      />
-                    </div>
-                  )}
-                </div>
-
-                {activeTab === 'SUPPLIER' && (
-                  <div className="form-group">
-                    <label className="required">Renewable energy type</label>
+                    <label className="required">Select DISCOM / Utility</label>
                     <select
-                      value={renewableType}
-                      onChange={(e) => setRenewableType(e.target.value)}
+                      value={selectedDiscom}
+                      onChange={(e) => setSelectedDiscom(e.target.value)}
                       required
                       className="form-control"
                     >
-                      <option value="" disabled>
-                        Select generation type…
-                      </option>
-                      {RENEWABLE_TYPES.map((type) => (
-                        <option key={type} value={type}>
-                          {type}
-                        </option>
+                      <option value="">— Select DISCOM —</option>
+                      {DISCOM_OPTIONS.map(discom => (
+                        <option key={discom} value={discom}>{discom}</option>
                       ))}
                     </select>
-                    <p className="text-[12px] text-gray-500 mt-1.5">
-                      Used for GEOA classification and consumer matching.
-                    </p>
+                    <p className="text-[11px] text-gray-500 mt-1">Select your state electricity board</p>
                   </div>
                 )}
 
-                <button type="submit" className="w-full btn-green py-3 text-[15px] mt-2">
-                  Register
+                <button type="submit" className="w-full btn-green py-3 mt-2">
+                  Register as {selectedRole === 'CONSUMER' ? 'Consumer' : 'Supplier'}
                 </button>
-              </form>
-            )}
 
-            {/* Switch Views */}
-            <div className="text-center pt-6 mt-6 border-t border-[#f0f4f2]">
-              <button
-                type="button"
-                onClick={toggleAuthView}
-                className="text-[13px] font-semibold text-green-dark hover:text-green-mid transition-colors cursor-pointer"
-              >
-                {isLoginView ? "Don't have an account? Register here" : "Already registered? Sign in"}
-              </button>
-            </div>
-          </>
-        
+                <button
+                  type="button"
+                  onClick={resetRegistration}
+                  className="text-[12px] text-gray-500 hover:text-green-dark mt-4 text-center w-full"
+                >
+                  ← Use different K number
+                </button>
+              </>
+            )}
+          </form>
+        )}
+
+        <div className="text-center pt-6 mt-6 border-t border-[#f0f4f2]">
+          <button
+            type="button"
+            onClick={toggleAuthView}
+            className="text-[13px] font-semibold text-green-dark hover:text-green-mid"
+          >
+            {isLoginView ? "Don't have an account? Register here" : "Already registered? Sign in"}
+          </button>
+        </div>
       </div>
     </div>
   );

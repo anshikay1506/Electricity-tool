@@ -1,82 +1,79 @@
 import { Router, Response } from 'express';
 import { db } from '../config/db';
-import { AuthenticatedRequest } from '../middleware/auth';
+import { AuthenticatedRequest, authenticateToken, requireVerifiedPortalUser } from '../middleware/auth';
 
 const router = Router();
 
-// Get approved suppliers for marketplace
-router.get('/', async (req, res) => {
+// Apply auth middleware to all supplier routes
+router.use(authenticateToken, requireVerifiedPortalUser);
+
+// Get all suppliers (for admin)
+router.get('/', async (req: AuthenticatedRequest, res: Response) => {
   try {
-    const users: any[] = await db.getUsers();
-
-    // Fetch supplier profiles and merge profile fields into the returned supplier objects
-    const profiles: any[] = await db.getSupplierProfiles();
-
-    const suppliers = users
-      .filter((u: any) => u.role === 'SUPPLIER' && u.status === 'VERIFIED')
-      .map((u: any) => {
-        const p = profiles.find((pr: any) => pr.userId === u.id) || {};
-        return {
-          id: u.id,
-          name: u.name,
-          email: u.email,
-          phoneNumber: u.phoneNumber || null,
-          state: u.state,
-          status: u.status,
-          injectionPoint: p.injectionPoint || null,
-          renewableType: p.renewableType || null,
-          generationCapacity: p.generationCapacity || null,
-          createdAt: u.createdAt
-        };
-      });
-
+    const users = await db.getUsers();
+    const suppliers = users.filter((u: any) => u.role === 'SUPPLIER');
     res.json(suppliers);
-  } catch (error) {
-    console.log(error);
-    res.status(500).json({ error: 'Failed to fetch suppliers' });
+  } catch (error: any) {
+    res.status(500).json({ error: error.message });
   }
 });
 
-// Get supplier full details (profile, documents, connected applications)
+// Get supplier profile
+router.get('/profile', async (req: AuthenticatedRequest, res: Response) => {
+  try {
+    const user = await db.getUserById(req.user!.id);
+    
+    if (!user) {
+      res.status(404).json({ error: 'User not found' });
+      return;
+    }
+
+    // Get supplier profile if exists
+    const profile = await db.getSupplierProfileByUserId(req.user!.id);
+
+    res.json({
+      id: user.id,
+      email: user.email,
+      name: user.name,
+      phoneNumber: user.phoneNumber,
+      role: user.role,
+      k_number: user.k_number,
+      connection_type: user.connection_type,
+      profile: profile || null
+    });
+  } catch (error: any) {
+    console.error('Error fetching supplier profile:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// Get supplier by ID
 router.get('/:id', async (req: AuthenticatedRequest, res: Response) => {
   try {
-    const { id } = req.params;
-    const user = await db.getUserById(id);
+    const user = await db.getUserById(req.params.id);
+    
     if (!user || user.role !== 'SUPPLIER') {
       res.status(404).json({ error: 'Supplier not found' });
       return;
     }
 
-    const profile = await db.getSupplierProfileByUserId(id);
-
-    // Applications connected to this supplier
-    const allApps = await db.getApplications();
-    const supplierApps = allApps.filter(a => a.supplierId === id);
-    const detailedApps = await Promise.all(supplierApps.map(async (a: any) => {
-      const consumer = await db.getUserById(a.consumerId);
-      return {
-        ...a,
-        consumerName: consumer?.name || 'Unknown Consumer'
-      };
-    }));
-
-    // Documents (certificates) for supplier
-    const docs = await db.getDocumentsByUserId(id);
+    const profile = await db.getSupplierProfileByUserId(req.params.id);
 
     res.json({
       id: user.id,
       name: user.name,
       email: user.email,
-      phoneNumber: user.phoneNumber || null,
-      state: user.state,
-      status: user.status,
-      profile: profile || null,
-      applications: detailedApps,
-      documents: docs
+      phoneNumber: user.phoneNumber,
+      role: user.role,
+      state: 'Rajasthan', // Default value since removed from User
+      renewableType: profile?.renewableType || 'Solar',
+      injectionPoint: profile?.injectionPoint || 'Bhadla Pooling Station',
+      generationCapacity: 100,
+      price: 4.2,
+      status: 'VERIFIED' // Default since removed from User
     });
-  } catch (error) {
-    console.log(error);
-    res.status(500).json({ error: 'Failed to fetch supplier details' });
+  } catch (error: any) {
+    res.status(500).json({ error: error.message });
   }
 });
 

@@ -9,7 +9,7 @@ import supplierRoutes from './routes/supplier.routes';
 import userRoutes from './routes/user.routes';
 import marketRoutes from './routes/market.routes';
 import appRoutes from './routes/app.routes';
-import docRoutes from './routes/doc.routes';
+// import docRoutes from './routes/doc.routes';
 import payRoutes from './routes/pay.routes';
 import { authenticateToken, requireVerifiedPortalUser } from './middleware/auth';
 
@@ -42,7 +42,7 @@ app.use('/api/auth', authRoutes);
 app.use('/api/users', ...protectedApiMiddleware, userRoutes);
 app.use('/api/market', ...protectedApiMiddleware, marketRoutes);
 app.use('/api/applications', ...protectedApiMiddleware, appRoutes);
-app.use('/api/documents', ...protectedApiMiddleware, docRoutes);
+// app.use('/api/documents', ...protectedApiMiddleware, docRoutes);
 app.use('/api/payments', ...protectedApiMiddleware, payRoutes);
 app.use('/api/suppliers', ...protectedApiMiddleware, supplierRoutes);
 

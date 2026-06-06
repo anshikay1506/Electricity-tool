@@ -481,7 +481,7 @@ export const LandingPage: React.FC<LandingPageProps> = ({
                   {/* details */}
                   <div className="space-y-2 text-[12px] text-gray-600 border-t border-[#f0f4f2] pt-4">
                     <div className="flex items-start justify-between gap-2">
-                      <span className="text-gray-400 shrink-0">Drawal Point</span>
+                      <span className="text-gray-400 shrink-0">Injection Point</span>
                       <span className="font-semibold text-gray-800 text-right leading-tight">{s.injectionPoint || 'Bhadla Pooling Station'}</span>
                     </div>
                     <div className="flex items-center justify-between">
@@ -516,7 +516,7 @@ export const LandingPage: React.FC<LandingPageProps> = ({
               <table className="w-full text-left border-collapse text-[13px]">
                 <thead>
                   <tr>
-                    {['Supplier','Type','State','Capacity (MW)','Base Price','Est. OA Charges','Delivered Price','Drawal Point'].map(h => (
+                    {['Supplier','Type','State','Capacity (MW)','Base Price','Est. OA Charges','Delivered Price','Injection Point'].map(h => (
                       <th key={h} className="bg-[#1b4d3e] text-white text-[11px] font-semibold px-4 py-3 uppercase tracking-[0.04em] whitespace-nowrap">{h}</th>
                     ))}
                   </tr>
@@ -564,7 +564,7 @@ export const LandingPage: React.FC<LandingPageProps> = ({
               Everything Green OA Requires
             </h2>
             <p className="text-gray-500 text-[15px] max-w-xl mx-auto">
-              Built specifically for India's renewable energy open access ecosystem — from GEOA filing to real-time dispatch.
+              Built specifically for India's renewable energy open access ecosystem from GEOA filing to real-time dispatch.
             </p>
           </div>
 

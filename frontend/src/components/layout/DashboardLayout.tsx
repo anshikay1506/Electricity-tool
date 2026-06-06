@@ -12,6 +12,10 @@ export const DashboardLayout: React.FC<{
   const { language, setLanguage } = useLanguage(); // This will trigger page reload on change
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
 
+  const handleHomeClick = () => {
+    window.location.href = '/'; 
+  };
+
   const menuItems = {
     CONSUMER: [
       { id: 'dashboard', label: 'Dashboard' },
@@ -54,7 +58,7 @@ export const DashboardLayout: React.FC<{
   const SidebarContent = () => (
     <div className="flex flex-col h-full bg-white border-r border-[#e0e8e4]">
       {/* Brand / Logo */}
-      <div className="h-16 flex items-center px-6 border-b border-[#e0e8e4] shrink-0">
+      <div onClick={handleHomeClick} className="h-16 flex items-center px-6 border-b border-[#e0e8e4] shrink-0">
         <div className="w-8 h-8 bg-green-dark rounded-[8px] flex items-center justify-center mr-3 shrink-0">
           <svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg" className="w-[18px] h-[18px] fill-white">
             <path d="M12 2L4 7v5c0 5.25 3.4 10.15 8 11.35C16.6 22.15 20 17.25 20 12V7l-8-5z"/>

@@ -1,134 +1,119 @@
 import { Router, Response } from 'express';
 import { db } from '../config/db';
-import { AuthenticatedRequest } from '../middleware/auth';
+import { AuthenticatedRequest, authenticateToken, requireVerifiedPortalUser } from '../middleware/auth';
 
 const router = Router();
 
-// Get list of all suppliers with their profile details
-router.get('/suppliers', async (req: AuthenticatedRequest, res: Response) => {
-  if (req.user?.role !== 'ADMIN') {
-    res.status(403).json({ error: 'Admin access required' });
-    return;
-  }
+// Apply auth middleware
+router.use(authenticateToken, requireVerifiedPortalUser);
 
-  const suppliers = (await db.getUsers()).filter(u => u.role === 'SUPPLIER');
-  const details = await Promise.all(suppliers.map(async (s) => {
-    const prof = await db.getSupplierProfileByUserId(s.id);
-    return {
-      id: s.id,
-      name: s.name,
-      email: s.email,
-      phoneNumber: s.phoneNumber || '',
-      state: s.state,
-      status: s.status,
-      // capacity: prof?.generationCapacity || 0,
-      injectionPoint: prof?.injectionPoint || '',
-      renewableType: prof?.renewableType ?? null
-    };
-  }));
-  res.json(details);
-});
-
-// Get list of all consumers with their profile details
+// Get all consumers (for admin)
 router.get('/consumers', async (req: AuthenticatedRequest, res: Response) => {
-  if (req.user?.role !== 'ADMIN') {
-    res.status(403).json({ error: 'Admin access required' });
-    return;
+  try {
+    const users = await db.getUsers();
+    const consumers = users.filter((u: any) => u.role === 'CONSUMER');
+    
+    const consumersWithProfile = await Promise.all(
+      consumers.map(async (c: any) => {
+        const profile = await db.getConsumerProfileByUserId(c.id);
+        return {
+          id: c.id,
+          name: c.name,
+          email: c.email,
+          phoneNumber: c.phoneNumber,
+          role: c.role,
+          k_number: c.k_number,
+          connection_type: c.connection_type,
+          drawalPoint: profile?.drawalPoint || 'Not specified'
+        };
+      })
+    );
+    
+    res.json(consumersWithProfile);
+  } catch (error: any) {
+    res.status(500).json({ error: error.message });
   }
-
-  const consumers = (await db.getUsers()).filter(u => u.role === 'CONSUMER');
-  const details = await Promise.all(consumers.map(async (c) => {
-    const prof = await db.getConsumerProfileByUserId(c.id);
-    return {
-      id: c.id,
-      name: c.name,
-      email: c.email,
-      phoneNumber: c.phoneNumber || '',
-      state: c.state,
-      status: c.status,
-      drawalPoint: prof?.drawalPoint || '',
-      oaStatus: prof?.oaStatus || 'INACTIVE'
-    };
-  }));
-  res.json(details);
 });
 
-// Get a specific consumer profile for suppliers and admins
+// Get consumer by ID
 router.get('/consumers/:id', async (req: AuthenticatedRequest, res: Response) => {
-  const { id } = req.params;
-  if (!req.user) {
-    res.status(401).json({ error: 'Unauthorized' });
-    return;
-  }
+  try {
+    const consumer = await db.getUserById(req.params.id);
+    
+    if (!consumer || consumer.role !== 'CONSUMER') {
+      res.status(404).json({ error: 'Consumer not found' });
+      return;
+    }
 
-  if (!['ADMIN', 'SUPPLIER'].includes(req.user.role) && req.user.id !== id) {
-    res.status(403).json({ error: 'Access denied' });
-    return;
-  }
+    const profile = await db.getConsumerProfileByUserId(req.params.id);
 
-  const consumer = await db.getUserById(id);
-  if (!consumer || consumer.role !== 'CONSUMER') {
-    res.status(404).json({ error: 'Consumer profile not found' });
-    return;
+    res.json({
+      id: consumer.id,
+      name: consumer.name,
+      email: consumer.email,
+      phoneNumber: consumer.phoneNumber,
+      role: consumer.role,
+      k_number: consumer.k_number,
+      connection_type: consumer.connection_type,
+      drawalPoint: profile?.drawalPoint || '400kV Jajpur Substation'
+    });
+  } catch (error: any) {
+    res.status(500).json({ error: error.message });
   }
-
-  const prof = await db.getConsumerProfileByUserId(id);
-  res.json({
-    id: consumer.id,
-    name: consumer.name,
-    email: consumer.email,
-    phoneNumber: consumer.phoneNumber || '',
-    state: consumer.state,
-    status: consumer.status,
-    drawalPoint: prof?.drawalPoint || '',
-    oaStatus: prof?.oaStatus || 'INACTIVE'
-  });
 });
 
-// Admin approves user profile
-router.patch('/:id/approve', async (req: AuthenticatedRequest, res: Response) => {
-  if (req.user?.role !== 'ADMIN') {
-    res.status(403).json({ error: 'Admin access required' });
-    return;
-  }
+// Get consumer profile for logged in user
+router.get('/consumer-profile', async (req: AuthenticatedRequest, res: Response) => {
+  try {
+    const user = await db.getUserById(req.user!.id);
+    
+    if (!user || user.role !== 'CONSUMER') {
+      res.status(404).json({ error: 'Consumer profile not found' });
+      return;
+    }
 
-  const { id } = req.params;
-  const user = await db.getUserById(id);
-  if (!user) {
-    res.status(404).json({ error: 'User profile not found' });
-    return;
-  }
+    const profile = await db.getConsumerProfileByUserId(req.user!.id);
 
-  if (user.status !== 'PENDING') {
-    res.status(400).json({ error: 'Only pending registrations can be approved' });
-    return;
+    res.json({
+      id: user.id,
+      name: user.name,
+      email: user.email,
+      phoneNumber: user.phoneNumber,
+      k_number: user.k_number,
+      connection_type: user.connection_type,
+      drawalPoint: profile?.drawalPoint || '400kV Jajpur Substation'
+    });
+  } catch (error: any) {
+    res.status(500).json({ error: error.message });
   }
-
-  await db.updateUserStatus(id, 'VERIFIED');
-  res.json({ success: true, message: 'User profile approved successfully' });
 });
 
-// Admin rejects user profile
-router.patch('/:id/reject', async (req: AuthenticatedRequest, res: Response) => {
-  if (req.user?.role !== 'ADMIN') {
-    res.status(403).json({ error: 'Admin access required' });
-    return;
+// Get all suppliers (for admin)
+router.get('/suppliers', async (req: AuthenticatedRequest, res: Response) => {
+  try {
+    const users = await db.getUsers();
+    const suppliers = users.filter((u: any) => u.role === 'SUPPLIER');
+    
+    const suppliersWithProfile = await Promise.all(
+      suppliers.map(async (s: any) => {
+        const profile = await db.getSupplierProfileByUserId(s.id);
+        return {
+          id: s.id,
+          name: s.name,
+          email: s.email,
+          phoneNumber: s.phoneNumber,
+          role: s.role,
+          k_number: s.k_number,
+          renewableType: profile?.renewableType || 'Solar',
+          injectionPoint: profile?.injectionPoint || 'Bhadla Pooling Station'
+        };
+      })
+    );
+    
+    res.json(suppliersWithProfile);
+  } catch (error: any) {
+    res.status(500).json({ error: error.message });
   }
-
-  const { id } = req.params;
-  const user = await db.getUserById(id);
-  if (!user) {
-    res.status(404).json({ error: 'User profile not found' });
-    return;
-  }
-
-  if (user.status !== 'PENDING') {
-    res.status(400).json({ error: 'Only pending registrations can be rejected' });
-    return;
-  }
-
-  await db.updateUserStatus(id, 'REJECTED');
-  res.json({ success: true, message: 'User profile status set to REJECTED' });
 });
 
 export default router;
