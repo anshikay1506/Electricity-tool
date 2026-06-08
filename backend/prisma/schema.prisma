@@ -1,42 +1,40 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
 datasource db {
   provider = "postgresql"
   url      = env("DATABASE_URL")
 }
 
-generator client {
-  provider = "prisma-client-js"
-}
-
 model User {
-  id              String  @id
-  email           String  @unique
-  passwordHash    String
-  name            String
-  role            String
-  phoneNumber     String? @unique
-  k_number        String? @unique
-  connection_type String?
-
-  consumerProfile   ConsumerProfile?
-  supplierProfile   SupplierProfile?
+  id                String             @id
+  email             String             @unique
+  name              String
+  role              String
+  k_number          String?            @unique
+  connection_type   String?
+  passwordHash      String
+  phoneNumber       String?            @unique
   bids              Bid[]
+  consumerProfile   ConsumerProfile?
   consumerContracts Contract[]         @relation("ConsumerContracts")
   supplierContracts Contract[]         @relation("SupplierContracts")
-  supplierDocuments SupplierDocument[]
   documents         Document[]
   payments          Payment[]
+  supplierDocuments SupplierDocument[]
+  supplierProfile   SupplierProfile?
 
   @@map("User")
 }
 
-
 model ConsumerProfile {
   id          String  @id @default(uuid())
   userId      String  @unique
-  user        User    @relation(fields: [userId], references: [id], onDelete: Cascade)
-  phoneNumber String?
   drawalPoint String
-  k_number        String?  @unique
+  phoneNumber String?
+  k_number    String? @unique
+  user        User    @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@map("ConsumerProfile")
 }
@@ -44,10 +42,10 @@ model ConsumerProfile {
 model SupplierProfile {
   id             String  @id @default(uuid())
   userId         String  @unique
-  user           User    @relation(fields: [userId], references: [id], onDelete: Cascade)
-  phoneNumber    String?
   injectionPoint String
   renewableType  String
+  phoneNumber    String?
+  user           User    @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@map("SupplierProfile")
 }
@@ -55,91 +53,86 @@ model SupplierProfile {
 model Bid {
   id         String   @id @default(uuid())
   userId     String
-  user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
   mw         Float
   price      Float
   marketType String
   timeBlock  String
   status     String   @default("PENDING")
   createdAt  DateTime @default(now())
+  user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@map("Bid")
 }
 
 model Application {
-  id                String  @id @default(uuid())
-  consumerId        String
-  supplierId        String
-  mw                Float
-  type              String  @default("Green OA")
-  applicantName     String?
-  entityType        String?
-  legalIdentifier   String?
-  discomConsumerNo  String?
-  registeredAddress String?
-  state             String?
-  discom            String?
-  contactPerson     String?
-  contactEmail      String?
-  contactMobile     String?
-  voltageLevel      String?
-  renewableType     String?
-  scheduleType      String?
-  proposedStartDate String?
-  timeBlocks        String?
-  documentChecklist Json?
-  annexureCStatus   String  @default("PENDING")
-  annexureDStatus   String  @default("PENDING")
-  annexureEStatus   String  @default("PENDING")
-  approvalStatus    String  @default("ADMIN_PENDING")
-  lossPercentage    Float   @default(3.5)
-  injectionPoint    String
-  drawalPoint       String
-  durationDays      Int     @default(365)
-  requestedPrice    Float?
-  consumerName      String?
-
-  adminApproved     Boolean @default(false)
-  supplierApproved  Boolean @default(false)
-  contractGenerated Boolean @default(false)
-
+  id                  String    @id @default(uuid())
+  consumerId          String
+  supplierId          String
+  mw                  Float
+  type                String    @default("Green OA")
+  annexureCStatus     String    @default("PENDING")
+  annexureDStatus     String    @default("PENDING")
+  annexureEStatus     String    @default("PENDING")
+  approvalStatus      String    @default("ADMIN_PENDING")
+  lossPercentage      Float     @default(3.5)
+  injectionPoint      String
+  drawalPoint         String
+  durationDays        Int       @default(365)
+  ppaUrl              String?
+  oaAppUrl            String?
+  bgUrl               String?
+  authLetterUrl       String?
+  createdAt           DateTime  @default(now())
+  adminApproved       Boolean   @default(false)
   adminApprovedAt     DateTime?
-  supplierApprovedAt  DateTime?
+  applicantName       String?
+  consumerName        String?
+  contactEmail        String?
+  contactMobile       String?
+  contactPerson       String?
+  contractGenerated   Boolean   @default(false)
   contractGeneratedAt DateTime?
-  rejectionReason     String?
   contractId          String?
   contractUrl         String?
-
-  ppaUrl        String?
-  oaAppUrl      String?
-  bgUrl         String?
-  authLetterUrl String?
-  createdAt     DateTime @default(now())
-
-  contract Contract?
+  discom              String?
+  discomConsumerNo    String?
+  documentChecklist   Json?
+  entityType          String?
+  legalIdentifier     String?
+  proposedStartDate   String?
+  registeredAddress   String?
+  rejectionReason     String?
+  renewableType       String?
+  requestedPrice      Float?
+  scheduleType        String?
+  state               String?
+  supplierApproved    Boolean   @default(false)
+  supplierApprovedAt  DateTime?
+  timeBlocks          String?
+  voltageLevel        String?
+  contract            Contract?
 }
 
 model Contract {
-  id               String    @id
-  applicationId    String    @unique
+  id               String      @id
+  applicationId    String      @unique
   consumerId       String
   supplierId       String
-  contractNumber   String    @unique
+  contractNumber   String      @unique
   startDate        DateTime
   endDate          DateTime
   mw               Int
   pricePerUnit     Float
   totalValue       Float
   status           String
-  signedByConsumer Boolean   @default(false)
-  signedBySupplier Boolean   @default(false)
+  signedByConsumer Boolean     @default(false)
+  signedBySupplier Boolean     @default(false)
   signedAt         DateTime?
   pdfUrl           String?
-  createdAt        DateTime  @default(now())
-
-  application Application @relation(fields: [applicationId], references: [id])
-  consumer    User        @relation("ConsumerContracts", fields: [consumerId], references: [id])
-  supplier    User        @relation("SupplierContracts", fields: [supplierId], references: [id])
+  createdAt        DateTime    @default(now())
+  application      Application @relation(fields: [applicationId], references: [id])
+  consumer         User        @relation("ConsumerContracts", fields: [consumerId], references: [id])
+  supplier         User        @relation("SupplierContracts", fields: [supplierId], references: [id])
 }
 
 model SupplierDocument {
@@ -155,8 +148,7 @@ model SupplierDocument {
   verifiedAt   DateTime?
   verifiedBy   String?
   uploadedAt   DateTime  @default(now())
-
-  supplier User @relation(fields: [supplierId], references: [id])
+  supplier     User      @relation(fields: [supplierId], references: [id])
 
   @@map("SupplierDocument")
 }
@@ -181,8 +173,8 @@ model Document {
   fileUrl   String
   status    String   @default("PENDING")
   userId    String
-  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
   createdAt DateTime @default(now())
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@map("Document")
 }
@@ -190,12 +182,12 @@ model Document {
 model Payment {
   id        String   @id @default(uuid())
   userId    String
-  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
   amount    Float
   currency  String   @default("INR")
   status    String   @default("PENDING")
   reference String?
   createdAt DateTime @default(now())
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@map("Payment")
 }
@@ -209,12 +201,17 @@ model MarketPrice {
   @@map("MarketPrice")
 }
 
+/// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
 model electricboard {
-  k_number        String  @id @map("k_number")
-  mobile_number   String  @unique @map("mobile_number")
+  k_number        String  @id
+  mobile_number   String  @unique
   name            String
-  connection_type String  @map("connection_type")
+  connection_type String
   email           String?
-
-  @@map("electricboard")
+  meter_type      String?
+  area_type       String?
+  connected_load  Float?
+  demand_load     Float?
+  address         String?
+  discom          String?
 }

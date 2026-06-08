@@ -11,6 +11,20 @@ export interface User {
   connection_type?: string;
 }
 
+interface ElectricBoardConsumer {
+  k_number: string;
+  name: string;
+  mobile_number: string;
+  email?: string;
+  connection_type: string;
+  meter_type?: string;
+  area_type?: string;
+  connected_load?: number;
+  demand_load?: number;
+  address?: string;
+  discom?: string;  
+}
+
 export interface ConsumerProfile {
   id: string;
   userId: string;

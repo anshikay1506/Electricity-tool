@@ -21,10 +21,20 @@ const normalizeRenewableType = (value: unknown): string | null => {
   return match ?? null;
 };
 
-// Register User (simplified for regular email registration)
+
+
 router.post('/register', async (req, res) => {
   try {
-    const { email, password, name, phoneNumber, role, drawalPoint, injectionPoint, renewableType } = req.body;
+    const { 
+      email, password, name, phoneNumber, role, 
+      drawalPoint, injectionPoint, renewableType,
+      k_number, connection_type, discom 
+    } = req.body;
+
+    console.log('Registration payload:', { 
+      email, name, role, k_number, connection_type, discom 
+    });
+    
     const normalizedEmail = typeof email === 'string' ? email.trim().toLowerCase() : '';
     const normalizedName = typeof name === 'string' ? name.trim() : '';
     const normalizedRole = typeof role === 'string' ? role.trim().toUpperCase() : '';
@@ -67,6 +77,8 @@ router.post('/register', async (req, res) => {
       name: normalizedName,
       phoneNumber: normalizedPhone,
       role: normalizedRole as any,
+      k_number: k_number || null,  
+      connection_type: connection_type || null, 
     };
 
     await db.addUser(newUser);
@@ -77,7 +89,6 @@ router.post('/register', async (req, res) => {
         userId: newUser.id,
         phoneNumber: normalizedPhone || null,
         drawalPoint: drawalPoint || 'Local Substation Node',
-       
       });
     } else if (normalizedRole === 'SUPPLIER') {
       await db.addSupplierProfile({
@@ -101,6 +112,8 @@ router.post('/register', async (req, res) => {
         name: newUser.name,
         phoneNumber: newUser.phoneNumber,
         role: newUser.role,
+        k_number: newUser.k_number,
+        connection_type: newUser.connection_type,
       }
     });
   } catch (error: any) {
@@ -108,6 +121,7 @@ router.post('/register', async (req, res) => {
     res.status(500).json({ error: error.message });
   }
 });
+
 
 // Login User
 router.post('/login', async (req, res) => {
@@ -188,25 +202,27 @@ router.post('/validate-knumber', async (req: any, res: any) => {
 });
 
 
-// ============================================
-// NEW ENDPOINT FOR REGISTRATION - Uses Electric Board API
-// ============================================
 router.post('/validate-knumber-for-registration', async (req: any, res: any) => {
   try {
-    const { k_number } = req.body;
+    const { k_number, discom } = req.body;
     
     if (!k_number) {
       return res.status(400).json({ error: 'K number is required' });
     }
     
-    // Check Electric Board API for valid K-number
     const consumer = await db.getConsumerByKNumber(k_number);
     
     if (!consumer) {
       return res.status(404).json({ error: 'Invalid K number' });
     }
     
-    // Check if already registered in YOUR database
+    // If DISCOM is provided, verify it matches
+    if (discom && consumer.discom !== discom) {
+      return res.status(400).json({ 
+        error: `This K-number does not belong to ${discom}. Please select the correct DISCOM.` 
+      });
+    }
+    
     const existingUser = await db.getUserByKNumber(k_number);
     if (existingUser) {
       return res.status(400).json({ error: 'K number already registered. Please login.' });
@@ -219,12 +235,17 @@ router.post('/validate-knumber-for-registration', async (req: any, res: any) => 
         email: consumer.email,
         mobile_number: consumer.mobile_number,
         connection_type: consumer.connection_type,
+        meter_type: consumer.meter_type,
+        area_type: consumer.area_type,
+        connected_load: consumer.connected_load,
+        demand_load: consumer.demand_load,
+        discom: consumer.discom,
         k_number: consumer.k_number
       }
     });
     
   } catch (error) {
-    console.error('Validate K-number for registration error:', error);
+    console.error('Validate K-number error:', error);
     res.status(500).json({ error: 'Failed to validate K-number' });
   }
 });

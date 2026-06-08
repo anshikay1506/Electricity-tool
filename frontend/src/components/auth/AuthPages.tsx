@@ -36,8 +36,8 @@ export const AuthPages: React.FC<AuthPagesProps> = ({
   const [showPassword, setShowPassword] = useState(false);
   const [passwordError, setPasswordError] = useState('');
   
-  // Supplier specific - ONLY DISCOM dropdown
   const [selectedDiscom, setSelectedDiscom] = useState('');
+  const [discomVerified, setDiscomVerified] = useState(false);
   
   // Login states
   const [loginKNumber, setLoginKNumber] = useState('');
@@ -52,7 +52,13 @@ export const AuthPages: React.FC<AuthPagesProps> = ({
   const [loginEmail, setLoginEmail] = useState('');
   const [loginPass, setLoginPass] = useState('');
 
-  const DISCOM_OPTIONS = ['JVVNL', 'AVVNL', 'DVVNL', 'JDVVNL', 'MSEDCL', 'PGVCL', 'MGVCL', 'UGVCL', 'TNEB', 'BESCOM', 'CESC', 'TSSPDCL', 'TGSPDCL', 'KSEB', 'HPSEB'];
+  const DISCOM_OPTIONS = [
+    { value: 'JVVNL', label: 'Jaipur Vidyut Vitran Nigam Limited (JVVNL)' },
+    { value: 'AVVNL', label: 'Ajmer Vidyut Vitran Nigam Limited (AVVNL)' },
+    { value: 'DVVNL', label: 'Jodhpur Vidyut Vitran Nigam Limited (DVVNL)' },
+    { value: 'JDVVNL', label: 'Kota Vidyut Vitran Nigam Limited (JDVVNL)' },
+  ];
+  
   const API_BASE = (import.meta as any)?.env?.VITE_API_URL || 'http://localhost:5000';
 
   // Timer for OTP resend
@@ -223,8 +229,6 @@ export const AuthPages: React.FC<AuthPagesProps> = ({
     setLoginError('');
   };
 
-  // ==================== REGISTRATION FUNCTIONS ====================
-  
   const verifyKNumberForRegistration = async () => {
     if (!kNumber.trim()) {
       setRegisterError('Please enter your K number');
@@ -249,7 +253,14 @@ export const AuthPages: React.FC<AuthPagesProps> = ({
         return;
       }
       
-      setKNumberData(data.consumer);
+      setKNumberData({
+        name: data.consumer.name,
+        email: data.consumer.email,
+        mobile_number: data.consumer.mobile_number,
+        connection_type: data.consumer.connection_type || 'Industrial',
+        discom: data.consumer.discom || 'JVVNL'
+      });
+      
       setRegEmail(data.consumer.email || '');
       setKNumberVerified(true);
       setRegisterError('');
@@ -281,7 +292,6 @@ export const AuthPages: React.FC<AuthPagesProps> = ({
 
     try {
       if (selectedRole === 'CONSUMER') {
-        // Consumer registration - unchanged
         const response = await fetch(`${API_BASE}/api/auth/register-with-knumber`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
@@ -316,7 +326,6 @@ export const AuthPages: React.FC<AuthPagesProps> = ({
         onSuccess();
         
       } else {
-        // Supplier registration - ONLY DISCOM is extra
         if (!selectedDiscom) {
           setRegisterError('Please select a DISCOM');
           return;
@@ -329,6 +338,7 @@ export const AuthPages: React.FC<AuthPagesProps> = ({
           role: 'SUPPLIER',
           phoneNumber: kNumberData?.mobile_number,
           k_number: kNumber,
+          connection_type: kNumberData?.connection_type || 'Industrial',
           discom: selectedDiscom,
           state: 'Rajasthan',
           injectionPoint: 'Grid Injection Point',
@@ -370,6 +380,7 @@ export const AuthPages: React.FC<AuthPagesProps> = ({
     setRegPass('');
     setConfirmPassword('');
     setSelectedDiscom('');
+    setDiscomVerified(false);
     setRegisterError('');
     setPasswordError('');
   };
@@ -378,6 +389,49 @@ export const AuthPages: React.FC<AuthPagesProps> = ({
     setIsLoginView(!isLoginView);
     resetRegistration();
     resetLoginState();
+  };
+
+  const verifyDiscom = async () => {
+    if (!selectedDiscom) {
+      setRegisterError('Please select your DISCOM');
+      return;
+    }
+    
+    setIsVerifyingKNumber(true);
+    setRegisterError('');
+    
+    try {
+      if (selectedDiscom !== kNumberData?.discom) {
+        setRegisterError(`This K-number does not belong to ${selectedDiscom}. It belongs to ${kNumberData?.discom}. Please select the correct DISCOM.`);
+        setIsVerifyingKNumber(false);
+        return;
+      }
+      
+      const response = await fetch(`${API_BASE}/api/auth/validate-knumber-for-registration`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ 
+          k_number: kNumber.trim(),
+          discom: selectedDiscom 
+        })
+      });
+      
+      const data = await response.json();
+      
+      if (!response.ok) {
+        setRegisterError(data.error);
+        setIsVerifyingKNumber(false);
+        return;
+      }
+      
+      setDiscomVerified(true);
+      setRegisterError('');
+      
+    } catch (err) {
+      setRegisterError('Network error. Please check your connection.');
+    } finally {
+      setIsVerifyingKNumber(false);
+    }
   };
 
   return (
@@ -404,13 +458,9 @@ export const AuthPages: React.FC<AuthPagesProps> = ({
           <h3 className="font-sora text-[22px] font-bold text-gray-900 mb-2">
             {isLoginView ? 'Sign in to your account' : 'Register for Open Access'}
           </h3>
-          {/* <p className="text-sm text-gray-500">
-            {isLoginView ? 'Enter your K number to get started' : 'Enter your K number to verify'}
-          </p> */}
         </div>
 
         {isLoginView ? (
-          /* LOGIN VIEW */
           <form onSubmit={handleLoginSubmit} className="space-y-5">
             {loginError && <div className="alert alert-error">{loginError}</div>}
 
@@ -424,7 +474,7 @@ export const AuthPages: React.FC<AuthPagesProps> = ({
                     type="text"
                     value={loginKNumber}
                     onChange={(e) => setLoginKNumber(e.target.value.toUpperCase())}
-                    placeholder="e.g., 320223020282"
+                    placeholder="320223020282"
                     className="form-control flex-1 font-mono"
                     autoFocus
                   />
@@ -530,54 +580,116 @@ export const AuthPages: React.FC<AuthPagesProps> = ({
                     {useOtp ? '← Back to Password Login' : 'Login with OTP instead'}
                   </button>
                 </div>
-
               </>
             )}
           </form>
         ) : (
-          /* REGISTRATION VIEW */
+          /* REGISTRATION VIEW - Single Page Flow */
           <form onSubmit={handleRegisterSubmit} className="space-y-5">
             {registerSuccess && <div className="alert alert-success">{registerSuccess}</div>}
             {registerError && <div className="alert alert-error">{registerError}</div>}
 
-            {!kNumberVerified ? (
-              <div className="bg-blue-50 border border-blue-200 rounded-xl p-4">
-                <label className="block text-sm font-semibold text-gray-700 mb-2">
-                  K Number <span className="text-red-500">*</span>
-                </label>
-                <div className="flex gap-2">
-                  <input
-                    type="text"
-                    value={kNumber}
-                    onChange={(e) => setKNumber(e.target.value.toUpperCase())}
-                    placeholder="e.g., 320223020282"
-                    className="form-control flex-1 font-mono"
-                  />
-                  <button
-                    type="button"
-                    onClick={verifyKNumberForRegistration}
-                    disabled={isVerifyingKNumber}
-                    className="px-4 py-2 bg-green-dark text-white rounded-lg text-[13px] font-semibold hover:bg-green-mid disabled:opacity-50 whitespace-nowrap"
-                  >
-                    {isVerifyingKNumber ? 'Verifying...' : 'Verify'}
-                  </button>
+            {!discomVerified ? (
+              <div className="space-y-4">
+                {/* K Number Verification Section */}
+                <div className="bg-blue-50 border border-blue-200 rounded-xl p-4">
+                  <label className="block text-sm font-semibold text-gray-700 mb-2">
+                    K Number <span className="text-red-500">*</span>
+                  </label>
+                  <div className="flex gap-2">
+                    <input
+                      type="text"
+                      value={kNumber}
+                      onChange={(e) => setKNumber(e.target.value.toUpperCase())}
+                      placeholder="320223020282"
+                      className="form-control flex-1 font-mono"
+                      disabled={kNumberVerified}
+                    />
+                    {!kNumberVerified ? (
+                      <button
+                        type="button"
+                        onClick={verifyKNumberForRegistration}
+                        disabled={isVerifyingKNumber}
+                        className="px-4 py-2 bg-green-dark text-white rounded-lg text-[13px] font-semibold hover:bg-green-mid disabled:opacity-50 whitespace-nowrap"
+                      >
+                        {isVerifyingKNumber ? 'Verifying...' : 'Verify'}
+                      </button>
+                    ) : (
+                      <div className="px-4 py-2 bg-green-100 text-green-dark rounded-lg text-[13px] font-semibold flex items-center gap-2">
+                        <CheckCircle className="w-4 h-4" />
+                        Verified
+                      </div>
+                    )}
+                  </div>
+                  <p className="text-[11px] text-gray-500 mt-2">Enter the K number from your electricity bill</p>
                 </div>
-                <p className="text-[11px] text-gray-500 mt-2">Enter the K number from your electricity bill</p>
+
+                {/* DISCOM Selection Section */}
+                {kNumberVerified && (
+                  <div className="bg-blue-50 border border-blue-200 rounded-xl p-4 animate-fadeIn">
+                    <div className="bg-green-50 border border-green-200 rounded-xl p-3 mb-4">
+                      <div className="flex items-center gap-2">
+                        <CheckCircle className="w-4 h-4 text-green-dark" />
+                        <p className="text-[12px] font-semibold text-green-dark">
+                          ✓ K Number Verified: {kNumberData?.name}
+                        </p>
+                      </div>
+                    </div>
+                    
+                    <label className="block text-sm font-semibold text-gray-700 mb-2">
+                      Select Your DISCOM to Verify <span className="text-red-500">*</span>
+                    </label>
+                    <select
+                      value={selectedDiscom}
+                      onChange={(e) => setSelectedDiscom(e.target.value)}
+                      className="form-control mb-3"
+                    >
+                      <option value="">— Select DISCOM —</option>
+                      <option value="JVVNL">Jaipur Vidyut Vitran Nigam Limited (JVVNL)</option>
+                      <option value="AVVNL">Ajmer Vidyut Vitran Nigam Limited (AVVNL)</option>
+                      <option value="DVVNL">Jodhpur Vidyut Vitran Nigam Limited (DVVNL)</option>
+                      <option value="JDVVNL">Kota Vidyut Vitran Nigam Limited (JDVVNL)</option>
+                    </select>
+                    
+                    <button
+                      type="button"
+                      onClick={verifyDiscom}
+                      disabled={!selectedDiscom || isVerifyingKNumber}
+                      className="w-full btn-green py-2 text-[13px] font-semibold"
+                    >
+                      {isVerifyingKNumber ? 'Verifying...' : 'Verify DISCOM'}
+                    </button>
+                    
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setKNumberVerified(false);
+                        setKNumber('');
+                        setSelectedDiscom('');
+                        setKNumberData(null);
+                      }}
+                      className="text-[12px] text-gray-500 hover:text-green-dark mt-3 text-center w-full"
+                    >
+                      ← Use different K number
+                    </button>
+                  </div>
+                )}
               </div>
             ) : (
               <>
                 <div className="bg-green-50 border border-green-200 rounded-xl p-4 mb-4">
                   <div className="flex items-center gap-2 mb-2">
                     <CheckCircle className="w-4 h-4 text-green-dark" />
-                    <span className="text-sm font-semibold text-green-dark">K Number Verified!</span>
+                    <span className="text-sm font-semibold text-green-dark">Verification Complete!</span>
                   </div>
-                  <div className="text-[12px] text-gray-600">
+                  <div className="text-[12px] text-gray-600 space-y-1">
+                    <p><span className="font-semibold">K Number:</span> {kNumber}</p>
                     <p><span className="font-semibold">Name:</span> {kNumberData?.name}</p>
                     <p><span className="font-semibold">Mobile:</span> {kNumberData?.mobile_number}</p>
+                    <p><span className="font-semibold">DISCOM:</span> {selectedDiscom} ✓ Verified</p>
                   </div>
                 </div>
 
-                {/* Role Selection Dropdown */}
                 <div className="form-group">
                   <label className="required">Register as</label>
                   <select
@@ -590,7 +702,6 @@ export const AuthPages: React.FC<AuthPagesProps> = ({
                   </select>
                 </div>
 
-                {/* Email Field - Common for both */}
                 <div className="form-group">
                   <label className="required">Email Address</label>
                   <div className="relative">
@@ -605,7 +716,6 @@ export const AuthPages: React.FC<AuthPagesProps> = ({
                   </div>
                 </div>
 
-                {/* Password Fields - Common for both */}
                 <div className="form-group">
                   <label className="required">Create Password</label>
                   <div className="relative">
@@ -644,36 +754,10 @@ export const AuthPages: React.FC<AuthPagesProps> = ({
 
                 {passwordError && <p className="text-[12px] text-red-600">{passwordError}</p>}
 
-                {/* DISCOM Dropdown - ONLY for Supplier, NO other fields */}
-                {selectedRole === 'SUPPLIER' && (
-                  <div className="form-group">
-                    <label className="required">Select DISCOM / Utility</label>
-                    <select
-                      value={selectedDiscom}
-                      onChange={(e) => setSelectedDiscom(e.target.value)}
-                      required
-                      className="form-control"
-                    >
-                      <option value="">— Select DISCOM —</option>
-                      {DISCOM_OPTIONS.map(discom => (
-                        <option key={discom} value={discom}>{discom}</option>
-                      ))}
-                    </select>
-                    <p className="text-[11px] text-gray-500 mt-1">Select your state electricity board</p>
-                  </div>
-                )}
-
                 <button type="submit" className="w-full btn-green py-3 mt-2">
                   Register as {selectedRole === 'CONSUMER' ? 'Consumer' : 'Supplier'}
                 </button>
 
-                <button
-                  type="button"
-                  onClick={resetRegistration}
-                  className="text-[12px] text-gray-500 hover:text-green-dark mt-4 text-center w-full"
-                >
-                  ← Use different K number
-                </button>
               </>
             )}
           </form>
