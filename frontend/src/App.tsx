@@ -12,11 +12,12 @@ import { DashboardLayout } from './components/layout/DashboardLayout';
 import { ConsumerDashboard } from './components/dashboard/ConsumerDashboard';
 import { SupplierDashboard } from './components/dashboard/SupplierDashboard';
 import { AdminDashboard } from './components/dashboard/AdminDashboard';
+import { AdminAuthPage } from './components/auth/AdminAuthPages';
 
 const AppContent: React.FC = () => {
   const { user, token, loading, logout } = useAuth();
 
-  const [viewState, setViewState] = useState<'LANDING' | 'REGULATIONS' | 'CALCULATOR' | 'AUTH' | 'DASHBOARD'>('LANDING');
+  const [viewState, setViewState] = useState<'LANDING' | 'REGULATIONS' | 'CALCULATOR' | 'AUTH' | 'ADMIN_AUTH' | 'DASHBOARD'>('LANDING');
   const [authRoleHint, setAuthRoleHint] = useState<'CONSUMER' | 'SUPPLIER'>('CONSUMER');
   const [authInitialView, setAuthInitialView] = useState<'login' | 'register'>('login');
 
@@ -35,18 +36,19 @@ const AppContent: React.FC = () => {
   };
 
   const handleAuthSuccess = () => {
-    // REMOVED: setActiveTab('dashboard'); - This was causing issues
     setViewState('DASHBOARD');
+  };
+
+  const openAdminLogin = () => {
+    setViewState('ADMIN_AUTH');
   };
 
   // When auth state initializes, if user is present navigate to dashboard
   useEffect(() => {
     if (!loading && user && token) {
-      // REMOVED the status check since your User interface doesn't have status field
-      // Just check if user exists and has valid role
       if (user && user.role) {
         setViewState('DASHBOARD');
-        setActiveTab('dashboard'); // Set activeTab to dashboard when user logs in
+        setActiveTab('dashboard');
       }
     }
   }, [loading, user, token]);
@@ -63,23 +65,32 @@ const AppContent: React.FC = () => {
     );
   }
 
+  // Admin Auth View
+  if (viewState === 'ADMIN_AUTH') {
+    return (
+      <AdminAuthPage
+        onBackToLanding={() => setViewState('LANDING')}
+        onSuccess={() => {
+          setActiveTab('dashboard');
+          setViewState('DASHBOARD');
+        }}
+      />
+    );
+  }
+
   // If user is logged in and selected dashboard view, show Dashboard
   if (user && token && viewState === 'DASHBOARD') {
-    console.log('Rendering dashboard for role:', user.role, 'with activeTab:', activeTab);
-    
-    // Ensure activeTab is always 'dashboard' for consumer
-    const finalActiveTab = user.role === 'CONSUMER' && activeTab === '' ? 'dashboard' : activeTab;
     
     return (
-      <DashboardLayout currentTab={finalActiveTab} setTab={setActiveTab}>
+      <DashboardLayout currentTab={activeTab} setTab={setActiveTab}>
         {user.role === 'CONSUMER' && (
-          <ConsumerDashboard activeTab={finalActiveTab} setTab={setActiveTab} />
+          <ConsumerDashboard activeTab={activeTab} setTab={setActiveTab} />
         )}
         {user.role === 'SUPPLIER' && (
-          <SupplierDashboard activeTab={finalActiveTab} setTab={setActiveTab} />
+          <SupplierDashboard activeTab={activeTab} setTab={setActiveTab} />
         )}
         {user.role === 'ADMIN' && (
-          <AdminDashboard activeTab={finalActiveTab} setTab={setActiveTab} />
+          <AdminDashboard activeTab={activeTab} setTab={setActiveTab} />
         )}
       </DashboardLayout>
     );
@@ -124,10 +135,12 @@ const AppContent: React.FC = () => {
       onLogin={startLogin}
       onOpenRegulations={() => setViewState('REGULATIONS')}
       onOpenCalculator={() => setViewState('CALCULATOR')}
+      onAdminLogin={openAdminLogin}
     />
   );
 };
 
+// This is the main App component that wraps everything with providers
 function App() {
   return (
     <AuthProvider>

@@ -11,19 +11,19 @@ export interface User {
   connection_type?: string;
 }
 
-interface ElectricBoardConsumer {
-  k_number: string;
-  name: string;
-  mobile_number: string;
-  email?: string;
-  connection_type: string;
-  meter_type?: string;
-  area_type?: string;
-  connected_load?: number;
-  demand_load?: number;
-  address?: string;
-  discom?: string;  
-}
+// interface ElectricBoardConsumer {
+//   k_number: string;
+//   name: string;
+//   mobile_number: string;
+//   email?: string;
+//   connection_type: string;
+//   meter_type?: string;
+//   area_type?: string;
+//   connected_load?: number;
+//   demand_load?: number;
+//   address?: string;
+//   discom?: string;  
+// }
 
 export interface ConsumerProfile {
   id: string;
@@ -273,10 +273,13 @@ export const db = {
     }
   },
 
+  
   async updateUserStatus(id: string, status: string) {
   try {
-    // Since status field doesn't exist anymore, just return the user
-    return await prisma.user.findUnique({ where: { id } });
+    return await prisma.user.update({
+      where: { id },
+      data: { status }
+    });
   } catch (error) {
     console.log("DB ERROR updateUserStatus", error);
     return null;

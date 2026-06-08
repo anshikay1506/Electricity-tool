@@ -24,6 +24,7 @@ router.get('/consumers', async (req: AuthenticatedRequest, res: Response) => {
           role: c.role,
           k_number: c.k_number,
           connection_type: c.connection_type,
+          status: c.status || 'PENDING',  // Add status
           drawalPoint: profile?.drawalPoint || 'Not specified'
         };
       })
@@ -55,6 +56,7 @@ router.get('/consumers/:id', async (req: AuthenticatedRequest, res: Response) =>
       role: consumer.role,
       k_number: consumer.k_number,
       connection_type: consumer.connection_type,
+      status: consumer.status || 'PENDING',
       drawalPoint: profile?.drawalPoint || '400kV Jajpur Substation'
     });
   } catch (error: any) {
@@ -104,6 +106,7 @@ router.get('/suppliers', async (req: AuthenticatedRequest, res: Response) => {
           phoneNumber: s.phoneNumber,
           role: s.role,
           k_number: s.k_number,
+          status: s.status || 'PENDING',  // Add status
           renewableType: profile?.renewableType || 'Solar',
           injectionPoint: profile?.injectionPoint || 'Bhadla Pooling Station'
         };
@@ -112,6 +115,73 @@ router.get('/suppliers', async (req: AuthenticatedRequest, res: Response) => {
     
     res.json(suppliersWithProfile);
   } catch (error: any) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// ============================================
+// ADD THESE APPROVE/REJECT ENDPOINTS
+// ============================================
+
+// Approve user (consumer or supplier)
+router.patch('/:id/approve', async (req: AuthenticatedRequest, res: Response) => {
+  try {
+    // Check if user is admin
+    if (req.user?.role !== 'ADMIN') {
+      res.status(403).json({ error: 'Access denied. Admin only.' });
+      return;
+    }
+    
+    const userId = req.params.id;
+    console.log('Approving user:', userId);
+    
+    // Update user status in database
+    const updatedUser = await db.updateUserStatus(userId, 'VERIFIED');
+    
+    if (!updatedUser) {
+      res.status(404).json({ error: 'User not found' });
+      return;
+    }
+    
+    res.json({ 
+      success: true,
+      message: 'User approved successfully', 
+      user: updatedUser 
+    });
+  } catch (error: any) {
+    console.error('Error approving user:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// Reject user (consumer or supplier)
+router.patch('/:id/reject', async (req: AuthenticatedRequest, res: Response) => {
+  try {
+    // Check if user is admin
+    if (req.user?.role !== 'ADMIN') {
+      res.status(403).json({ error: 'Access denied. Admin only.' });
+      return;
+    }
+    
+    const userId = req.params.id;
+    const { reason } = req.body;
+    console.log('Rejecting user:', userId, 'Reason:', reason);
+    
+    // Update user status in database
+    const updatedUser = await db.updateUserStatus(userId, 'REJECTED');
+    
+    if (!updatedUser) {
+      res.status(404).json({ error: 'User not found' });
+      return;
+    }
+    
+    res.json({ 
+      success: true,
+      message: 'User rejected successfully', 
+      user: updatedUser 
+    });
+  } catch (error: any) {
+    console.error('Error rejecting user:', error);
     res.status(500).json({ error: error.message });
   }
 });

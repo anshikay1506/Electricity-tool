@@ -147,13 +147,11 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ activeTab, setTa
       });
       if (!res.ok) throw new Error(await res.text());
       const data = await res.json();
-      console.log('Approved application response:', data); // Add this
       setApplications(prev => prev.map(app =>
         app.id === id ? { ...app, approvalStatus: 'APPROVED', ...data.application } : app
       ));
       setActionSuccess({ id, action: 'APPROVED' });
       setTimeout(() => setActionSuccess(null), 3000);
-      // Also update schedules
       const approvedApp = applications.find(a => a.id === id);
       if (approvedApp) {
         setSchedules(prev => [{
@@ -197,71 +195,38 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ activeTab, setTa
     }
   };
 
-  const handleVerifyUser = async (id: string, role: 'SUPPLIER' | 'CONSUMER') => {
-    if (!token) return;
-    try {
-      const response = await fetch(`${API_BASE}/api/users/${id}/approve`, {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` }
-      });
-      if (!response.ok) throw new Error(await response.text());
-      if (role === 'SUPPLIER') {
-        setSuppliers(suppliers.map(s => s.id === id ? { ...s, status: 'VERIFIED', oaStatus: 'APPROVED' } : s));
-      } else {
-        setConsumers(consumers.map(c => c.id === id ? { ...c, status: 'VERIFIED', oaStatus: 'APPROVED' } : c));
-      }
-    } catch (error: any) {
-      setDashboardError(error?.message || 'Unable to verify user');
+  const handleVerifyUser = async (id: string, role: 'SUPPLIER' | 'CONSUMER', action: 'approve' | 'reject') => {
+  // Only allow supplier verification (consumers are auto-approved)
+  if (role !== 'SUPPLIER') {
+    console.log('Consumer verification not required');
+    return;
+  }
+  
+  if (!token) return;
+  try {
+    const endpoint = action === 'approve' ? 'approve' : 'reject';
+    const response = await fetch(`${API_BASE}/api/users/${id}/${endpoint}`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+      body: JSON.stringify({ reason: action === 'reject' ? 'Rejected by admin' : undefined })
+    });
+    
+    if (!response.ok) throw new Error(await response.text());
+    
+    const newStatus = action === 'approve' ? 'VERIFIED' : 'REJECTED';
+    
+    // Only update suppliers state
+    if (role === 'SUPPLIER') {
+      setSuppliers(suppliers.map(s => s.id === id ? { ...s, status: newStatus } : s));
     }
-  };
-
-  const handleRejectUser = async (id: string, role: 'SUPPLIER' | 'CONSUMER') => {
-    if (!token) return;
-    try {
-      const response = await fetch(`${API_BASE}/api/users/${id}/reject`, {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
-        body: JSON.stringify({ reason: 'Rejected by admin' })
-      });
-      if (!response.ok) throw new Error(await response.text());
-      if (role === 'SUPPLIER') {
-        setSuppliers(suppliers.map(s => s.id === id ? { ...s, status: 'REJECTED' } : s));
-      } else {
-        setConsumers(consumers.map(c => c.id === id ? { ...c, status: 'REJECTED' } : c));
-      }
-    } catch (error: any) {
-      setDashboardError(error?.message || 'Unable to reject user');
-    }
-  };
-
-  const handleAppStatusChange = async (id: string, nextStatus: string) => {
-    if (!token) return;
-    try {
-      const response = await fetch(`${API_BASE}/api/applications/${id}/admin-approve`, {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
-        body: JSON.stringify({ status: nextStatus })
-      });
-      if (!response.ok) throw new Error(await response.text());
-      const data = await response.json();
-      setApplications(applications.map(app => app.id === id ? { ...app, ...data.application } : app));
-      if (nextStatus === 'APPROVED') {
-        const approvedApp = applications.find(app => app.id === id);
-        if (approvedApp) {
-          setSchedules([{
-            id: `sch-grid-${Date.now()}`,
-            supplierName: approvedApp.supplierName,
-            consumerName: approvedApp.consumerName,
-            mw: approvedApp.mw,
-            timeBlock: '00:00-24:00 (RTC)',
-            gridStatus: 'SCHEDULED'
-          }, ...schedules]);
-        }
-      }
-    } catch (error: any) {
-      setDashboardError(error?.message || 'Unable to update application status');
-    }
-  };
+    
+    console.log(`Supplier ${action}ed successfully`);
+    
+  } catch (error: any) {
+    console.error(`Error ${action}ing supplier:`, error);
+    setDashboardError(error?.message || `Unable to ${action} supplier`);
+  }
+};
 
   const handleGenerateNoc = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -311,8 +276,8 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ activeTab, setTa
         </div>
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
           {[
-            { label: 'Registered Consumers', val: consumers.length, sub: 'Verified consumer accounts', icon: <Users className="w-4 h-4 text-green-mid" />, border: 'border-t-green-mid' },
-            { label: 'Registered Suppliers', val: suppliers.length, sub: 'Verified green generators', icon: <ShieldCheck className="w-4 h-4 text-green-mid" />, border: 'border-t-green-mid' },
+            { label: 'Registered Consumers', val: consumers.length, sub: 'Total consumer accounts', icon: <Users className="w-4 h-4 text-green-mid" />, border: 'border-t-green-mid' },
+            { label: 'Registered Suppliers', val: suppliers.length, sub: 'Total generator accounts', icon: <ShieldCheck className="w-4 h-4 text-green-mid" />, border: 'border-t-green-mid' },
             { label: 'OA Applications', val: applications.length, sub: 'Total applications received', icon: <FileText className="w-4 h-4 text-amber" />, border: 'border-t-amber' },
             { label: 'Scheduled Dispatches', val: schedules.length, sub: 'Approved grid schedules', icon: <Cpu className="w-4 h-4 text-blue-dark" />, border: 'border-t-blue-dark' },
           ].map(m => (
@@ -374,8 +339,8 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ activeTab, setTa
         </div>
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
           {[
-            { label: 'TOTAL CONSUMERS', val: consumers.length, sub: 'Verified commercial centers', icon: <Users className="w-4 h-4 text-green-mid" />, border: 'border-t-green-mid' },
-            { label: 'TOTAL SUPPLIERS', val: suppliers.length, sub: 'Active green generators', icon: <ShieldCheck className="w-4 h-4 text-green-mid" />, border: 'border-t-green-mid' },
+            { label: 'TOTAL CONSUMERS', val: consumers.length, sub: 'Registered consumers', icon: <Users className="w-4 h-4 text-green-mid" />, border: 'border-t-green-mid' },
+            { label: 'TOTAL SUPPLIERS', val: suppliers.length, sub: 'Registered suppliers', icon: <ShieldCheck className="w-4 h-4 text-green-mid" />, border: 'border-t-green-mid' },
             { label: 'PENDING OA APPS', val: applications.filter(a => !['APPROVED','SUPPLIER_APPROVED'].includes(a.approvalStatus)).length, sub: 'Applications to process', icon: <FileText className="w-4 h-4 text-amber animate-pulse" />, border: 'border-t-amber' },
             { label: 'ACTIVE DISPATCHES', val: schedules.length, sub: 'Approved NOAR schedules', icon: <Cpu className="w-4 h-4 text-blue-dark" />, border: 'border-t-blue-dark' },
             { label: 'CONGESTION ALERTS', val: 0, sub: 'All corridors cleared', icon: <AlertTriangle className="w-4 h-4 text-red" />, border: 'border-t-red', valColor: 'text-green-dark' },
@@ -431,91 +396,103 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ activeTab, setTa
   }
 
   // ══════════════════════════════════════════════════════════════════════════
-  // CONSUMERS TAB
+  // CONSUMERS TAB - Updated
   // ══════════════════════════════════════════════════════════════════════════
-  if (activeTab === 'consumers') {
-    return (
-      <div className="space-y-8 animate-fadeIn">
-        <div className="pb-4 border-b border-[#e0e8e4]">
-          <h2 className="font-sora text-[22px] font-bold text-gray-900">Registered Consumers</h2>
-          <p className="text-gray-500 text-[13px] mt-1">View consumer profiles registered on the Open Access portal</p>
-        </div>
-        <div className="bg-white rounded-[var(--radius-md)] border border-[#e0e8e4] overflow-x-auto">
-          <table className="w-full text-left border-collapse min-w-[900px]">
-            <thead>
-              <tr>
-                {['Company Name','Email','Phone','State','Drawal Point','OA Status','Verification'].map(h => (
-                  <th key={h} className="bg-green-dark text-white text-[12px] font-semibold px-5 py-3 tracking-[0.03em] uppercase">{h}</th>
-                ))}
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-[#f0f4f2] text-[13px]">
-              {consumers.map((c, i) => (
-                <tr key={c.id} className={`hover:bg-gray-50 transition-colors ${i % 2 !== 0 ? 'bg-[#f9fcfa]' : ''}`}>
-                  <td className="py-3.5 px-5 font-semibold text-gray-900">{c.name}</td>
-                  <td className="py-3.5 px-5 text-gray-600">{c.email}</td>
-                  <td className="py-3.5 px-5 text-gray-600">{c.phoneNumber || '-'}</td>
-                  <td className="py-3.5 px-5 text-gray-600">{c.state}</td>
-                  <td className="py-3.5 px-5 text-gray-600 max-w-[200px] truncate">{c.drawalPoint || '—'}</td>
-                  <td className="py-3.5 px-5 font-semibold text-gray-900">{c.oaStatus || 'UNVERIFIED'}</td>
-                  <td className="py-3.5 px-5"><span className={`badge ${userStatusBadgeClass(c.status)}`}>{c.status}</span></td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
+  // CONSUMERS TAB - Updated with status and approve/reject buttons
+if (activeTab === 'consumers') {
+  return (
+    <div className="space-y-8 animate-fadeIn">
+      <div className="pb-4 border-b border-[#e0e8e4]">
+        <h2 className="font-sora text-[22px] font-bold text-gray-900">Registered Consumers</h2>
+        <p className="text-gray-500 text-[13px] mt-1">View consumer profiles registered on the Open Access portal</p>
       </div>
-    );
-  }
+      <div className="bg-white rounded-[var(--radius-md)] border border-[#e0e8e4] overflow-x-auto">
+        <table className="w-full text-left border-collapse min-w-[800px]">
+          <thead>
+            <tr>
+              {['K Number', 'Name', 'Email', 'Phone', 'Drawal Point'].map(h => (
+                <th key={h} className="bg-green-dark text-white text-[12px] font-semibold px-5 py-3 tracking-[0.03em] uppercase">{h}</th>
+              ))}
+            </tr>
+          </thead>
+          <tbody className="divide-y divide-[#f0f4f2] text-[13px]">
+            {consumers.map((c, i) => (
+              <tr key={c.id} className={`hover:bg-gray-50 transition-colors ${i % 2 !== 0 ? 'bg-[#f9fcfa]' : ''}`}>
+                <td className="py-3.5 px-5 font-mono text-gray-700">{c.k_number || '—'}</td>
+                <td className="py-3.5 px-5 font-semibold text-gray-900">{c.name}</td>
+                <td className="py-3.5 px-5 text-gray-600">{c.email}</td>
+                <td className="py-3.5 px-5 text-gray-600">{c.phoneNumber || '-'}</td>
+                <td className="py-3.5 px-5 text-gray-600 max-w-[200px] truncate">{c.drawalPoint || '—'}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  );
+}
 
   // ══════════════════════════════════════════════════════════════════════════
-  // SUPPLIERS TAB
+  // SUPPLIERS TAB - Updated with Approve/Reject buttons
   // ══════════════════════════════════════════════════════════════════════════
   if (activeTab === 'suppliers') {
-    return (
-      <div className="space-y-8 animate-fadeIn">
-        <div className="pb-4 border-b border-[#e0e8e4]">
-          <h2 className="font-sora text-[22px] font-bold text-gray-900">Verify Supplier Registrations</h2>
-          <p className="text-gray-500 text-[13px] mt-1">Validate plant generation capacities and origin certificates</p>
-        </div>
-        <div className="bg-white rounded-[var(--radius-md)] border border-[#e0e8e4] overflow-x-auto">
-          <table className="w-full text-left border-collapse min-w-[900px]">
-            <thead>
-              <tr>
-                {['Generator Corps','Email','Phone','State','Injection Point','Renewable Type','Verification','Action'].map(h => (
-                  <th key={h} className="bg-green-dark text-white text-[12px] font-semibold px-5 py-3 tracking-[0.03em] uppercase">{h}</th>
-                ))}
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-[#f0f4f2] text-[13px]">
-              {suppliers.map((s, i) => (
-                <tr key={s.id} className={`hover:bg-gray-50 transition-colors ${i % 2 !== 0 ? 'bg-[#f9fcfa]' : ''}`}>
-                  <td className="py-3.5 px-5 font-semibold text-gray-900">{s.name}</td>
-                  <td className="py-3.5 px-5 text-gray-600">{s.email}</td>
-                  <td className="py-3.5 px-5 text-gray-600">{s.phoneNumber || '-'}</td>
-                  <td className="py-3.5 px-5 text-gray-600">{s.state}</td>
-                  <td className="py-3.5 px-5 text-gray-600 max-w-[180px] truncate">{s.injectionPoint || '—'}</td>
-                  <td className="py-3.5 px-5 font-semibold text-gray-900">{s.renewableType || '—'}</td>
-                  <td className="py-3.5 px-5"><span className={`badge ${userStatusBadgeClass(s.status)}`}>{s.status}</span></td>
-                  <td className="py-3.5 px-5 text-right">
-                    {s.status === 'PENDING' && (
-                      <div className="flex justify-end gap-2">
-                        <button onClick={() => handleVerifyUser(s.id, 'SUPPLIER')} className="btn-green px-3 py-1.5 text-[12px]">Verify</button>
-                        <button onClick={() => handleRejectUser(s.id, 'SUPPLIER')} className="px-3 py-1.5 rounded-[6px] bg-white border border-[#e0e8e4] text-gray-600 text-[12px] font-bold hover:bg-gray-50">Reject</button>
-                      </div>
-                    )}
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
+  return (
+    <div className="space-y-8 animate-fadeIn">
+      <div className="pb-4 border-b border-[#e0e8e4]">
+        <h2 className="font-sora text-[22px] font-bold text-gray-900">Verify Supplier Registrations</h2>
+        <p className="text-gray-500 text-[13px] mt-1">Validate plant generation capacities and origin certificates</p>
       </div>
-    );
-  }
+      <div className="bg-white rounded-[var(--radius-md)] border border-[#e0e8e4] overflow-x-auto">
+        <table className="w-full text-left border-collapse min-w-[900px]">
+          <thead>
+            <tr>
+              {['K Number', 'Company Name', 'Email', 'Phone', 'Injection Point', 'Renewable Type', 'Status'].map(h => (
+                <th key={h} className="bg-green-dark text-white text-[12px] font-semibold px-5 py-3 tracking-[0.03em] uppercase">{h}</th>
+              ))}
+            </tr>
+          </thead>
+          <tbody className="divide-y divide-[#f0f4f2] text-[13px]">
+            {suppliers.map((s, i) => (
+              <tr key={s.id} className={`hover:bg-gray-50 transition-colors ${i % 2 !== 0 ? 'bg-[#f9fcfa]' : ''}`}>
+                <td className="py-3.5 px-5 font-mono text-gray-700">{s.k_number || '—'}</td>
+                <td className="py-3.5 px-5 font-semibold text-gray-900">{s.name}</td>
+                <td className="py-3.5 px-5 text-gray-600">{s.email}</td>
+                <td className="py-3.5 px-5 text-gray-600">{s.phoneNumber || '-'}</td>
+                <td className="py-3.5 px-5 text-gray-600 max-w-[180px] truncate">{s.injectionPoint || '—'}</td>
+                <td className="py-3.5 px-5 font-semibold text-gray-900">{s.renewableType || '—'}</td>
+                <td className="py-3.5 px-5">
+                  {s.status === 'VERIFIED' ? (
+                    <span className="badge badge-green">Approved</span>
+                  ) : s.status === 'REJECTED' ? (
+                    <span className="badge badge-red">Rejected</span>
+                  ) : (
+                    <div className="flex gap-2">
+                      <button 
+                        onClick={() => handleVerifyUser(s.id, 'SUPPLIER', 'approve')} 
+                        className="px-3 py-1 rounded-[6px] bg-green-dark text-white text-[11px] font-semibold hover:bg-green-mid transition-colors"
+                      >
+                        Approve
+                      </button>
+                      <button 
+                        onClick={() => handleVerifyUser(s.id, 'SUPPLIER', 'reject')} 
+                        className="px-3 py-1 rounded-[6px] bg-white border border-red-300 text-red-600 text-[11px] font-semibold hover:bg-red-50 transition-colors"
+                      >
+                        Reject
+                      </button>
+                    </div>
+                  )}
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  );
+}
 
   // ══════════════════════════════════════════════════════════════════════════
-  // APPLICATIONS TAB — FULL GEOA DETAIL VIEW
+  // APPLICATIONS TAB — FULL GEOA DETAIL VIEW (unchanged)
   // ══════════════════════════════════════════════════════════════════════════
   if (activeTab === 'applications') {
     const pending = applications.filter(a => !['APPROVED','SUPPLIER_APPROVED','REJECTED'].includes(a.approvalStatus || ''));
@@ -524,7 +501,6 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ activeTab, setTa
 
     return (
       <div className="space-y-8 animate-fadeIn">
-        {/* Header */}
         <div className="pb-4 border-b border-[#e0e8e4] flex flex-col md:flex-row md:items-center md:justify-between gap-3">
           <div>
             <h2 className="font-sora text-[22px] font-bold text-gray-900">GEOA Open Access Applications</h2>
@@ -537,7 +513,6 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ activeTab, setTa
 
         {dashboardError && <div className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">{dashboardError}</div>}
 
-        {/* Summary cards */}
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
           <div className="bg-amber-50 border border-amber-200 rounded-xl p-4 flex items-center gap-4">
             <div className="w-10 h-10 bg-amber-100 rounded-xl flex items-center justify-center shrink-0"><Clock className="w-5 h-5 text-amber-600" /></div>
@@ -553,7 +528,6 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ activeTab, setTa
           </div>
         </div>
 
-        {/* Applications list */}
         {applications.length === 0 ? (
           <div className="bg-white rounded-[var(--radius-md)] border border-[#e0e8e4] p-16 text-center">
             <FileText className="w-12 h-12 text-gray-300 mx-auto mb-4" />
@@ -568,15 +542,12 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ activeTab, setTa
               const wasActioned = actionSuccess?.id === app.id;
               const status = app.approvalStatus || 'ADMIN_PENDING';
               const isPending = !['APPROVED','SUPPLIER_APPROVED','REJECTED'].includes(status);
-              const docChecklist: any[] = app.documentChecklist || [];
 
               return (
                 <div key={app.id} className={`bg-white rounded-[var(--radius-md)] border transition-all ${isExpanded ? 'border-green-mid shadow-md' : 'border-[#e0e8e4] shadow-sm'}`}>
-
-                  {/* ── Application row header ── */}
+                  {/* Application row header */}
                   <div className="p-5 flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
                     <div className="flex items-start gap-4 min-w-0">
-                      {/* Status indicator */}
                       <div className={`w-10 h-10 rounded-xl flex items-center justify-center shrink-0 ${
                         status === 'APPROVED' || status === 'SUPPLIER_APPROVED' ? 'bg-green-pale' :
                         status === 'REJECTED' ? 'bg-red-50' : 'bg-amber-50'
@@ -588,7 +559,6 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ activeTab, setTa
                           : <Clock className="w-5 h-5 text-amber-500" />
                         }
                       </div>
-
                       <div className="min-w-0">
                         <div className="flex flex-wrap items-center gap-2 mb-1">
                           <h4 className="font-sora font-bold text-[15px] text-gray-900">{app.consumerName || app.applicantName || 'Consumer'}</h4>
@@ -598,55 +568,32 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ activeTab, setTa
                         <div className="flex flex-wrap items-center gap-3 text-[12px] text-gray-500">
                           <span className="flex items-center gap-1"><Zap className="w-3.5 h-3.5" />{app.mw} MW</span>
                           {app.entityType && <span className="flex items-center gap-1"><Building2 className="w-3.5 h-3.5" />{app.entityType}</span>}
-                          {app.state && <span className="flex items-center gap-1"><MapPin className="w-3.5 h-3.5" />{app.state}</span>}
                           <span className="flex items-center gap-1"><Clock className="w-3.5 h-3.5" />{app.createdAt?.split('T')[0] || '—'}</span>
                         </div>
-                        {app.type && (
-                          <div className="mt-2"><span className="badge badge-green text-[11px]">{app.type}</span></div>
-                        )}
                       </div>
                     </div>
-
                     <div className="flex items-center gap-3 shrink-0 flex-wrap">
-                      {/* Status badge */}
                       <span className={`badge ${appStatusBadge(status)} text-[12px] px-3 py-1`}>
                         {appStatusLabel(status)}
                       </span>
-
-                      {/* Action feedback */}
                       {wasActioned && (
                         <span className={`text-[12px] font-semibold px-3 py-1 rounded-lg ${actionSuccess?.action === 'APPROVED' ? 'bg-green-pale text-green-dark' : 'bg-red-50 text-red-600'}`}>
                           {actionSuccess?.action === 'APPROVED' ? '✓ Approved' : '✗ Rejected'}
                         </span>
                       )}
-
-                      {/* Approve / Reject buttons — only for pending */}
                       {isPending && (
                         <>
-                          <button
-                            onClick={() => handleApprove(app.id)}
-                            disabled={isLoading}
-                            className="flex items-center gap-1.5 bg-[#1b4d3e] text-white text-[12px] font-bold px-4 py-2 rounded-lg hover:bg-[#2d6a4f] transition-colors shadow-sm disabled:opacity-50"
-                          >
+                          <button onClick={() => handleApprove(app.id)} disabled={isLoading} className="flex items-center gap-1.5 bg-[#1b4d3e] text-white text-[12px] font-bold px-4 py-2 rounded-lg hover:bg-[#2d6a4f] transition-colors shadow-sm disabled:opacity-50">
                             {isLoading ? <span className="w-3.5 h-3.5 border-2 border-white/30 border-t-white rounded-full animate-spin" /> : <CheckCircle className="w-3.5 h-3.5" />}
                             Approve
                           </button>
-                          <button
-                            onClick={() => setRejectingAppId(app.id)}
-                            disabled={isLoading}
-                            className="flex items-center gap-1.5 bg-white border border-red-200 text-red-600 text-[12px] font-bold px-4 py-2 rounded-lg hover:bg-red-50 transition-colors disabled:opacity-50"
-                          >
+                          <button onClick={() => setRejectingAppId(app.id)} disabled={isLoading} className="flex items-center gap-1.5 bg-white border border-red-200 text-red-600 text-[12px] font-bold px-4 py-2 rounded-lg hover:bg-red-50 transition-colors disabled:opacity-50">
                             <XCircle className="w-3.5 h-3.5" />
                             Reject
                           </button>
                         </>
                       )}
-
-                      {/* Expand/collapse */}
-                      <button
-                        onClick={() => setExpandedAppId(isExpanded ? null : app.id)}
-                        className="flex items-center gap-1.5 text-[12px] font-semibold text-gray-600 border border-[#e0e8e4] px-3 py-2 rounded-lg hover:bg-gray-50 transition-colors"
-                      >
+                      <button onClick={() => setExpandedAppId(isExpanded ? null : app.id)} className="flex items-center gap-1.5 text-[12px] font-semibold text-gray-600 border border-[#e0e8e4] px-3 py-2 rounded-lg hover:bg-gray-50 transition-colors">
                         <Eye className="w-3.5 h-3.5" />
                         {isExpanded ? 'Hide' : 'View Details'}
                         {isExpanded ? <ChevronUp className="w-3.5 h-3.5" /> : <ChevronDown className="w-3.5 h-3.5" />}
@@ -654,7 +601,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ activeTab, setTa
                     </div>
                   </div>
 
-                  {/* ── Reject reason input ── */}
+                  {/* Reject reason input */}
                   {rejectingAppId === app.id && (
                     <div className="px-5 pb-5 border-t border-[#f0f4f2] pt-4">
                       <div className="bg-red-50 border border-red-200 rounded-xl p-4 space-y-3">
@@ -662,31 +609,21 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ activeTab, setTa
                           <AlertCircle className="w-4 h-4 text-red-500 shrink-0" />
                           <p className="text-[13px] font-semibold text-red-700">Provide a rejection reason (will be visible to consumer)</p>
                         </div>
-                        <textarea
-                          value={rejectReason}
-                          onChange={e => setRejectReason(e.target.value)}
-                          rows={2}
-                          placeholder="e.g. Incomplete documentation — Bank Guarantee not submitted correctly."
-                          className="w-full border border-red-200 rounded-lg px-3 py-2 text-[13px] focus:outline-none focus:border-red-400 bg-white"
-                        />
+                        <textarea value={rejectReason} onChange={e => setRejectReason(e.target.value)} rows={2} placeholder="e.g. Incomplete documentation — Bank Guarantee not submitted correctly." className="w-full border border-red-200 rounded-lg px-3 py-2 text-[13px] focus:outline-none focus:border-red-400 bg-white" />
                         <div className="flex gap-3">
                           <button onClick={() => handleReject(app.id)} disabled={isLoading} className="flex items-center gap-1.5 bg-red-600 text-white text-[12px] font-bold px-5 py-2 rounded-lg hover:bg-red-700 transition-colors disabled:opacity-50">
                             {isLoading ? <span className="w-3.5 h-3.5 border-2 border-white/30 border-t-white rounded-full animate-spin" /> : <XCircle className="w-3.5 h-3.5" />}
                             Confirm Rejection
                           </button>
-                          <button onClick={() => { setRejectingAppId(null); setRejectReason(''); }} className="text-[12px] font-semibold text-gray-600 border border-[#e0e8e4] px-4 py-2 rounded-lg hover:bg-gray-50">
-                            Cancel
-                          </button>
+                          <button onClick={() => { setRejectingAppId(null); setRejectReason(''); }} className="text-[12px] font-semibold text-gray-600 border border-[#e0e8e4] px-4 py-2 rounded-lg hover:bg-gray-50">Cancel</button>
                         </div>
                       </div>
                     </div>
                   )}
 
-                  {/* ── Expanded detail view ── */}
+                  {/* Expanded detail view */}
                   {isExpanded && (
                     <div className="border-t border-[#f0f4f2] p-5 space-y-6 bg-gray-50/50">
-
-                      {/* Section 1 — Applicant Details */}
                       <div>
                         <div className="flex items-center gap-2 mb-3">
                           <div className="w-6 h-6 rounded-full bg-[#1b4d3e] text-white text-[11px] font-bold flex items-center justify-center">1</div>
@@ -696,14 +633,11 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ activeTab, setTa
                           {[
                             { l: 'Company / Applicant', v: app.applicantName || app.consumerName || '—' },
                             { l: 'Entity Type', v: app.entityType || '—' },
-                            { l: 'State', v: app.state || '—' },
                             { l: 'DISCOM / Utility', v: app.discom || '—' },
                             { l: 'CIN / GSTIN', v: app.legalIdentifier || '—' },
-                            { l: 'DISCOM Consumer No.', v: app.discomConsumerNo || '—' },
                             { l: 'Contact Person', v: app.contactPerson || '—' },
                             { l: 'Contact Email', v: app.contactEmail || '—' },
                             { l: 'Mobile', v: app.contactMobile || '—' },
-                            { l: 'Registered Address', v: app.registeredAddress || '—' },
                           ].map(item => (
                             <div key={item.l} className="bg-white rounded-lg p-3 border border-[#e0e8e4]">
                               <p className="text-[10px] text-gray-400 uppercase font-semibold tracking-wider">{item.l}</p>
@@ -712,24 +646,20 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ activeTab, setTa
                           ))}
                         </div>
                       </div>
-
-                      {/* Section 2 — Technical Details */}
                       <div>
                         <div className="flex items-center gap-2 mb-3">
                           <div className="w-6 h-6 rounded-full bg-[#1b4d3e] text-white text-[11px] font-bold flex items-center justify-center">2</div>
-                          <h5 className="font-sora font-bold text-[14px] text-gray-900">Technical & Supply Details</h5>
+                          <h5 className="font-sora font-bold text-[14px] text-gray-900">Technical Details</h5>
                         </div>
                         <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
                           {[
                             { l: 'Supplier', v: app.supplierName || '—' },
                             { l: 'Connected Load', v: app.mw ? `${app.mw} MW` : '—' },
-                            { l: 'Voltage Level', v: app.voltageLevel || '—' },
                             { l: 'Renewable Source', v: app.renewableType || '—' },
                             { l: 'Schedule Type', v: app.scheduleType || '—' },
                             { l: 'Duration', v: app.durationDays ? `${app.durationDays} Days` : '—' },
-                            { l: 'Proposed Start Date', v: app.proposedStartDate || app.startDate || '—' },
-                            { l: 'Time Blocks', v: app.timeBlocks || '—' },
-                            { l: 'Loss Factor', v: app.lossPercentage ? `${app.lossPercentage}%` : '3.5%' },
+                            { l: 'Injection Point', v: app.injectionPoint || '—' },
+                            { l: 'Drawal Point', v: app.drawalPoint || '—' },
                           ].map(item => (
                             <div key={item.l} className="bg-white rounded-lg p-3 border border-[#e0e8e4]">
                               <p className="text-[10px] text-gray-400 uppercase font-semibold tracking-wider">{item.l}</p>
@@ -737,47 +667,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ activeTab, setTa
                             </div>
                           ))}
                         </div>
-
-                        {/* Grid points visual */}
-                        <div className="mt-4 bg-white rounded-xl border border-[#e0e8e4] p-5">
-                          <p className="text-[11px] text-gray-400 uppercase font-semibold mb-3">Transmission Path</p>
-                          <div className="flex items-center gap-3">
-                            <div className="bg-green-pale border border-[#9fe1cb] rounded-lg p-3 text-center flex-1">
-                              <p className="text-[10px] text-gray-500 uppercase font-semibold">Injection Point</p>
-                              <p className="font-bold text-gray-900 text-[13px] mt-1 leading-tight">{app.injectionPoint || '—'}</p>
-                            </div>
-                            <div className="flex flex-col items-center gap-1">
-                              <div className="h-0.5 w-8 bg-green-mid"></div>
-                              <Zap className="w-4 h-4 text-green-mid" />
-                              <div className="h-0.5 w-8 bg-green-mid"></div>
-                            </div>
-                            <div className="bg-blue-light border border-[#b5d4f4] rounded-lg p-3 text-center flex-1">
-                              <p className="text-[10px] text-gray-500 uppercase font-semibold">Drawal Point</p>
-                              <p className="font-bold text-gray-900 text-[13px] mt-1 leading-tight">{app.drawalPoint || '—'}</p>
-                            </div>
-                          </div>
-                        </div>
                       </div>
-
-                      
-                      {/* Section 4 — Annexure Workflow (existing flow) */}
-                     
-                        <div className="flex flex-wrap gap-2 items-center">
-                          
-                          {isPending && (
-                            <button
-                              onClick={() => handleApprove(app.id)}
-                              disabled={isLoading}
-                              className="ml-2 flex items-center gap-1.5 bg-[#1b4d3e] text-white text-[12px] font-bold px-5 py-2 rounded-lg hover:bg-[#2d6a4f] transition-colors shadow-sm disabled:opacity-50"
-                            >
-                              <CheckCircle className="w-4 h-4" />
-                              Final Approve & Schedule Grid Flow
-                            </button>
-                          )}
-                        </div>
-                  
-
-                      {/* Rejection reason if rejected */}
                       {status === 'REJECTED' && app.rejectionReason && (
                         <div className="bg-red-50 border border-red-200 rounded-xl p-4 flex items-start gap-3">
                           <AlertCircle className="w-4 h-4 text-red-500 shrink-0 mt-0.5" />
@@ -799,7 +689,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ activeTab, setTa
   }
 
   // ══════════════════════════════════════════════════════════════════════════
-  // NOC MANAGEMENT TAB
+  // NOC MANAGEMENT TAB (unchanged)
   // ══════════════════════════════════════════════════════════════════════════
   if (activeTab === 'noc-management') {
     return (
@@ -857,7 +747,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ activeTab, setTa
   }
 
   // ══════════════════════════════════════════════════════════════════════════
-  // SCHEDULING TAB
+  // SCHEDULING TAB (unchanged)
   // ══════════════════════════════════════════════════════════════════════════
   if (activeTab === 'scheduling') {
     return (
@@ -870,9 +760,9 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ activeTab, setTa
           <table className="w-full text-left border-collapse">
             <thead>
               <tr>
-                {['Schedule ID','Supplier','Consumer','Approved MW','Time Block','Grid Dispatch Status'].map(h => (
-                  <th key={h} className="bg-green-dark text-white text-[12px] font-semibold px-5 py-3 tracking-[0.03em] uppercase">{h}</th>
-                ))}
+              {['Schedule ID','Supplier','Consumer','Approved MW','Time Block','Grid Dispatch Status'].map(h => (
+                <th key={h} className="bg-green-dark text-white text-[12px] font-semibold px-5 py-3 tracking-[0.03em] uppercase">{h}</th>
+              ))}
               </tr>
             </thead>
             <tbody className="divide-y divide-[#f0f4f2] text-[13px]">
@@ -894,7 +784,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ activeTab, setTa
   }
 
   // ══════════════════════════════════════════════════════════════════════════
-  // DOCUMENTS TAB
+  // DOCUMENTS TAB (unchanged)
   // ══════════════════════════════════════════════════════════════════════════
   if (activeTab === 'documents') {
     return (
@@ -907,23 +797,23 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ activeTab, setTa
           <table className="w-full text-left border-collapse">
             <thead>
               <tr>
-                {['Document Title','Category','Filed By','Date','Status','Action'].map(h => (
-                  <th key={h} className="bg-green-dark text-white text-[12px] font-semibold px-5 py-3 tracking-[0.03em] uppercase">{h}</th>
-                ))}
+              {['Document Title','Category','Filed By','Date','Status','Action'].map(h => (
+                <th key={h} className="bg-green-dark text-white text-[12px] font-semibold px-5 py-3 tracking-[0.03em] uppercase">{h}</th>
+              ))}
               </tr>
             </thead>
             <tbody className="divide-y divide-[#f0f4f2] text-[13px]">
               {documents.map((d, i) => (
                 <tr key={d.id} className={`hover:bg-gray-50 transition-colors ${i % 2 !== 0 ? 'bg-[#f9fcfa]' : ''}`}>
                   <td className="py-3.5 px-5 font-semibold text-gray-900 flex items-center gap-2">
-                    <div className="w-8 h-8 rounded bg-gray-100 flex items-center justify-center shrink-0">📄</div>{d.name}
+                    <div className="w-8 h-8 rounded bg-gray-100 flex items-center justify-center shrink-0">📄</div>{d.title || d.name}
                   </td>
                   <td className="py-3.5 px-5 text-gray-600">{d.category}</td>
-                  <td className="py-3.5 px-5 font-semibold text-gray-700">{d.uploader}</td>
-                  <td className="py-3.5 px-5 text-gray-500">{d.date}</td>
-                  <td className="py-3.5 px-5"><span className={`badge ${d.status === 'VERIFIED' ? 'badge-green' : 'badge-amber'}`}>{d.status}</span></td>
+                  <td className="py-3.5 px-5 font-semibold text-gray-700">{d.uploaderName || d.uploader || 'User'}</td>
+                  <td className="py-3.5 px-5 text-gray-500">{d.createdAt?.split('T')[0] || d.date || '—'}</td>
+                  <td className="py-3.5 px-5"><span className={`badge ${d.status === 'VERIFIED' ? 'badge-green' : 'badge-amber'}`}>{d.status || 'PENDING'}</span></td>
                   <td className="py-3.5 px-5 text-right space-x-2 flex justify-end">
-                    {d.status === 'PENDING' && (
+                    {d.status !== 'VERIFIED' && (
                       <>
                         <button onClick={() => handleVerifyDocument(d.id, 'VERIFIED')} className="px-3 py-1.5 rounded-[6px] bg-green-dark text-white text-[12px] font-bold hover:bg-green-mid transition-colors shadow-sm">Approve</button>
                         <button onClick={() => handleVerifyDocument(d.id, 'REJECTED')} className="px-3 py-1.5 rounded-[6px] bg-white border border-[#e0e8e4] text-gray-600 text-[12px] font-bold hover:bg-gray-50">Reject</button>
@@ -940,7 +830,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ activeTab, setTa
   }
 
   // ══════════════════════════════════════════════════════════════════════════
-  // PAYMENTS TAB
+  // PAYMENTS TAB (unchanged)
   // ══════════════════════════════════════════════════════════════════════════
   if (activeTab === 'payments') {
     return (
@@ -961,7 +851,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({ activeTab, setTa
   }
 
   // ══════════════════════════════════════════════════════════════════════════
-  // SETTINGS TAB
+  // SETTINGS TAB (unchanged)
   // ══════════════════════════════════════════════════════════════════════════
   if (activeTab === 'settings') {
     return (

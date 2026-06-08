@@ -509,4 +509,58 @@ router.post('/verify-phone-otp', async (req, res) => {
 });
 
 
+router.post('/admin-login', async (req, res) => {
+  try {
+    const { email, password } = req.body;
+    const normalizedEmail = typeof email === 'string' ? email.trim().toLowerCase() : '';
+
+    console.log('Admin login attempt:', normalizedEmail);
+
+    if (!normalizedEmail || !password) {
+      return res.status(400).json({ error: 'Email and password required' });
+    }
+
+    const user = await db.getUserByEmail(normalizedEmail);
+    
+    if (!user) {
+      console.log('User not found');
+      return res.status(401).json({ error: 'Invalid credentials' });
+    }
+
+    console.log('User found, role:', user.role);
+
+    if (user.role !== 'ADMIN') {
+      console.log('Not admin, role:', user.role);
+      return res.status(403).json({ error: 'Access denied. Admin privileges required.' });
+    }
+
+    const isMatch = await bcrypt.compare(password, user.passwordHash);
+    if (!isMatch) {
+      console.log('Password incorrect');
+      return res.status(401).json({ error: 'Invalid credentials' });
+    }
+
+    const token = jwt.sign(
+      { id: user.id, email: user.email, role: user.role }, 
+      JWT_SECRET, 
+      { expiresIn: '24h' }
+    );
+
+    console.log('Admin login successful');
+    res.json({
+      token,
+      user: {
+        id: user.id,
+        email: user.email,
+        name: user.name,
+        role: user.role,
+      }
+    });
+  } catch (error: any) {
+    console.error('Admin login error:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+
 export default router;

@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '../../context/AuthContext';
-import { Mail, Lock, Building, MapPin, ArrowLeft, Phone, CheckCircle, Eye, EyeOff, Key, Shield, UserCheck, Briefcase } from 'lucide-react';
+import { Mail, Lock,  ArrowLeft, CheckCircle, Eye, EyeOff, Shield } from 'lucide-react';
 
 interface AuthPagesProps {
   initialRole?: 'CONSUMER' | 'SUPPLIER';

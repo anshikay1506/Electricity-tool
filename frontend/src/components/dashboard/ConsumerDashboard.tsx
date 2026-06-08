@@ -61,7 +61,6 @@ const GEOA_DRAFT_KEY = 'geoa_form_draft';
 
 export const ConsumerDashboard: React.FC<ConsumerDashboardProps> = ({ activeTab, setTab, onNavigateToHome }) => {
   const { user, token } = useAuth();
-  console.log('ConsumerDashboard rendering with activeTab:', activeTab);
   const [profile, setProfile] = useState<any>(null);
   const [suppliers, setSuppliers] = useState<any[]>([]);
   const [applications, setApplications] = useState<any[]>([]);

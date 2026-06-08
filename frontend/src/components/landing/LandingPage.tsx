@@ -11,6 +11,7 @@ interface LandingPageProps {
   onLogin: () => void;
   onOpenRegulations: () => void;
   onOpenCalculator: () => void;
+  onAdminLogin?: () => void;  
 }
 
 // ─── animated counter hook ────────────────────────────────────────────────────
@@ -53,7 +54,8 @@ export const LandingPage: React.FC<LandingPageProps> = ({
   onStartAuth,
   onLogin,
   onOpenRegulations,
-  onOpenCalculator
+  onOpenCalculator,
+  onAdminLogin
 }) => {
   // ── live stats from API ────────────────────────────────────────────────────
   const [stats, setStats] = useState({
@@ -264,6 +266,14 @@ export const LandingPage: React.FC<LandingPageProps> = ({
             >
               Get Started
             </button>
+
+            <button
+    onClick={onAdminLogin}
+    className="text-xs text-gray-400 hover:text-amber-600 transition-colors flex items-center gap-1"
+  >
+    <Shield className="w-3 h-3" />
+    Admin Login
+  </button>
           </div>
         </div>
       </nav>
