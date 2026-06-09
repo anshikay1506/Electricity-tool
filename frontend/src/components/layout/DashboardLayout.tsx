@@ -28,7 +28,7 @@ export const DashboardLayout: React.FC<{
     ],
     SUPPLIER: [
       { id: 'dashboard', label: 'Dashboard' },
-      { id: 'capacity-management', label: 'Capacity Management' },
+      { id: 'energy-assets', label: 'Energy Assets' },
       { id: 'consumer-requests', label: 'Consumer Requests' },
       { id: 'contracts', label: 'Contracts' },
       { id: 'revenue', label: 'Revenue' },

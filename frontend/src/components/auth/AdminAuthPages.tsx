@@ -154,12 +154,6 @@ export const AdminAuthPage: React.FC<AdminAuthPageProps> = ({
               )}
             </button>
 
-            <div className="bg-amber-500/10 border border-amber-500/30 rounded-lg p-3 mt-4">
-              <p className="text-amber-300 text-xs text-center flex items-center justify-center gap-2">
-                <AlertCircle className="w-3 h-3" />
-                Demo Admin: admin@goar.gov.in / admin123
-              </p>
-            </div>
           </div>
         </form>
       </div>

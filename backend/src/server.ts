@@ -12,6 +12,7 @@ import appRoutes from './routes/app.routes';
 import docRoutes from './routes/doc.routes';
 import payRoutes from './routes/pay.routes';
 import { authenticateToken, requireVerifiedPortalUser } from './middleware/auth';
+import plantRoutes from './routes/plant.routes';
 
 
 const protectedApiMiddleware = [authenticateToken, requireVerifiedPortalUser];
@@ -45,6 +46,7 @@ app.use('/api/applications', ...protectedApiMiddleware, appRoutes);
 app.use('/api/documents', ...protectedApiMiddleware, docRoutes);
 app.use('/api/payments', ...protectedApiMiddleware, payRoutes);
 app.use('/api/suppliers', ...protectedApiMiddleware, supplierRoutes);
+app.use('/api/plants', plantRoutes);
 
 
 // Health check endpoint

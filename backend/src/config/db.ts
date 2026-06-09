@@ -309,6 +309,47 @@ async getUserByKNumber(k_number: string) {
   }
 },
 
+async getSupplierPlants(supplierId: string) {
+  try {
+    return await prisma.plant.findMany({
+      where: { supplierId }
+    });
+  } catch (error) {
+    console.log("DB ERROR getSupplierPlants", error);
+    return [];
+  }
+},
+
+async addPlant(plantData: any) {
+  try {
+    return await prisma.plant.create({ data: plantData });
+  } catch (error) {
+    console.log("DB ERROR addPlant", error);
+    throw error;
+  }
+},
+
+async updatePlant(id: string, plantData: any) {
+  try {
+    return await prisma.plant.update({
+      where: { id },
+      data: plantData
+    });
+  } catch (error) {
+    console.log("DB ERROR updatePlant", error);
+    return null;
+  }
+},
+
+async deletePlant(id: string) {
+  try {
+    return await prisma.plant.delete({ where: { id } });
+  } catch (error) {
+    console.log("DB ERROR deletePlant", error);
+    return null;
+  }
+},
+
   // Other required methods (minimal implementations)
   async getBids() { return []; },
   async addBid(bid: Bid) { return bid; },

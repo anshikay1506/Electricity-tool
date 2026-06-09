@@ -77,4 +77,41 @@ router.get('/:id', async (req: AuthenticatedRequest, res: Response) => {
   }
 });
 
+
+// Get supplier with all their plants
+router.get('/:supplierId/plants', authenticateToken, async (req: any, res: any) => {
+  try {
+    const { supplierId } = req.params;
+    
+    // Get supplier details
+    const supplier = await db.getUserById(supplierId);
+    if (!supplier || supplier.role !== 'SUPPLIER') {
+      return res.status(404).json({ error: 'Supplier not found' });
+    }
+    
+    // Get supplier profile
+    const profile = await db.getSupplierProfileByUserId(supplierId);
+    
+    // Get all plants/capacity entries for this supplier
+    const plants = await db.getSupplierPlants(supplierId);
+    
+    res.json({
+      supplier: {
+        id: supplier.id,
+        name: supplier.name,
+        email: supplier.email,
+        phone: supplier.phoneNumber,
+        state: supplier.state || 'Rajasthan',
+        address: supplier.address || 'Not specified',
+        discom: supplier.discom || 'JVVNL',
+        generationCapacity: 120  
+      },
+      plants: plants || []
+    });
+  } catch (error) {
+    console.error('Error fetching supplier plants:', error);
+    res.status(500).json({ error: 'Failed to fetch supplier data' });
+  }
+});
+
 export default router;

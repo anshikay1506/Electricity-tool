@@ -41,12 +41,16 @@ model ConsumerProfile {
 }
 
 model SupplierProfile {
-  id             String  @id @default(uuid())
-  userId         String  @unique
-  injectionPoint String
-  renewableType  String
-  phoneNumber    String?
-  user           User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  id              String   @id
+  userId          String   @unique
+  phoneNumber     String?
+  injectionPoint  String
+  renewableType   String
+  contactPerson   String?   
+  registrationNo  String?   
+  totalCapacity   Float?   
+
+  user User @relation(fields: [userId], references: [id])
 
   @@map("SupplierProfile")
 }
@@ -112,6 +116,23 @@ model Application {
   timeBlocks          String?
   voltageLevel        String?
   contract            Contract?
+}
+
+
+model Plant {
+  id              String   @id @default(cuid())
+  supplierId      String
+  supplierName    String
+  name            String
+  type            String
+  total           Float
+  available       Float
+  price           Float
+  injectionPoint  String
+  status          String
+  state           String?
+
+  @@map("Plant")
 }
 
 model Contract {

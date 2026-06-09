@@ -160,43 +160,52 @@ const loadRequests = useCallback(async () => {
     setIsRefreshing(false);
   };
 
-  // ── Auto-reload when contracts tab becomes active ────────────────────────
-  // This is the key fix: whenever the supplier navigates to contracts/consumer-requests
-  // tab, we re-fetch from backend so newly admin-approved requests appear immediately.
+  
   useEffect(() => {
     if (normalizedTab === 'contracts' || normalizedTab === 'dashboard') {
       loadRequests();
     }
   }, [normalizedTab, loadRequests]);
 
-  // ── Initial data load ────────────────────────────────────────────────────
   useEffect(() => {
-    const loadProfile = async () => {
-      if (!token) return;
-      try {
-        const res = await fetch(`${API_BASE}/api/auth/me`, {
-          headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` }
-        });
-        if (!res.ok) return;
-        setProfile(await res.json());
-      } catch { }
-    };
+  const loadProfile = async () => {
+    if (!token) return;
+    try {
+      const res = await fetch(`${API_BASE}/api/auth/me`, {
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` }
+      });
+      if (!res.ok) return;
+      setProfile(await res.json());
+    } catch { }
+  };
 
-    const seeded = [
-      { id: 'plant-1', name: 'Bhadla Solar Park Phase IV', type: 'Solar', total: 100, available: 40, price: 4.2, injectionPoint: 'Bhadla Pool (765kV)', status: 'Active' },
-      { id: 'plant-2', name: 'Jaisalmer Wind Grid Pool', type: 'Wind', total: 20, available: 10, price: 4.5, injectionPoint: 'Jaisalmer Wind Node', status: 'Active' }
-    ];
-    setCapacityList(seeded);
-    setBids([{ id: 'bid-1', mw: 20, price: 4.2, marketType: 'G-DAM', timeBlock: '10:00-11:00', status: 'MATCHED', date: '2026-05-20' }]);
-    setSchedules([{ id: 'sch-1', consumerName: 'Tata Steel Limited', mw: 20, timeBlock: '10:00-11:00', gridStatus: 'SCHEDULED' }]);
-    setRevenueLedger([
-      { id: 'rev-1', month: 'April 2026', totalMwh: 12000, rate: 4.5, earned: 5400000, status: 'SETTLED' },
-      { id: 'rev-2', month: 'May 2026 (Provisional)', totalMwh: 8500, rate: 4.2, earned: 3570000, status: 'PENDING' }
-    ]);
+  const loadPlants = async () => {
+    if (!token || !user?.id) return;
+    try {
+      const res = await fetch(`${API_BASE}/api/plants/supplier/${user.id}`, {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      if (!res.ok) return;
+      const data = await res.json();
+      if (data.length > 0) {
+        setCapacityList(data);
+      }
+    } catch (error) {
+      console.error('Error loading plants:', error);
+    }
+  };
 
-    loadProfile();
-    loadRequests();
-  }, [token]);
+  // setBids([{ id: 'bid-1', mw: 20, price: 4.2, marketType: 'G-DAM', timeBlock: '10:00-11:00', status: 'MATCHED', date: '2026-05-20' }]);
+  // setSchedules([{ id: 'sch-1', consumerName: 'Tata Steel Limited', mw: 20, timeBlock: '10:00-11:00', gridStatus: 'SCHEDULED' }]);
+  // setRevenueLedger([
+  //   { id: 'rev-1', month: 'April 2026', totalMwh: 12000, rate: 4.5, earned: 5400000, status: 'SETTLED' },
+  //   { id: 'rev-2', month: 'May 2026 (Provisional)', totalMwh: 8500, rate: 4.2, earned: 3570000, status: 'PENDING' }
+  // ]);
+
+  loadProfile();
+  loadRequests();
+  loadPlants(); // Add this line
+}, [token, user?.id]);
 
   
   const getStatusBadgeClass = (status: string) => {
@@ -224,8 +233,53 @@ const loadRequests = useCallback(async () => {
   };
 
   const startEditPlant = (plant: any) => { setEditingPlantId(plant.id); setEditingPlantData({ ...plant }); setIsAddingCapacity(false); };
-  const saveEditPlant = (e: React.FormEvent) => { e.preventDefault(); if (!editingPlantId) return; setCapacityList(capacityList.map(p => p.id === editingPlantId ? { ...p, ...editingPlantData } : p)); setEditingPlantId(null); };
-  const cancelEditPlant = () => { setEditingPlantId(null); };
+
+  const saveEditPlant = async (e: React.FormEvent) => {
+  e.preventDefault();
+  if (!editingPlantId) return;
+  
+  try {
+    const response = await fetch(`${API_BASE}/api/plants/${editingPlantId}`, {
+      method: 'PUT',
+      headers: { 
+        'Content-Type': 'application/json', 
+        Authorization: `Bearer ${token}` 
+      },
+      body: JSON.stringify(editingPlantData)
+    });
+    
+    if (!response.ok) throw new Error('Failed to update plant');
+    
+    const updatedPlant = await response.json();
+    setCapacityList(capacityList.map(p => p.id === editingPlantId ? updatedPlant : p));
+    setEditingPlantId(null);
+    alert('Plant updated successfully!');
+  } catch (error) {
+    console.error('Error updating plant:', error);
+    alert('Failed to update plant');
+  }
+};
+
+const cancelEditPlant = () => { setEditingPlantId(null); };
+
+const deletePlant = async (plantId: string) => {
+  if (!confirm('Are you sure you want to delete this plant?')) return;
+  
+  try {
+    const response = await fetch(`${API_BASE}/api/plants/${plantId}`, {
+      method: 'DELETE',
+      headers: { Authorization: `Bearer ${token}` }
+    });
+    
+    if (!response.ok) throw new Error('Failed to delete plant');
+    
+    setCapacityList(capacityList.filter(p => p.id !== plantId));
+    alert('Plant deleted successfully!');
+  } catch (error) {
+    console.error('Error deleting plant:', error);
+    alert('Failed to delete plant');
+  }
+};
 
   
 
@@ -248,12 +302,50 @@ const loadRequests = useCallback(async () => {
     return Number((plant.price + calculateOaChargesForPlant(plant, consumerState)).toFixed(2));
   };
 
-  const handleAddCapacity = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!plantName) return;
-    setCapacityList([...capacityList, { id: `plant-${Date.now()}`, name: plantName, type: plantType, total: totalMw, available: totalMw, price: plantPrice, injectionPoint: plantInjectionPoint, state: registeredState, status: 'Active' }]);
-    setPlantName(''); setPlantPrice(4.2); setPlantInjectionPoint('Bhadla Pool (765kV)'); setIsAddingCapacity(false);
-  };
+  const handleAddCapacity = async (e: React.FormEvent) => {
+  e.preventDefault();
+  if (!plantName) return;
+  
+  setIsAddingCapacity(true);
+  try {
+    const response = await fetch(`${API_BASE}/api/plants`, {
+      method: 'POST',
+      headers: { 
+        'Content-Type': 'application/json', 
+        Authorization: `Bearer ${token}` 
+      },
+      body: JSON.stringify({
+        supplierId: user?.id,
+        supplierName: user?.name || companyName,
+        name: plantName,
+        type: plantType,
+        total: totalMw,
+        available: totalMw,
+        price: plantPrice,
+        injectionPoint: plantInjectionPoint,
+        status: 'Active',
+        state: registeredState
+      })
+    });
+    
+    if (!response.ok) throw new Error('Failed to add plant');
+    
+    const newPlant = await response.json();
+    setCapacityList([...capacityList, newPlant]);
+    setPlantName('');
+    setPlantType('Solar');
+    setTotalMw(50);
+    setPlantPrice(4.2);
+    setPlantInjectionPoint('Bhadla Pool (765kV)');
+    setIsAddingCapacity(false);
+    alert('Plant added successfully!');
+  } catch (error) {
+    console.error('Error adding plant:', error);
+    alert('Failed to add plant');
+  } finally {
+    setIsAddingCapacity(false);
+  }
+};
 
   // ── Supplier accepts or rejects a consumer request ──────────────────────
   const handleRequestAction = async (id: string, action: 'APPROVED' | 'REJECTED') => {
@@ -449,8 +541,6 @@ const loadRequests = useCallback(async () => {
 };
 
 
-
-
   // ══════════════════════════════════════════════════════════════════════════
   // DASHBOARD TAB
   // ══════════════════════════════════════════════════════════════════════════
@@ -530,12 +620,12 @@ const loadRequests = useCallback(async () => {
     );
   }
   
-  if (normalizedTab === 'capacity-management' || normalizedTab === 'capacity') {
+  if (normalizedTab === 'energy-assets' || normalizedTab === 'capacity') {
     return (
       <div className="space-y-8">
         <div className="flex flex-col md:flex-row md:items-center md:justify-between space-y-4 md:space-y-0 pb-4 border-b border-[#e0e8e4]">
-          <div><h2 className="font-sora text-[22px] font-bold text-gray-900">Capacity Management</h2><p className="text-gray-500 text-[13px] mt-1">Grid dispatch capacity and energy plant parameters</p></div>
-          <button onClick={() => setIsAddingCapacity(true)} className="bg-[#2d6a4f] text-white px-5 py-2.5 rounded-lg text-[13px] font-bold hover:bg-[#1b4d3e] transition-colors flex items-center"><Plus className="w-4 h-4 mr-2" /><span>Add New Unit</span></button>
+          <div><h2 className="font-sora text-[22px] font-bold text-gray-900">Energy Assets</h2><p className="text-gray-500 text-[13px] mt-1">Grid dispatch capacity and energy plant parameters</p></div>
+          <button onClick={() => setIsAddingCapacity(true)} className="bg-[#2d6a4f] text-white px-5 py-2.5 rounded-lg text-[13px] font-bold hover:bg-[#1b4d3e] transition-colors flex items-center"><Plus className="w-4 h-4 mr-2" /><span>Add New Plant</span></button>
         </div>
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
           {[{label:'TOTAL CAPACITY',val:'120 MW',sub:'Solar & Wind Plants Pool',icon:<Zap className="w-4 h-4 text-[#2d6a4f]"/>,border:'border-t-[#2d6a4f]'},{label:'ALLOCATED MW',val:'70 MW',sub:'Contracted via active PPA',icon:<ShieldCheck className="w-4 h-4 text-[#2d6a4f]"/>,border:'border-t-[#2d6a4f]'},{label:'AVAILABLE MW',val:'50 MW',sub:'Ready for trades',icon:<Award className="w-4 h-4 text-[#f4a261]"/>,border:'border-t-[#f4a261]'},{label:'ACTIVE CLIENTS',val:'1 Client',sub:'Industrial Pool Link',icon:<Users className="w-4 h-4 text-[#1d3557]"/>,border:'border-t-[#1d3557]'}].map(m=>(
@@ -599,7 +689,12 @@ const loadRequests = useCallback(async () => {
                   <td className="py-3.5 px-5 text-gray-600">{c.injectionPoint}</td>
                   <td className="py-3.5 px-5 text-[#1b4d3e] font-bold">₹{estimateDeliveredPrice(c)}</td>
                   <td className="py-3.5 px-5"><span className="px-2 py-1 rounded-full text-[11px] font-semibold bg-green-100 text-green-800">{c.status}</span></td>
-                  <td className="py-3.5 px-5 text-right"><button onClick={()=>startEditPlant(c)} className="px-3 py-1 rounded-md bg-white border border-[#e0e8e4] text-gray-700 text-[12px] font-semibold hover:bg-gray-50">Edit</button></td>
+                  <td className="py-3.5 px-5 text-right">
+                    <div className="flex gap-2">
+                      <button onClick={() => startEditPlant(c)} className="px-3 py-1 rounded-md bg-white border border-[#e0e8e4] text-gray-700 text-[12px] font-semibold hover:bg-gray-50">Edit</button>
+                      <button onClick={() => deletePlant(c.id)} className="px-3 py-1 rounded-md bg-red-50 border border-red-200 text-red-600 text-[12px] font-semibold hover:bg-red-100">Delete</button>
+                    </div>
+                  </td>
                 </tr>
               ))}
             </tbody>

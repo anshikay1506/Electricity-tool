@@ -13,13 +13,18 @@ import { ConsumerDashboard } from './components/dashboard/ConsumerDashboard';
 import { SupplierDashboard } from './components/dashboard/SupplierDashboard';
 import { AdminDashboard } from './components/dashboard/AdminDashboard';
 import { AdminAuthPage } from './components/auth/AdminAuthPages';
+import { SupplierDetailPage } from './components/consumers/SuppliersDetailPage'; 
 
 const AppContent: React.FC = () => {
   const { user, token, loading, logout } = useAuth();
 
-  const [viewState, setViewState] = useState<'LANDING' | 'REGULATIONS' | 'CALCULATOR' | 'AUTH' | 'ADMIN_AUTH' | 'DASHBOARD'>('LANDING');
+  // Add 'SUPPLIER_DETAIL' to the viewState type
+  const [viewState, setViewState] = useState<'LANDING' | 'REGULATIONS' | 'CALCULATOR' | 'AUTH' | 'ADMIN_AUTH' | 'DASHBOARD' | 'SUPPLIER_DETAIL'>('LANDING');
   const [authRoleHint, setAuthRoleHint] = useState<'CONSUMER' | 'SUPPLIER'>('CONSUMER');
   const [authInitialView, setAuthInitialView] = useState<'login' | 'register'>('login');
+
+  // Add state for selected supplier ID
+  const [selectedSupplierId, setSelectedSupplierId] = useState<string | null>(null);
 
   // Dashboard Tab state
   const [activeTab, setActiveTab] = useState<string>('dashboard');
@@ -41,6 +46,18 @@ const AppContent: React.FC = () => {
 
   const openAdminLogin = () => {
     setViewState('ADMIN_AUTH');
+  };
+
+  // Function to open supplier detail page
+  const openSupplierDetail = (supplierId: string) => {
+    setSelectedSupplierId(supplierId);
+    setViewState('SUPPLIER_DETAIL');
+  };
+
+  // Function to go back to consumer dashboard
+  const goBackToConsumerDashboard = () => {
+    setViewState('DASHBOARD');
+    setActiveTab('open-access'); // Go back to open-access tab
   };
 
   // When auth state initializes, if user is present navigate to dashboard
@@ -78,13 +95,27 @@ const AppContent: React.FC = () => {
     );
   }
 
+  // Supplier Detail Page View
+  if (viewState === 'SUPPLIER_DETAIL' && selectedSupplierId) {
+    return (
+      <SupplierDetailPage 
+        supplierId={selectedSupplierId}
+        onBack={goBackToConsumerDashboard}
+      />
+    );
+  }
+
   // If user is logged in and selected dashboard view, show Dashboard
   if (user && token && viewState === 'DASHBOARD') {
     
     return (
       <DashboardLayout currentTab={activeTab} setTab={setActiveTab}>
         {user.role === 'CONSUMER' && (
-          <ConsumerDashboard activeTab={activeTab} setTab={setActiveTab} />
+          <ConsumerDashboard 
+            activeTab={activeTab} 
+            setTab={setActiveTab}
+            onOpenSupplierDetail={openSupplierDetail} // Pass this prop
+          />
         )}
         {user.role === 'SUPPLIER' && (
           <SupplierDashboard activeTab={activeTab} setTab={setActiveTab} />
