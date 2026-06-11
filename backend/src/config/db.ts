@@ -11,19 +11,6 @@ export interface User {
   connection_type?: string;
 }
 
-// interface ElectricBoardConsumer {
-//   k_number: string;
-//   name: string;
-//   mobile_number: string;
-//   email?: string;
-//   connection_type: string;
-//   meter_type?: string;
-//   area_type?: string;
-//   connected_load?: number;
-//   demand_load?: number;
-//   address?: string;
-//   discom?: string;  
-// }
 
 export interface ConsumerProfile {
   id: string;
@@ -350,23 +337,266 @@ async deletePlant(id: string) {
   }
 },
 
+
+async addBid(bidData: any) {
+  try {
+    const cleanString = (str: string) => {
+      if (!str) return '';
+      return str.replace(/[\x00-\x1F\x7F]/g, '').trim();
+    };
+    
+    return await prisma.bid.create({
+      data: {
+        consumerId: cleanString(bidData.consumerId),
+        consumerName: cleanString(bidData.consumerName || 'Consumer'),
+        mw: Number(bidData.mw),
+        price: Number(bidData.price),
+        duration: Number(bidData.duration),
+        drawalPoint: cleanString(bidData.drawalPoint),
+        scheduleType: bidData.scheduleType,
+        message: cleanString(bidData.message),
+        status: bidData.status || "ACTIVE",
+        validityDays: Number(bidData.validityDays) || 30,
+      }
+    });
+  } catch (error) {
+    console.error('Error adding bid:', error);
+    throw error;
+  }
+},
+
+
+async getBidsByConsumer(consumerId: string) {
+  try {
+    return await prisma.bid.findMany({
+      where: { consumerId },
+      orderBy: { createdAt: 'desc' }
+    });
+  } catch (error) {
+    console.log("DB ERROR getBidsByConsumer", error);
+    return [];
+  }
+},
+
+
+async getBidsBySupplier(supplierId: string) {
+  try {
+    // Now get offers made by this supplier, then find the parent bids
+    const offers = await prisma.bidOffer.findMany({
+      where: { supplierId },
+      include: { bid: true },
+      orderBy: { createdAt: 'desc' }
+    });
+    return offers.map(offer => ({
+      ...offer.bid,
+      offerId: offer.id,
+      offeredPrice: offer.offeredPrice,
+      offeredMw: offer.offeredMw,
+      offerStatus: offer.status,
+      offerMessage: offer.message,
+      offerCreatedAt: offer.createdAt
+    }));
+  } catch (error) {
+    console.log("DB ERROR getBidsBySupplier", error);
+    return [];
+  }
+},
+
+
+
+async getBidById(id: string) {
+  try {
+    return await prisma.bid.findUnique({
+      where: { id }
+    });
+  } catch (error) {
+    console.log("DB ERROR getBidById", error);
+    return null;
+  }
+},
+
+async updateBidStatus(id: string, status: string) {
+  try {
+    return await prisma.bid.update({
+      where: { id },
+      data: { status, updatedAt: new Date() }
+    });
+  } catch (error) {
+    console.log("DB ERROR updateBidStatus", error);
+    return null;
+  }
+},
+
+
+async updateBidOfferStatus(offerId: string, status: string) {
+  try {
+    return await prisma.bidOffer.update({
+      where: { id: offerId },
+      data: { status, updatedAt: new Date() }
+    });
+  } catch (error) {
+    console.log("DB ERROR updateBidOfferStatus", error);
+    return null;
+  }
+},
+
+
+async getActiveBids() {
+  try {
+    return await prisma.bid.findMany({
+      where: { status: 'ACTIVE' },
+      orderBy: { createdAt: 'desc' }
+    });
+  } catch (error) {
+    console.log("DB ERROR getActiveBids", error);
+    return [];
+  }
+},
+
+
+async getOffersBySupplier(supplierId: string) {
+  try {
+    return await prisma.bidOffer.findMany({
+      where: { supplierId },
+      include: { bid: true },
+      orderBy: { createdAt: 'desc' }
+    });
+  } catch (error) {
+    console.log("DB ERROR getOffersBySupplier", error);
+    return [];
+  }
+},
+
+
+async getOfferById(offerId: string) {
+  try {
+    return await prisma.bidOffer.findUnique({
+      where: { id: offerId }
+    });
+  } catch (error) {
+    console.log("DB ERROR getOfferById", error);
+    return null;
+  }
+},
+
+
+async getOffersByBid(bidId: string) {
+  try {
+    return await prisma.bidOffer.findMany({
+      where: { bidId },
+      orderBy: { offeredPrice: 'asc' }
+    });
+  } catch (error) {
+    console.log("DB ERROR getOffersByBid", error);
+    return [];
+  }
+},
+
+
+async getOffersByConsumer(consumerId: string) {
+  try {
+    return await prisma.bidOffer.findMany({
+      where: { 
+        bid: { consumerId } 
+      },
+      include: { bid: true },
+      orderBy: { createdAt: 'desc' }
+    });
+  } catch (error) {
+    console.log("DB ERROR getOffersByConsumer", error);
+    return [];
+  }
+},
+
+
+async rejectOtherOffers(bidId: string, acceptedOfferId: string) {
+  try {
+    return await prisma.bidOffer.updateMany({
+      where: {
+        bidId: bidId,
+        id: { not: acceptedOfferId },
+        status: 'PENDING'
+      },
+      data: { status: 'REJECTED' }
+    });
+  } catch (error) {
+    console.log("DB ERROR rejectOtherOffers", error);
+    return null;
+  }
+},
+
+async addBidOffer(offerData: any) {
+  try {
+    const cleanString = (str: string) => {
+      if (!str) return '';
+      return str.replace(/[\x00-\x1F\x7F]/g, '').trim();
+    };
+    
+    return await prisma.bidOffer.create({
+      data: {
+        bidId: offerData.bidId,
+        supplierId: cleanString(offerData.supplierId),
+        supplierName: cleanString(offerData.supplierName),
+        offeredPrice: Number(offerData.offeredPrice),
+        offeredMw: Number(offerData.offeredMw),
+        message: cleanString(offerData.message),
+        status: "PENDING",
+      }
+    });
+  } catch (error) {
+    console.error('Error adding bid offer:', error);
+    throw error;
+  }
+},
+
+
+async closeBid(bidId: string) {
+  try {
+    return await prisma.bid.update({
+      where: { id: bidId },
+      data: { 
+        status: 'ACCEPTED', 
+        updatedAt: new Date() 
+      }
+    });
+  } catch (error) {
+    console.log("DB ERROR closeBid", error);
+    throw error;
+  }
+},
+
+
+async updateBid(bidId: string, data: any) {
+  try {
+    return await prisma.bid.update({
+      where: { id: bidId },
+      data: {
+        ...data,
+        updatedAt: new Date()
+      }
+    });
+  } catch (error) {
+    console.log("DB ERROR updateBid", error);
+    return null;
+  }
+},
+
+
   // Other required methods (minimal implementations)
   async getBids() { return []; },
-  async addBid(bid: Bid) { return bid; },
-  async updateBidStatus(id: string, status: string) { return null; },
-  async getSchedules() { return []; },
-  async addSchedule(schedule: Schedule) { return schedule; },
-  async getDocuments() { return []; },
-  async getDocumentsByUserId(userId: string) { return []; },
-  async addDocument(doc: Document) { return doc; },
-  async getPayments() { return []; },
-  async getPaymentsByUserId(userId: string) { return []; },
-  async addPayment(payment: Payment) { return payment; },
-  async getMarketPrices() { return []; },
-  async updateMarketPrice(market: string, price: number, change: string) { return null; },
-  async getSupplierDocumentsByUserId(supplierId: string) { return []; },
-  async getSupplierDocumentById(id: string) { return null; },
-  async addSupplierDocument(doc: any) { return doc; },
-  async deleteSupplierDocument(id: string) {},
-  async updateSupplierDocumentStatus(id: string, status: string, verifiedBy?: string) { return null; },
+async getSchedules() { return []; },
+async addSchedule(schedule: Schedule) { return schedule; },
+async getDocuments() { return []; },
+async getDocumentsByUserId(userId: string) { return []; },
+async addDocument(doc: Document) { return doc; },
+async getPayments() { return []; },
+async getPaymentsByUserId(userId: string) { return []; },
+async addPayment(payment: Payment) { return payment; },
+async getMarketPrices() { return []; },
+async updateMarketPrice(market: string, price: number, change: string) { return null; },
+async getSupplierDocumentsByUserId(supplierId: string) { return []; },
+async getSupplierDocumentById(id: string) { return null; },
+async addSupplierDocument(doc: any) { return doc; },
+async deleteSupplierDocument(id: string) {},
+async updateSupplierDocumentStatus(id: string, status: string, verifiedBy?: string) { return null; },
 };

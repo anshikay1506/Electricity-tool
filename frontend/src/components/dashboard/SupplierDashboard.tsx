@@ -2,8 +2,8 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { useAuth } from '../../context/AuthContext';
 import { 
   Zap, Award, Users, ShieldCheck,
-  Plus, BarChart2, Edit2, Building, Save, X, Phone, Mail, MapPin, FileText, CheckCircle, Lock,
-  RefreshCw, Upload, AlertCircle, Clock, Download, Eye, DollarSign 
+  Plus, BarChart2, Edit2, Building, Save, X, Phone, Mail, MapPin, FileText, CheckCircle, Lock,Send, 
+  RefreshCw, Upload, AlertCircle, Clock, Download, Eye, DollarSign ,Gavel
 } from 'lucide-react';
 
 interface SupplierDashboardProps {
@@ -85,10 +85,26 @@ export const SupplierDashboard: React.FC<SupplierDashboardProps> = ({ activeTab 
   const [bidMarket, setBidMarket] = useState('G-DAM');
   const [bidSubmitted, setBidSubmitted] = useState(false);
 
+
+  const [marketBids, setMarketBids] = useState<any[]>([]);
+  const [loadingBids, setLoadingBids] = useState(false);
+  const [selectedBidForOffer, setSelectedBidForOffer] = useState<any>(null);
+  const [showOfferModal, setShowOfferModal] = useState(false);
+  const [offerFormData, setOfferFormData] = useState({
+  offeredPrice: 0,
+  offeredMw: 0,
+  message: ''
+});
+const [submittingOffer, setSubmittingOffer] = useState(false);
+const [myOffers, setMyOffers] = useState<any[]>([]);
+const [marketSubTab, setMarketSubTab] = useState<'bids' | 'my-offers'>('bids');
+
+
   const API_BASE = (import.meta as any)?.env?.VITE_API_URL || 'http://localhost:5000';
   const normalizedTab = activeTab === 'consumer-requests' ? 'consumer-requests' : 
-                        activeTab === 'contracts' ? 'contracts' : 
-                        activeTab === 'documents' ? 'documents' : activeTab;
+                      activeTab === 'contracts' ? 'contracts' : 
+                      activeTab === 'documents' ? 'documents' : 
+                      activeTab === 'market-bids' ? 'market-bids' : activeTab;
 
 
 useEffect(() => {
@@ -195,12 +211,6 @@ const loadRequests = useCallback(async () => {
     }
   };
 
-  // setBids([{ id: 'bid-1', mw: 20, price: 4.2, marketType: 'G-DAM', timeBlock: '10:00-11:00', status: 'MATCHED', date: '2026-05-20' }]);
-  // setSchedules([{ id: 'sch-1', consumerName: 'Tata Steel Limited', mw: 20, timeBlock: '10:00-11:00', gridStatus: 'SCHEDULED' }]);
-  // setRevenueLedger([
-  //   { id: 'rev-1', month: 'April 2026', totalMwh: 12000, rate: 4.5, earned: 5400000, status: 'SETTLED' },
-  //   { id: 'rev-2', month: 'May 2026 (Provisional)', totalMwh: 8500, rate: 4.2, earned: 3570000, status: 'PENDING' }
-  // ]);
 
   loadProfile();
   loadRequests();
@@ -541,6 +551,107 @@ const deletePlant = async (plantId: string) => {
 };
 
 
+
+// Load all active bids from consumers
+const loadMarketBids = async () => {
+  if (!token) return;
+  setLoadingBids(true);
+  try {
+    const response = await fetch(`${API_BASE}/api/bids/active`, {
+      headers: { Authorization: `Bearer ${token}` }
+    });
+    if (response.ok) {
+      const data = await response.json();
+      setMarketBids(data);
+    }
+  } catch (error) {
+    console.error('Error loading market bids:', error);
+  } finally {
+    setLoadingBids(false);
+  }
+};
+
+// Load supplier's own offers
+const loadMyOffers = async () => {
+  if (!token || !user?.id) return;
+  try {
+    const response = await fetch(`${API_BASE}/api/bids/offers/supplier/${user?.id}`, {
+      headers: { Authorization: `Bearer ${token}` }
+    });
+    if (response.ok) {
+      const data = await response.json();
+      setMyOffers(data);
+    }
+  } catch (error) {
+    console.error('Error loading my offers:', error);
+  }
+};
+
+// Submit an offer on a bid
+const submitOffer = async (e: React.FormEvent) => {
+  e.preventDefault();
+  if (!token || !selectedBidForOffer) return;
+  
+  setSubmittingOffer(true);
+  try {
+    const response = await fetch(`${API_BASE}/api/bids/offers`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${token}`
+      },
+      body: JSON.stringify({
+        bidId: selectedBidForOffer.id,
+        supplierId: user?.id,
+        supplierName: profile?.name || user?.name || 'Supplier',
+        offeredPrice: offerFormData.offeredPrice,
+        offeredMw: offerFormData.offeredMw,
+        message: offerFormData.message
+      })
+    });
+    
+    if (!response.ok) throw new Error('Failed to submit offer');
+    
+    alert('Offer submitted successfully!');
+    setShowOfferModal(false);
+    setSelectedBidForOffer(null);
+    setOfferFormData({ offeredPrice: 0, offeredMw: 0, message: '' });
+    
+    // Refresh data
+    await loadMarketBids();
+    await loadMyOffers();
+  } catch (error) {
+    console.error('Error submitting offer:', error);
+    alert('Failed to submit offer');
+  } finally {
+    setSubmittingOffer(false);
+  }
+};
+
+// Check if supplier has already made an offer on a bid
+const hasMadeOffer = (bidId: string) => {
+  return myOffers.some(offer => offer.bidId === bidId);
+};
+
+// Get supplier's offer for a specific bid
+const getMyOffer = (bidId: string) => {
+  return myOffers.find(offer => offer.bidId === bidId);
+};
+
+// Calculate pending bids count (bids supplier hasn't responded to yet)
+const pendingBidsCount = marketBids.filter(bid => !hasMadeOffer(bid.id)).length;
+
+
+// Load market bids when tab changes
+useEffect(() => {
+  if (activeTab === 'market-bids') {
+    loadMarketBids();
+    loadMyOffers();
+  }
+}, [activeTab, token]);
+
+
+
   // ══════════════════════════════════════════════════════════════════════════
   // DASHBOARD TAB
   // ══════════════════════════════════════════════════════════════════════════
@@ -707,160 +818,701 @@ const deletePlant = async (plantId: string) => {
 
 
     if (normalizedTab === 'consumer-requests') {
-    return (
-      <>
-        <div className="space-y-8 animate-fadeIn">
-          <div className="pb-4 border-b border-[#e0e8e4] flex flex-col md:flex-row md:items-center md:justify-between gap-3">
-            <div>
-              <h2 className="font-sora text-[22px] font-bold text-gray-900">Consumer Requests</h2>
-              <p className="text-gray-500 text-[13px] mt-1">
-                Admin-approved open access requests waiting for your action.
-              </p>
-            </div>
-            <button onClick={handleRefresh} disabled={isRefreshing} className="flex items-center gap-2 border border-[#e0e8e4] bg-white text-gray-700 text-[12px] font-bold px-4 py-2 rounded-lg hover:bg-gray-50">
-              <RefreshCw className={`w-3.5 h-3.5 ${isRefreshing ? 'animate-spin' : ''}`} />
-              <span>Refresh</span>
-            </button>
+  return (
+    <>
+      <div className="space-y-8 animate-fadeIn">
+        <div className="pb-4 border-b border-[#e0e8e4] flex flex-col md:flex-row md:items-center md:justify-between gap-3">
+          <div>
+            <h2 className="font-sora text-[22px] font-bold text-gray-900">Consumer Requests</h2>
+            <p className="text-gray-500 text-[13px] mt-1">
+              Admin-approved open access requests waiting for your action.
+            </p>
           </div>
-
-          {requests.length === 0 ? (
-            <div className="bg-white rounded-lg border border-[#e0e8e4] p-12 text-center">
-              <div className="w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-4">
-                <Users className="w-8 h-8 text-gray-400" />
-              </div>
-              <p className="text-gray-500 text-[15px] font-medium">No pending consumer requests</p>
-              <p className="text-gray-400 text-[13px] mt-1">Admin-approved requests will appear here for your action.</p>
-            </div>
-          ) : (
-            <div className="bg-white rounded-lg border border-[#e0e8e4] overflow-x-auto">
-              <table className="w-full text-left border-collapse min-w-[900px]">
-                <thead>
-                  <tr>
-                    {['Consumer','Capacity (MW)','Offered Price (₹)','Injection Point','Duration','Submitted','Action'].map(h => (
-                      <th key={h} className="bg-[#1b4d3e] text-white text-[12px] font-semibold px-5 py-3 uppercase whitespace-nowrap">{h}</th>
-                    ))}
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-[#f0f4f2] text-[13px]">
-                  {requests.map((r, i) => (
-                    <tr key={r.id} className={`hover:bg-gray-50 transition-colors ${i % 2 !== 0 ? 'bg-[#f9fcfa]' : ''}`}>
-                      <td className="py-3.5 px-5 font-semibold text-gray-900">
-                        <button onClick={() => fetchConsumerDetails(r.consumerId)} className="text-blue-dark hover:text-blue-mid hover:underline font-semibold cursor-pointer transition-colors">{r.consumerName}</button>
-                      </td>
-                      <td className="py-3.5 px-5 font-bold text-gray-900">{r.mw} MW</td>
-                      <td className="py-3.5 px-5 font-bold text-[#1b4d3e]">₹{r.requestedPrice?.toFixed(2) || '—'}</td>
-                      <td className="py-3.5 px-5 text-gray-600 text-[12px] max-w-[180px] truncate">{r.injectionPoint || '—'}</td>
-                      <td className="py-3.5 px-5 text-gray-600">{r.duration}</td>
-                      <td className="py-3.5 px-5 text-gray-500 text-[12px]">{r.requestDate || '—'}</td>
-                      <td className="py-3.5 px-5">
-                        <div className="flex gap-2">
-                          <button
-                            onClick={() => handleRequestAction(r.id, 'APPROVED')}
-                            className="px-3 py-1.5 rounded-md bg-[#1b4d3e] text-white text-[12px] font-bold hover:bg-[#2d6a4f] transition-colors shadow-sm"
-                          >
-                            ✓ Accept
-                          </button>
-                          <button
-                            onClick={() => handleRequestAction(r.id, 'REJECTED')}
-                            className="px-3 py-1.5 rounded-md bg-white border border-red-200 text-red-600 text-[12px] font-bold hover:bg-red-50 transition-colors"
-                          >
-                            ✗ Reject
-                          </button>
-                        </div>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          )}
+          <button onClick={handleRefresh} disabled={isRefreshing} className="flex items-center gap-2 border border-[#e0e8e4] bg-white text-gray-700 text-[12px] font-bold px-4 py-2 rounded-lg hover:bg-gray-50">
+            <RefreshCw className={`w-3.5 h-3.5 ${isRefreshing ? 'animate-spin' : ''}`} />
+            <span>Refresh</span>
+          </button>
         </div>
 
-        {/* Modal */}
-        {showConsumerModal && selectedConsumerForModal && (
-          <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4 animate-fadeIn" onClick={() => setShowConsumerModal(false)}>
-            <div className="bg-white rounded-2xl max-w-3xl w-full max-h-[85vh] overflow-y-auto shadow-2xl" onClick={(e) => e.stopPropagation()}>
-              <div className="sticky top-0 bg-white border-b border-[#e0e8e4] px-6 py-4 flex items-center justify-between">
-                <div className="flex items-center gap-3">
-                  <div className="w-10 h-10 bg-blue-dark rounded-full flex items-center justify-center text-white font-bold">
-                    {selectedConsumerForModal.name?.charAt(0) || 'C'}
+        {requests.length === 0 ? (
+          <div className="bg-white rounded-lg border border-[#e0e8e4] p-12 text-center">
+            <div className="w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-4">
+              <Users className="w-8 h-8 text-gray-400" />
+            </div>
+            <p className="text-gray-500 text-[15px] font-medium">No pending consumer requests</p>
+            <p className="text-gray-400 text-[13px] mt-1">Admin-approved requests will appear here for your action.</p>
+          </div>
+        ) : (
+          <div className="bg-white rounded-lg border border-[#e0e8e4] overflow-x-auto">
+            <table className="w-full text-left border-collapse min-w-[900px]">
+              <thead>
+                <tr>
+                  {['Consumer', 'Capacity (MW)', 'Offered Price (₹)', 'Injection Point', 'Duration', 'Submitted', 'Action'].map(h => (
+                    <th key={h} className="bg-[#1b4d3e] text-white text-[12px] font-semibold px-5 py-3 uppercase whitespace-nowrap">{h}</th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-[#f0f4f2] text-[13px]">
+                {requests.map((r, i) => (
+                  <tr key={r.id} className={`hover:bg-gray-50 transition-colors ${i % 2 !== 0 ? 'bg-[#f9fcfa]' : ''}`}>
+                    <td className="py-3.5 px-5 font-semibold text-gray-900">
+                      <button onClick={() => fetchConsumerDetails(r.consumerId)} className="text-blue-dark hover:text-blue-mid hover:underline font-semibold cursor-pointer transition-colors">
+                        {r.consumerName}
+                      </button>
+                    </td>
+                    <td className="py-3.5 px-5 font-bold text-gray-900">{r.mw} MW</td>
+                    <td className="py-3.5 px-5 font-bold text-[#1b4d3e]">₹{r.requestedPrice?.toFixed(2) || '—'}</td>
+                    <td className="py-3.5 px-5 text-gray-600 text-[12px] max-w-[180px] truncate">{r.injectionPoint || '—'}</td>
+                    <td className="py-3.5 px-5 text-gray-600">{r.duration}</td>
+                    <td className="py-3.5 px-5 text-gray-500 text-[12px]">{r.requestDate || '—'}</td>
+                    <td className="py-3.5 px-5">
+                      <div className="flex gap-2">
+                        <button
+                          onClick={() => handleRequestAction(r.id, 'APPROVED')}
+                          className="px-3 py-1.5 rounded-md bg-[#1b4d3e] text-white text-[12px] font-bold hover:bg-[#2d6a4f] transition-colors shadow-sm"
+                        >
+                          ✓ Accept
+                        </button>
+                        <button
+                          onClick={() => handleRequestAction(r.id, 'REJECTED')}
+                          className="px-3 py-1.5 rounded-md bg-white border border-red-200 text-red-600 text-[12px] font-bold hover:bg-red-50 transition-colors"
+                        >
+                          ✗ Reject
+                        </button>
+                      </div>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </div>
+
+      {/* Consumer Details Modal */}
+      {showConsumerModal && selectedConsumerForModal && (
+        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4 animate-fadeIn" onClick={() => setShowConsumerModal(false)}>
+          <div className="bg-white rounded-2xl max-w-3xl w-full max-h-[85vh] overflow-y-auto shadow-2xl" onClick={(e) => e.stopPropagation()}>
+            <div className="sticky top-0 bg-white border-b border-[#e0e8e4] px-6 py-4 flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 bg-blue-dark rounded-full flex items-center justify-center text-white font-bold">
+                  {selectedConsumerForModal.name?.charAt(0) || 'C'}
+                </div>
+                <div>
+                  <h3 className="font-sora text-xl font-bold text-gray-900">{selectedConsumerForModal.name}</h3>
+                  <p className="text-[13px] text-gray-500">Consumer Profile</p>
+                </div>
+              </div>
+              <button onClick={() => setShowConsumerModal(false)} className="p-2 hover:bg-gray-100 rounded-full transition-colors">
+                <X className="w-5 h-5 text-gray-500" />
+              </button>
+            </div>
+            
+            <div className="p-6 space-y-6">
+              <div>
+                <h4 className="font-semibold text-gray-900 mb-3 flex items-center gap-2">
+                  <Building className="w-4 h-4 text-blue-dark" />
+                  Company Information
+                </h4>
+                <div className="grid grid-cols-2 gap-4 bg-gray-50 rounded-xl p-4">
+                  <div>
+                    <p className="text-[11px] text-gray-400 uppercase font-semibold">Entity Type</p>
+                    <p className="font-semibold text-gray-900">{selectedConsumerForModal.entityType || 'Industrial'}</p>
                   </div>
                   <div>
-                    <h3 className="font-sora text-xl font-bold text-gray-900">{selectedConsumerForModal.name}</h3>
-                    <p className="text-[13px] text-gray-500">Consumer Profile</p>
+                    <p className="text-[11px] text-gray-400 uppercase font-semibold">State</p>
+                    <p className="font-semibold text-gray-900">{selectedConsumerForModal.state || '—'}</p>
+                  </div>
+                  <div className="col-span-2">
+                    <p className="text-[11px] text-gray-400 uppercase font-semibold">Address</p>
+                    <p className="text-gray-700">{selectedConsumerForModal.address || '—'}</p>
                   </div>
                 </div>
-                <button onClick={() => setShowConsumerModal(false)} className="p-2 hover:bg-gray-100 rounded-full transition-colors">
-                  <X className="w-5 h-5 text-gray-500" />
-                </button>
               </div>
               
-              <div className="p-6 space-y-6">
-                <div>
-                  <h4 className="font-semibold text-gray-900 mb-3 flex items-center gap-2">
-                    <Building className="w-4 h-4 text-blue-dark" />
-                    Company Information
-                  </h4>
-                  <div className="grid grid-cols-2 gap-4 bg-gray-50 rounded-xl p-4">
-                    <div>
-                      <p className="text-[11px] text-gray-400 uppercase font-semibold">Entity Type</p>
-                      <p className="font-semibold text-gray-900">{selectedConsumerForModal.entityType || 'Industrial'}</p>
-                    </div>
-                    <div>
-                      <p className="text-[11px] text-gray-400 uppercase font-semibold">State</p>
-                      <p className="font-semibold text-gray-900">{selectedConsumerForModal.state || '—'}</p>
-                    </div>
-                    <div className="col-span-2">
-                      <p className="text-[11px] text-gray-400 uppercase font-semibold">Address</p>
-                      <p className="text-gray-700">{selectedConsumerForModal.address || '—'}</p>
-                    </div>
+              <div>
+                <h4 className="font-semibold text-gray-900 mb-3 flex items-center gap-2">
+                  <Phone className="w-4 h-4 text-blue-dark" />
+                  Contact Information
+                </h4>
+                <div className="grid grid-cols-2 gap-4 bg-gray-50 rounded-xl p-4">
+                  <div>
+                    <p className="text-[11px] text-gray-400 uppercase font-semibold">Contact Person</p>
+                    <p className="font-semibold text-gray-900">{selectedConsumerForModal.contactPerson || '—'}</p>
+                  </div>
+                  <div>
+                    <p className="text-[11px] text-gray-400 uppercase font-semibold">Email</p>
+                    <p className="text-gray-700">{selectedConsumerForModal.email || '—'}</p>
+                  </div>
+                  <div>
+                    <p className="text-[11px] text-gray-400 uppercase font-semibold">Phone</p>
+                    <p className="text-gray-700">{selectedConsumerForModal.mobile || selectedConsumerForModal.phone || '—'}</p>
                   </div>
                 </div>
-                
-                <div>
-                  <h4 className="font-semibold text-gray-900 mb-3 flex items-center gap-2">
-                    <Phone className="w-4 h-4 text-blue-dark" />
-                    Contact Information
-                  </h4>
-                  <div className="grid grid-cols-2 gap-4 bg-gray-50 rounded-xl p-4">
-                    <div>
-                      <p className="text-[11px] text-gray-400 uppercase font-semibold">Contact Person</p>
-                      <p className="font-semibold text-gray-900">{selectedConsumerForModal.contactPerson || '—'}</p>
-                    </div>
-                    <div>
-                      <p className="text-[11px] text-gray-400 uppercase font-semibold">Email</p>
-                      <p className="text-gray-700">{selectedConsumerForModal.email || '—'}</p>
-                    </div>
-                    <div>
-                      <p className="text-[11px] text-gray-400 uppercase font-semibold">Phone</p>
-                      <p className="text-gray-700">{selectedConsumerForModal.mobile || selectedConsumerForModal.phone || '—'}</p>
-                    </div>
+              </div>
+              
+              <div>
+                <h4 className="font-semibold text-gray-900 mb-3 flex items-center gap-2">
+                  <Zap className="w-4 h-4 text-blue-dark" />
+                  Power Requirements
+                </h4>
+                <div className="grid grid-cols-2 gap-4 bg-gray-50 rounded-xl p-4">
+                  <div>
+                    <p className="text-[11px] text-gray-400 uppercase font-semibold">Connected Load</p>
+                    <p className="font-bold text-xl text-blue-dark">{selectedConsumerForModal.loadMw || '—'} MW</p>
                   </div>
-                </div>
-                
-                <div>
-                  <h4 className="font-semibold text-gray-900 mb-3 flex items-center gap-2">
-                    <Zap className="w-4 h-4 text-blue-dark" />
-                    Power Requirements
-                  </h4>
-                  <div className="grid grid-cols-2 gap-4 bg-gray-50 rounded-xl p-4">
-                    <div>
-                      <p className="text-[11px] text-gray-400 uppercase font-semibold">Connected Load</p>
-                      <p className="font-bold text-xl text-blue-dark">{selectedConsumerForModal.loadMw || '—'} MW</p>
-                    </div>
-                    <div>
-                      <p className="text-[11px] text-gray-400 uppercase font-semibold">Voltage Level</p>
-                      <p className="font-bold text-xl text-gray-900">{selectedConsumerForModal.voltageLevel || '33kV'}</p>
-                    </div>
+                  <div>
+                    <p className="text-[11px] text-gray-400 uppercase font-semibold">Voltage Level</p>
+                    <p className="font-bold text-xl text-gray-900">{selectedConsumerForModal.voltageLevel || '33kV'}</p>
                   </div>
                 </div>
               </div>
             </div>
           </div>
-        )}
-      </>
-    );
-  }
+        </div>
+      )}
+    </>
+  );
+}
+
+
+
+if (activeTab === 'market-bids') {
+  
+
+  return (
+    <div className="space-y-5 animate-fadeIn">
+      {/* Header */}
+      <div className="pb-3 border-b border-[#e0e8e4] flex items-center justify-between">
+        <div>
+          <h2 className="font-sora text-[22px] font-bold text-gray-900">Market Bids</h2>
+          <p className="text-gray-500 text-[13px] mt-0.5">
+            Browse consumer bids and track your submitted offers
+          </p>
+        </div>
+        <button
+          onClick={loadMarketBids}
+          className="flex items-center gap-2 px-3 py-1.5 bg-white border border-[#e0e8e4] rounded-lg text-[12px] font-medium text-gray-700 hover:bg-gray-50"
+        >
+          <RefreshCw className={`w-3.5 h-3.5 ${loadingBids ? 'animate-spin' : ''}`} />
+          Refresh
+        </button>
+      </div>
+
+      {/* Stats Cards */}
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+        <div className="bg-gradient-to-br from-green-50 to-white rounded-lg p-3 border border-green-100">
+          <div className="flex items-center justify-between mb-1">
+            <Gavel className="w-4 h-4 text-green-600" />
+            <span className="text-[18px] font-bold text-gray-900">{marketBids.length}</span>
+          </div>
+          <p className="text-[10px] text-gray-500">Total Active Bids</p>
+        </div>
+        <div className="bg-gradient-to-br from-blue-50 to-white rounded-lg p-3 border border-blue-100">
+          <div className="flex items-center justify-between mb-1">
+            <CheckCircle className="w-4 h-4 text-blue-600" />
+            <span className="text-[18px] font-bold text-gray-900">{myOffers.length}</span>
+          </div>
+          <p className="text-[10px] text-gray-500">My Offers</p>
+        </div>
+        <div className="bg-gradient-to-br from-amber-50 to-white rounded-lg p-3 border border-amber-100">
+          <div className="flex items-center justify-between mb-1">
+            <Clock className="w-4 h-4 text-amber-600" />
+            <span className="text-[18px] font-bold text-amber-600">{myOffers.filter(o => o.status === 'PENDING').length}</span>
+          </div>
+          <p className="text-[10px] text-gray-500">Pending Response</p>
+        </div>
+        <div className="bg-gradient-to-br from-emerald-50 to-white rounded-lg p-3 border border-emerald-100">
+          <div className="flex items-center justify-between mb-1">
+            <Award className="w-4 h-4 text-emerald-600" />
+            <span className="text-[18px] font-bold text-emerald-600">{myOffers.filter(o => o.status === 'ACCEPTED').length}</span>
+          </div>
+          <p className="text-[10px] text-gray-500">Won Bids</p>
+        </div>
+      </div>
+
+      {/* Tabs */}
+      <div className="flex border-b border-[#e0e8e4]">
+        <button
+          onClick={() => setMarketSubTab('bids')}
+          className={`px-6 py-2.5 text-[13px] font-semibold transition-all ${
+            marketSubTab === 'bids'
+              ? 'text-green-dark border-b-2 border-green-dark bg-green-pale/20'
+              : 'text-gray-500 hover:text-gray-700'
+          }`}
+        >
+          <div className="flex items-center gap-2">
+            
+            Bids
+            {marketBids.length > 0 && (
+              <span className="bg-green-100 text-green-700 text-[10px] px-1.5 py-0.5 rounded-full">
+                {marketBids.length}
+              </span>
+            )}
+          </div>
+        </button>
+        <button
+          onClick={() => setMarketSubTab('my-offers')}
+          className={`px-6 py-2.5 text-[13px] font-semibold transition-all ${
+            marketSubTab === 'my-offers'
+              ? 'text-green-dark border-b-2 border-green-dark bg-green-pale/20'
+              : 'text-gray-500 hover:text-gray-700'
+          }`}
+        >
+          <div className="flex items-center gap-2">
+            
+            My Offers
+            {myOffers.length > 0 && (
+              <span className="bg-blue-100 text-blue-700 text-[10px] px-1.5 py-0.5 rounded-full">
+                {myOffers.length}
+              </span>
+            )}
+          </div>
+        </button>
+      </div>
+
+      {/* TAB 1: Bids (All Consumer Bids) */}
+      {marketSubTab === 'bids' && (
+        <>
+          {loadingBids ? (
+            <div className="bg-white rounded-lg border border-[#e0e8e4] p-8 text-center">
+              <RefreshCw className="w-8 h-8 text-green-500 animate-spin mx-auto mb-3" />
+              <p className="text-gray-500 text-[12px]">Loading market bids...</p>
+            </div>
+          ) : marketBids.length === 0 ? (
+            <div className="bg-white rounded-lg border border-[#e0e8e4] p-8 text-center">
+              <div className="w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-3">
+                <Gavel className="w-8 h-8 text-gray-400" />
+              </div>
+              <p className="text-gray-500 text-[14px] font-medium">No Active Bids</p>
+              <p className="text-gray-400 text-[11px] mt-1">Check back later for new bidding opportunities</p>
+            </div>
+          ) : (
+            <div className="bg-white rounded-lg border border-[#e0e8e4] overflow-hidden">
+              <div className="overflow-x-auto">
+                <table className="w-full text-[12px]">
+                  <thead className="bg-gray-50">
+                    <tr>
+                      <th className="px-3 py-2 text-left text-[12px] font-bold text-gray-600">CONSUMER</th>
+                      <th className="px-3 py-2 text-left text-[12px] font-bold text-gray-600">MW</th>
+                      <th className="px-3 py-2 text-left text-[12px] font-bold text-gray-600">TARGET PRICE</th>
+                      <th className="px-3 py-2 text-left text-[12px] font-bold text-gray-600">DURATION</th>
+                      <th className="px-3 py-2 text-left text-[12px] font-bold text-gray-600">SCHEDULE</th>
+                      <th className="px-3 py-2 text-left text-[12px] font-bold text-gray-600">DRAWAL POINT</th>
+                      <th className="px-3 py-2 text-left text-[12px] font-bold text-gray-600">VALID TILL</th>
+                      <th className="px-3 py-2 text-left text-[12px] font-bold text-gray-600">MY OFFER</th>
+                      <th className="px-3 py-2 text-left text-[12px] font-bold text-gray-600">ACTION</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-[#f0f4f2]">
+                    {marketBids.map((bid) => {
+                      const myOffer = getMyOffer(bid.id);
+                      const hasOffer = hasMadeOffer(bid.id);
+                      
+                      const createdAt = new Date(bid.createdAt);
+                      const expiryDate = new Date(createdAt);
+                      expiryDate.setDate(expiryDate.getDate() + (bid.validityDays || 30));
+                      const daysLeft = Math.ceil((expiryDate.getTime() - new Date().getTime()) / (1000 * 3600 * 24));
+                      
+                      return (
+                        <tr key={bid.id} className="hover:bg-gray-50 transition-colors">
+                          <td className="px-3 py-2 text-gray-600 text-[12px]">{bid.consumerName}</td>
+                          <td className="px-3 py-2 font-semibold text-gray-900 text-[12px]">{bid.mw} MW</td>
+                          <td className="px-3 py-2 font-semibold text-green-600 text-[12px]">₹{bid.price}</td>
+                          <td className="px-3 py-2 text-gray-600 text-[12px]">{bid.duration}m</td>
+                          <td className="px-3 py-2">
+                            <span className={`px-1.5 py-0.5 rounded-full text-[9px] font-semibold ${
+                              bid.scheduleType === 'RTC' ? 'bg-purple-100 text-purple-700' :
+                              bid.scheduleType === 'Peak' ? 'bg-orange-100 text-orange-700' :
+                              'bg-blue-100 text-blue-700'
+                            }`}>
+                              {bid.scheduleType === 'RTC' ? 'RTC' : 
+                               bid.scheduleType === 'Peak' ? 'Peak' : 'Off-Peak'}
+                            </span>
+                          </td>
+                          <td className="px-3 py-2">
+                            <span className="flex items-center gap-1 text-[12px] text-gray-900">
+                              <MapPin className="w-3 h-3 text-gray-400" />
+                              {bid.drawalPoint || 'Not specified'}
+                            </span>
+                          </td>
+                          <td className="px-3 py-2">
+                            <span className={`text-[11px] font-medium ${daysLeft < 7 ? 'text-red-500' : daysLeft < 15 ? 'text-amber-500' : 'text-green-600'}`}>
+                              {daysLeft}d
+                            </span>
+                          </td>
+                          <td className="px-3 py-2">
+                            {hasOffer && (
+                              <span className={`px-1.5 py-0.5 rounded-full text-[9px] font-semibold ${
+                                myOffer?.status === 'ACCEPTED' ? 'bg-green-100 text-green-700' :
+                                myOffer?.status === 'REJECTED' ? 'bg-red-100 text-red-700' :
+                                'bg-amber-100 text-amber-700'
+                              }`}>
+                                {myOffer?.status === 'ACCEPTED' ? 'Accepted' :
+                                 myOffer?.status === 'REJECTED' ? 'Rejected' : 'Pending'}
+                              </span>
+                            )}
+                          </td>
+                          <td className="px-3 py-2">
+                            {!hasOffer ? (
+                              <button
+                                onClick={() => {
+                                  setSelectedBidForOffer(bid);
+                                  setOfferFormData({
+                                    offeredPrice: bid.price,
+                                    offeredMw: bid.mw,
+                                    message: ''
+                                  });
+                                  setShowOfferModal(true);
+                                }}
+                                className="px-2 py-1 rounded bg-green-600 text-white text-[10px] font-semibold hover:bg-green-700"
+                              >
+                                Submit Offer
+                              </button>
+                            ) : myOffer?.status === 'REJECTED' ? (
+                              <button
+                                onClick={() => {
+                                  setSelectedBidForOffer(bid);
+                                  setOfferFormData({
+                                    offeredPrice: bid.price,
+                                    offeredMw: bid.mw,
+                                    message: ''
+                                  });
+                                  setShowOfferModal(true);
+                                }}
+                                className="px-2 py-1 rounded bg-green-600 text-white text-[10px] font-semibold hover:bg-green-700"
+                              >
+                                Resubmit
+                              </button>
+                            ) : myOffer?.status === 'PENDING' && (
+                              <span className="text-amber-600 text-[10px] flex items-center gap-0.5">
+                                <Clock className="w-2.5 h-2.5" />
+                                Awaiting
+                              </span>
+                            )}
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          )}
+        </>
+      )}
+
+      {/* TAB 2: My Offers (Supplier's submitted offers only) */}
+      {marketSubTab === 'my-offers' && (
+        <>
+          {myOffers.length === 0 ? (
+            <div className="bg-white rounded-lg border border-[#e0e8e4] p-8 text-center">
+              <div className="w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-3">
+                <FileText className="w-8 h-8 text-gray-400" />
+              </div>
+              <p className="text-gray-500 text-[14px] font-medium">No Offers Submitted</p>
+              <p className="text-gray-400 text-[11px] mt-1">Go to "Bids" tab to submit offers on consumer bids</p>
+            </div>
+          ) : (
+            <div className="bg-white rounded-lg border border-[#e0e8e4] overflow-hidden">
+              <div className="overflow-x-auto">
+                <table className="w-full text-[12px]">
+                  <thead className="bg-gray-50">
+                    <tr>
+                      <th className="px-3 py-2 text-left text-[12px] font-bold text-gray-700">BID DETAILS</th>
+                      <th className="px-3 py-2 text-left text-[12px] font-bold text-gray-700">CONSUMER</th>
+                      <th className="px-3 py-2 text-left text-[12px] font-bold text-gray-700">MY OFFER</th>
+                      <th className="px-3 py-2 text-left text-[12px] font-bold text-gray-700">OFFER PRICE</th>
+                      <th className="px-3 py-2 text-left text-[12px] font-bold text-gray-700">vs TARGET</th>
+                      <th className="px-3 py-2 text-left text-[12px] font-bold text-gray-700">SUBMITTED</th>
+                      <th className="px-3 py-2 text-left text-[12px] font-bold text-gray-700">STATUS</th>
+                      <th className="px-3 py-2 text-left text-[12px] font-bold text-gray-700">ACTION</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-[#f0f4f2]">
+                    {myOffers.map((offer) => {
+                      const targetPrice = offer.bid?.price || 0;
+                      const isBetter = offer.offeredPrice <= targetPrice;
+                      
+                      return (
+                        <tr key={offer.id} className="hover:bg-gray-50 transition-colors">
+                          <td className="px-3 py-2">
+                            <div className="space-y-1">
+                              
+                              <p className="text-[10px] text-gray-400 flex items-center gap-1">
+                                <MapPin className="w-2.5 h-2.5" />
+                                {offer.bid?.drawalPoint || 'Not specified'}
+                              </p>
+                              <p className="text-[10px] text-gray-400">
+                                {offer.bid?.mw} MW • {offer.bid?.duration} months
+                              </p>
+                            </div>
+                          </td>
+                          <td className="px-3 py-2 text-gray-600 text-[12px]">{offer.bid?.consumerName || '—'}</td>
+                          <td className="px-3 py-2 font-semibold text-gray-900 text-[12px]">{offer.offeredMw} MW</td>
+                          <td className="px-3 py-2">
+                            <span className="font-semibold text-[13px] text-green-600">₹{offer.offeredPrice}</span>
+                          </td>
+                          <td className="px-3 py-2">
+                            <span className={`inline-flex items-center gap-1 px-1.5 py-0.5 rounded-full text-[9px] font-semibold ${
+                              isBetter ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'
+                            }`}>
+                              {isBetter ? '↓ Better' : '↑ Higher'}
+                              <span className="text-[8px]">
+                                (₹{Math.abs(offer.offeredPrice - targetPrice).toFixed(2)})
+                              </span>
+                            </span>
+                          </td>
+                          <td className="px-3 py-2 text-gray-500 text-[11px]">
+                            {new Date(offer.createdAt).toLocaleDateString()}
+                          </td>
+                          <td className="px-3 py-2">
+                            <span className={`inline-flex px-1.5 py-0.5 rounded-full text-[9px] font-semibold ${
+                              offer.status === 'ACCEPTED' ? 'bg-green-100 text-green-700' :
+                              offer.status === 'REJECTED' ? 'bg-red-100 text-red-700' :
+                              'bg-amber-100 text-amber-700'
+                            }`}>
+                              {offer.status === 'ACCEPTED' ? '✓ Accepted' :
+                               offer.status === 'REJECTED' ? '✗ Rejected' : '⏳ Pending'}
+                            </span>
+                          </td>
+                          <td className="px-3 py-2">
+                            {offer.status === 'PENDING' && (
+                              <button
+                                onClick={() => {
+                                  // Option to withdraw offer
+                                  if (confirm('Withdraw this offer?')) {
+                                    // Call withdraw API
+                                  }
+                                }}
+                                className="px-2 py-1 rounded bg-red-50 border border-red-200 text-red-600 text-[10px] font-semibold hover:bg-red-100"
+                              >
+                                Withdraw
+                              </button>
+                            )}
+                            {offer.status === 'ACCEPTED' && (
+                              <button
+                                onClick={() => {
+                                  // Proceed to contract
+                                  setTab('contracts');
+                                }}
+                                className="px-2 py-1 rounded bg-green-600 text-white text-[10px] font-semibold hover:bg-green-700"
+                              >
+                                Create Contract
+                              </button>
+                            )}
+                            {offer.status === 'REJECTED' && (
+                              <button
+                                onClick={() => {
+                                  const originalBid = marketBids.find(b => b.id === offer.bidId);
+                                  if (originalBid) {
+                                    setSelectedBidForOffer(originalBid);
+                                    setOfferFormData({
+                                      offeredPrice: originalBid.price,
+                                      offeredMw: originalBid.mw,
+                                      message: ''
+                                    });
+                                    setShowOfferModal(true);
+                                  }
+                                }}
+                                className="px-2 py-1 rounded bg-green-600 text-white text-[10px] font-semibold hover:bg-green-700"
+                              >
+                                Resubmit
+                              </button>
+                            )}
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          )}
+        </>
+      )}
+
+      {/* Offer Modal - Only show when submitting a new offer */}
+      {showOfferModal && selectedBidForOffer && (
+        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4 overflow-y-auto" onClick={() => setShowOfferModal(false)}>
+          <div className="bg-white rounded-2xl max-w-2xl w-full max-h-[90vh] overflow-y-auto shadow-2xl animate-fadeIn" onClick={(e) => e.stopPropagation()}>
+            {/* Modal content - same as before */}
+            <div className="sticky top-0 bg-white border-b border-[#e0e8e4] px-6 py-4 flex items-center justify-between">
+              <div>
+                <h3 className="font-sora text-xl font-bold text-gray-900">Submit Your Offer</h3>
+                <p className="text-[13px] text-gray-500">Respond to consumer's bid</p>
+              </div>
+              <button onClick={() => setShowOfferModal(false)} className="p-2 hover:bg-gray-100 rounded-full transition-colors">
+                <X className="w-5 h-5 text-gray-500" />
+              </button>
+            </div>
+
+            <form onSubmit={submitOffer} className="p-6 space-y-5">
+              {/* Original Bid Details */}
+              <div className="bg-gray-50 rounded-xl p-4 border border-[#e0e8e4]">
+                <p className="text-[11px] font-semibold text-gray-500 uppercase mb-3">Original Bid Requirements</p>
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+                  <div>
+                    <p className="text-[10px] text-gray-400">Drawal Point</p>
+                    <p className="text-[12px] font-semibold text-gray-900 flex items-center gap-1">
+                      <MapPin className="w-3 h-3" />
+                      {selectedBidForOffer.drawalPoint || 'Not specified'}
+                    </p>
+                  </div>
+                  <div>
+                    <p className="text-[10px] text-gray-400">Required MW</p>
+                    <p className="text-[14px] font-bold text-gray-900">{selectedBidForOffer.mw} MW</p>
+                  </div>
+                  <div>
+                    <p className="text-[10px] text-gray-400">Target Price</p>
+                    <p className="text-[14px] font-bold text-green-600">₹{selectedBidForOffer.price}/unit</p>
+                  </div>
+                  <div>
+                    <p className="text-[10px] text-gray-400">Duration</p>
+                    <p className="text-[12px] text-gray-600">{selectedBidForOffer.duration} months</p>
+                  </div>
+                </div>
+                {selectedBidForOffer.message && (
+                  <div className="mt-3 pt-3 border-t border-[#e0e8e4]">
+                    <p className="text-[10px] text-blue-600">Consumer Message:</p>
+                    <p className="text-[12px] text-gray-600 italic">"{selectedBidForOffer.message}"</p>
+                  </div>
+                )}
+              </div>
+
+              {/* Your Offer Section */}
+              <div className="border-t border-[#e0e8e4] pt-4">
+                <p className="text-[12px] font-semibold text-gray-700 mb-4">Your Offer</p>
+                
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+                  <div>
+                    <label className="block text-[12px] font-semibold text-gray-700 mb-1">
+                      Offered Price (₹/unit) <span className="text-red-500">*</span>
+                    </label>
+                    <div className="relative">
+                      <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 text-[12px]">₹</span>
+                      <input
+                        type="number"
+                        step="0.01"
+                        value={offerFormData.offeredPrice}
+                        onChange={(e) => setOfferFormData({...offerFormData, offeredPrice: Number(e.target.value)})}
+                        min={0.01}
+                        className="form-control pl-7"
+                        required
+                      />
+                    </div>
+                    <p className="text-[10px] text-gray-400 mt-1">
+                      Consumer target: ₹{selectedBidForOffer.price}/unit
+                      {offerFormData.offeredPrice < selectedBidForOffer.price && (
+                        <span className="text-green-600 ml-2">✓ Better than target</span>
+                      )}
+                      {offerFormData.offeredPrice > selectedBidForOffer.price && (
+                        <span className="text-amber-600 ml-2">⚠ Higher than target</span>
+                      )}
+                    </p>
+                  </div>
+
+                  <div>
+                    <label className="block text-[12px] font-semibold text-gray-700 mb-1">
+                      Offered Capacity (MW) <span className="text-red-500">*</span>
+                    </label>
+                    <input
+                      type="number"
+                      step="1"
+                      value={offerFormData.offeredMw}
+                      onChange={(e) => setOfferFormData({...offerFormData, offeredMw: Number(e.target.value)})}
+                      min={1}
+                      max={selectedBidForOffer.mw}
+                      className="form-control"
+                      required
+                    />
+                    <p className="text-[10px] text-gray-400 mt-1">
+                      Consumer requires: {selectedBidForOffer.mw} MW
+                    </p>
+                  </div>
+                </div>
+
+                <div className="mt-4">
+                  <label className="block text-[12px] font-semibold text-gray-700 mb-1">
+                    Message to Consumer (Optional)
+                  </label>
+                  <textarea
+                    value={offerFormData.message}
+                    onChange={(e) => setOfferFormData({...offerFormData, message: e.target.value})}
+                    rows={3}
+                    placeholder="Add any special notes, terms, or conditions..."
+                    className="form-control resize-none"
+                  />
+                </div>
+              </div>
+
+              {/* Offer Summary */}
+              <div className={`rounded-xl p-4 border ${
+                offerFormData.offeredPrice <= selectedBidForOffer.price 
+                  ? 'bg-green-50 border-green-200' 
+                  : 'bg-amber-50 border-amber-200'
+              }`}>
+                <p className="text-[11px] font-semibold mb-2 flex items-center gap-2">
+                  <FileText className="w-3.5 h-3.5" />
+                  Offer Summary
+                </p>
+                <div className="space-y-1 text-[12px]">
+                  <div className="flex justify-between">
+                    <span className="text-gray-600">Your Offer:</span>
+                    <span className="font-semibold">{offerFormData.offeredMw} MW @ ₹{offerFormData.offeredPrice}/unit</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-gray-600">Annual Value:</span>
+                    <span className="font-semibold text-green-700">
+                      ₹{((offerFormData.offeredMw || 0) * 1000 * 24 * 365 * (offerFormData.offeredPrice || 0) / 10000000).toFixed(2)} Cr
+                    </span>
+                  </div>
+                  <div className="flex justify-between pt-2 border-t">
+                    <span className="text-gray-600">vs Consumer Target:</span>
+                    <span className={`font-semibold ${offerFormData.offeredPrice <= selectedBidForOffer.price ? 'text-green-600' : 'text-red-600'}`}>
+                      {offerFormData.offeredPrice <= selectedBidForOffer.price 
+                        ? `↓ Better by ₹${(selectedBidForOffer.price - offerFormData.offeredPrice).toFixed(2)}/unit`
+                        : `↑ Higher by ₹${(offerFormData.offeredPrice - selectedBidForOffer.price).toFixed(2)}/unit`}
+                    </span>
+                  </div>
+                </div>
+              </div>
+
+              <div className="flex gap-3 pt-2">
+                <button
+                  type="submit"
+                  disabled={submittingOffer}
+                  className="flex-1 bg-green-dark text-white py-2.5 rounded-lg text-[13px] font-bold hover:bg-green-mid transition-colors flex items-center justify-center gap-2"
+                >
+                  {submittingOffer ? (
+                    <>
+                      <RefreshCw className="w-4 h-4 animate-spin" />
+                      Submitting...
+                    </>
+                  ) : (
+                    <>
+                      <Send className="w-4 h-4" />
+                      Submit Offer to Consumer
+                    </>
+                  )}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setShowOfferModal(false)}
+                  className="flex-1 btn-outline py-2.5"
+                >
+                  Cancel
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+
 
 
   if (normalizedTab === 'contracts') {
@@ -1760,7 +2412,6 @@ const deletePlant = async (plantId: string) => {
             </div>
           </div>
           
-          {/* Contact Information */}
           <div>
             <h4 className="font-semibold text-gray-900 mb-3 flex items-center gap-2">
               <Phone className="w-4 h-4 text-blue-dark" />
@@ -1804,6 +2455,6 @@ const deletePlant = async (plantId: string) => {
     </div>
   );
 };
-};
+}
 
 export default SupplierDashboard;

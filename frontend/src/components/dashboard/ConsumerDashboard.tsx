@@ -3,7 +3,7 @@ import { useAuth } from '../../context/AuthContext';
 import {
   Zap, ShieldAlert, Award, Clock,
   Search, ArrowRight, Upload, DollarSign, BarChart2, Settings,
-  FileText, CheckCircle, ChevronRight, ClipboardList, AlertCircle, X, Eye, Save, Download,
+  FileText, CheckCircle, ChevronRight, ClipboardList, AlertCircle, X, Eye, Save, Download,Gavel, Plus,RefreshCw,
   Building, Phone, MapPin, ArrowLeft
 } from 'lucide-react';
 
@@ -162,6 +162,152 @@ export const ConsumerDashboard: React.FC<ConsumerDashboardProps> = ({ activeTab,
   const [isSubmittingBid, setIsSubmittingBid] = useState(false);
   const [consumerBids, setConsumerBids] = useState<any[]>([]);
 
+
+  // Bid Management State
+const [bidsList, setBidsList] = useState<any[]>([]);
+const [bidTab, setBidTab] = useState<'active' | 'accepted' | 'rejected' | 'history'>('active');
+const [isCreateBidModalOpen, setIsCreateBidModalOpen] = useState(false);
+const [bidFormData, setBidFormData] = useState({
+  title: '',
+  mw: 10,
+  price: 4.5,
+  duration: 12,
+  drawalPoint: '',
+  scheduleType: 'RTC',
+  message: '',
+  validityDays: 30
+});
+
+
+const [showViewOffersModal, setShowViewOffersModal] = useState(false);
+const [selectedBidForView, setSelectedBidForView] = useState<any>(null);
+const [bidOffers, setBidOffers] = useState<any[]>([]);
+
+// Bid Offers View State
+const [showBidOffersView, setShowBidOffersView] = useState(false);
+const [selectedBidForOffers, setSelectedBidForOffers] = useState<any>(null);
+const [bidOffersList, setBidOffersList] = useState<any[]>([]);
+
+
+
+const handleCreateBid = async (e: React.FormEvent) => {
+  e.preventDefault();
+  if (!token) return;
+  
+  setIsSubmittingBid(true);
+  try {
+    // Super clean function for frontend
+    const superClean = (str: string) => {
+      if (!str) return '';
+      return str.replace(/[\x00-\x1F\x7F]/g, '').trim();
+    };
+    
+    const requestBody = {
+      drawalPoint: bidFormData.drawalPoint,
+      mw: Number(bidFormData.mw),
+      price: Number(bidFormData.price),
+      duration: Number(bidFormData.duration),
+      deliveryState: bidFormData.deliveryState,
+      scheduleType: bidFormData.scheduleType,
+      message: superClean(bidFormData.message),
+      validityDays: Number(bidFormData.validityDays),
+      consumerId: user?.id,
+      consumerName: superClean(profile?.name || 'Consumer'),
+    };
+    
+    console.log('Sending cleaned bid request:', requestBody);
+    
+    const response = await fetch(`${API_BASE}/api/bids`, {
+      method: 'POST',
+      headers: { 
+        'Content-Type': 'application/json', 
+        Authorization: `Bearer ${token}` 
+      },
+      body: JSON.stringify(requestBody)
+    });
+    
+    if (!response.ok) {
+      const errorData = await response.json();
+      throw new Error(errorData.message || 'Failed to create bid');
+    }
+    
+    const data = await response.json();
+    setBidsList([data.bid || data, ...bidsList]);
+    setIsCreateBidModalOpen(false);
+    
+    // Reset form
+    setBidFormData({
+      title: '',
+      mw: 10,
+      price: 4.5,
+      duration: 12,
+      deliveryState: 'Rajasthan',
+      scheduleType: 'RTC',
+      message: '',
+      validityDays: 30
+    });
+    
+    alert('Bid created successfully!');
+  } catch (error) {
+    console.error('Error creating bid:', error);
+    alert(`Failed to create bid: ${error instanceof Error ? error.message : 'Please try again'}`);
+  } finally {
+    setIsSubmittingBid(false);
+  }
+};
+
+
+
+const loadBids = async () => {
+  if (!token || !user?.id) return;
+  try {
+    const response = await fetch(`${API_BASE}/api/bids/consumer/${user?.id}`, {
+      headers: { Authorization: `Bearer ${token}` }
+    });
+    if (response.ok) {
+      const data = await response.json();
+      console.log('Bids loaded:', data.map(b => ({ id: b.id, status: b.status })));
+      setBidsList(data);
+    }
+  } catch (error) {
+    console.error('Error loading bids:', error);
+  }
+};
+
+
+
+const cancelBid = async (bidId: string) => {
+  if (!confirm('Are you sure you want to cancel this bid?')) return;
+  
+  try {
+    const response = await fetch(`${API_BASE}/api/bids/${bidId}/cancel`, {
+      method: 'PATCH',
+      headers: { 
+        'Content-Type': 'application/json', 
+        Authorization: `Bearer ${token}` 
+      }
+    });
+    
+    if (!response.ok) throw new Error('Failed to cancel bid');
+    
+    // Call loadBids to refresh the list
+    await loadBids();
+    alert('Bid cancelled and moved to history');
+  } catch (error) {
+    console.error('Error cancelling bid:', error);
+    alert('Failed to cancel bid');
+  }
+};
+
+
+
+// Proceed to contract from accepted bid
+const proceedToContract = (bid: any) => {
+  // Navigate to contract creation or contract details
+  setTab('contracts');
+  // You can pre-fill contract data here
+};
+
   // Other states
   const [selectedSupplierPlants, setSelectedSupplierPlants] = useState<any[]>([]);
   const [showSupplierPlantsModal, setShowSupplierPlantsModal] = useState(false);
@@ -310,7 +456,7 @@ export const ConsumerDashboard: React.FC<ConsumerDashboardProps> = ({ activeTab,
     if (!token || !selectedBidSupplier) return;
     
     setIsSubmittingBid(true);
-    try {
+    try{
       const response = await fetch(`${API_BASE}/api/bids`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
@@ -323,6 +469,7 @@ export const ConsumerDashboard: React.FC<ConsumerDashboardProps> = ({ activeTab,
           message: bidMessage,
           consumerName: profile?.name || 'Consumer',
           consumerId: user?.id,
+          plantId: selectedPlantId,  
           status: 'PENDING'
         })
       });
@@ -361,6 +508,133 @@ export const ConsumerDashboard: React.FC<ConsumerDashboardProps> = ({ activeTab,
       console.error('Error fetching supplier details:', error);
     }
   };
+
+
+const getFinalDeliveredPriceForPlant = (plant: any) => {
+  if (!plant) return 0;
+  const consumerState = profile?.state || 'Rajasthan';
+  const sameStateFactor = plant.state === consumerState ? 0.9 : 1.2;
+  const baseOa = plant.type === 'Solar' ? 0.6 : plant.type === 'Wind' ? 0.7 : 0.85;
+  const transmissionCost = plant.injectionPoint?.includes('765kV') ? 0.35 : 0.45;
+  const distanceFactor = plant.state === 'Rajasthan' && consumerState === 'Maharashtra' ? 1.15 : 1.0;
+  const oaCharges = Number((baseOa * sameStateFactor * distanceFactor + transmissionCost).toFixed(2));
+  return Number((plant.price + oaCharges).toFixed(2));
+};
+
+
+
+// Load offers for a specific bid
+// const loadBidOffers = async (bidId: string) => {
+//   if (!token) return;
+//   try {
+//     const response = await fetch(`${API_BASE}/api/bids/offers/bid/${bidId}`, {
+//       headers: { Authorization: `Bearer ${token}` }
+//     });
+//     if (response.ok) {
+//       const data = await response.json();
+//       setBidOffers(data);
+//     }
+//   } catch (error) {
+//     console.error('Error loading bid offers:', error);
+//   }
+// };
+
+
+
+const viewBidOffers = async (bid: any) => {
+  console.log('Viewing offers for bid:', bid);
+  setSelectedBidForOffers(bid);
+  await loadBidOffersForView(bid.id);
+  setShowBidOffersView(true);
+};
+
+// View offers for a bid
+const loadBidOffersForView = async (bidId: string) => {
+  if (!token) return;
+  try {
+    const response = await fetch(`${API_BASE}/api/bids/offers/bid/${bidId}`, {
+      headers: { Authorization: `Bearer ${token}` }
+    });
+    if (response.ok) {
+      const data = await response.json();
+      console.log('Loaded offers for new view:', data.length);
+      setBidOffersList(data);
+    } else {
+      console.error('Failed to load offers:', response.status);
+      setBidOffersList([]);
+    }
+  } catch (error) {
+    console.error('Error loading bid offers:', error);
+    setBidOffersList([]);
+  }
+};
+
+
+const backToBids = () => {
+  setShowBidOffersView(false);
+  setSelectedBidForOffers(null);
+  setBidOffersList([]);
+};
+
+// Get best offer from list
+const getBestOfferFromList = (offers: any[]) => {
+  if (offers.length === 0) return null;
+  return offers.reduce((best, current) => 
+    current.offeredPrice < best.offeredPrice ? current : best
+  );
+};
+
+
+const acceptBidOffer = async (offerId: string, bidId: string) => {
+  if (!confirm('Accept this offer? This will reject all other offers for this bid.')) return;
+  
+  try {
+    const response = await fetch(`${API_BASE}/api/bids/offers/${offerId}/accept`, {
+      method: 'PATCH',
+      headers: { 
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${token}` 
+      }
+    });
+    
+    if (!response.ok) {
+      const errorData = await response.json();
+      throw new Error(errorData.error || 'Failed to accept offer');
+    }
+    
+    const result = await response.json();
+    console.log('Offer accepted successfully:', result);
+    
+    alert('Offer accepted successfully!');
+    await loadBids();
+    backToBids();
+    
+  } catch (error) {
+    console.error('Error accepting offer:', error);
+    alert(error instanceof Error ? error.message : 'Failed to accept offer. Please try again.');
+  }
+};
+
+
+// Reject an offer
+const rejectBidOffer = async (offerId: string) => {
+  if (!confirm('Reject this offer?')) return;
+  
+  try {
+    const response = await fetch(`${API_BASE}/api/bids/offers/${offerId}/reject`, {
+      method: 'PATCH',
+      headers: { Authorization: `Bearer ${token}` }
+    });
+    
+    if (!response.ok) throw new Error('Failed to reject offer');
+    
+    alert('Offer rejected');
+    await loadBidOffersForView(selectedBidForOffers.id); // Refresh offers list
+  } catch (error) {
+    console.error('Error rejecting offer:', error);
+    alert('Failed to reject offer');
+  }
+};
 
   const SupplierDetailsModal = () => {
     if (!showSupplierModal || !selectedSupplierForModal) return null;
@@ -464,27 +738,60 @@ export const ConsumerDashboard: React.FC<ConsumerDashboardProps> = ({ activeTab,
     availableCapacity: s.availableCapacity || s.available || s.totalCapacity || 0
   }));
 
-  // Load data on mount
   useEffect(() => {
-    const loadProfile = async () => {
-      if (!token) return;
-      try {
-        const res = await fetch(`${API_BASE}/api/auth/me`, { headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` } });
-        if (!res.ok) return;
-        setProfile(await res.json());
-      } catch { }
-    };
-    const loadSuppliers = async () => {
-      if (!token) return;
-      try {
-        const res = await fetch(`${API_BASE}/api/suppliers`, { headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` } });
-        if (!res.ok) return;
-        const data = await res.json();
-        setSuppliers(data || []);
-      } catch { setSuppliers([]); }
-    };
-    loadProfile(); loadSuppliers(); loadApplications();
-  }, [token]);
+  const loadProfile = async () => {
+    if (!token) return;
+    try {
+      const res = await fetch(`${API_BASE}/api/auth/me`, { 
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` } 
+      });
+      if (!res.ok) return;
+      setProfile(await res.json());
+    } catch { }
+  };
+  
+
+
+  const loadSuppliers = async () => {
+    if (!token) return;
+    try {
+      const res = await fetch(`${API_BASE}/api/suppliers`, { 
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` } 
+      });
+      if (!res.ok) return;
+      const suppliersData = await res.json();
+      
+      // Fetch plants for each supplier
+      const suppliersWithPlants = await Promise.all(
+        suppliersData.map(async (supplier: any) => {
+          try {
+            const plantsRes = await fetch(`${API_BASE}/api/plants/supplier/${supplier.id}`, {
+              headers: { Authorization: `Bearer ${token}` }
+            });
+            if (plantsRes.ok) {
+              const plants = await plantsRes.json();
+              return { ...supplier, plants: plants };
+            }
+            return { ...supplier, plants: [] };
+          } catch (error) {
+            console.error(`Error fetching plants for supplier ${supplier.id}:`, error);
+            return { ...supplier, plants: [] };
+          }
+        })
+      );
+      
+      setSuppliers(suppliersWithPlants);
+    } catch { 
+      setSuppliers([]); 
+    }
+  };
+  
+  loadProfile(); 
+  loadSuppliers(); 
+  loadApplications();
+}, [token]);
+
+
 
   useEffect(() => {
     if (activeTab === 'my-applications') refreshApplications();
@@ -507,6 +814,13 @@ export const ConsumerDashboard: React.FC<ConsumerDashboardProps> = ({ activeTab,
     setGeoaCin(''); setGeoaAddress(''); setGeoaConsumerNo('');
     setGeoaContactPerson(''); setGeoaMobile(''); setGeoaSelectedSupplierId('');
     setGeoaInjectionPoint(''); setStep1Errors({}); setStep2Errors({});
+    setGeoaSubmitSuccess(false);
+    setGeoaAddress('');
+    setGeoaConsumerNo('');
+    setGeoaMobile('');
+    setGeoaSelectedSupplierId('');
+  setStep1Errors({});
+  setStep2Errors({});
     localStorage.removeItem(GEOA_DRAFT_KEY);
   };
 
@@ -634,6 +948,58 @@ export const ConsumerDashboard: React.FC<ConsumerDashboardProps> = ({ activeTab,
     }
   };
 
+
+
+  // Load bids from database when component mounts
+useEffect(() => {
+  const fetchBids = async () => {
+    if (!token || !user?.id) return;
+    
+    try {
+      const response = await fetch(`${API_BASE}/api/bids/consumer/${user?.id}`, {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      
+      if (response.ok) {
+        const data = await response.json();
+        setBidsList(data);
+        console.log('Bids loaded from database:', data.length);
+      }
+    } catch (error) {
+      console.error('Error fetching bids:', error);
+    }
+  };
+  
+  fetchBids();
+}, [token, user?.id, API_BASE]); 
+
+
+
+useEffect(() => {
+  if (activeTab === 'bids') {
+    const fetchBids = async () => {
+      if (!token || !user?.id) return;
+      
+      try {
+        const response = await fetch(`${API_BASE}/api/bids/consumer/${user?.id}`, {
+          headers: { Authorization: `Bearer ${token}` }
+        });
+        
+        if (response.ok) {
+          const data = await response.json();
+          setBidsList(data);
+        }
+      } catch (error) {
+        console.error('Error refreshing bids:', error);
+      }
+    };
+    
+    fetchBids();
+  }
+}, [activeTab, token, user?.id, API_BASE]);
+
+
+
   const handleGeoaDocSimulate = (key: string, fileName: string) => {
     setGeoaDocs(prev => prev.map(d => d.key === key ? { ...d, fileName, status: 'uploaded' } : d));
   };
@@ -736,100 +1102,159 @@ export const ConsumerDashboard: React.FC<ConsumerDashboardProps> = ({ activeTab,
       )}
 
       {/* OPEN-ACCESS TAB */}
-      {activeTab === 'open-access' && (
-        <>
-          {consumerView === 'marketplace' ? (
-            <div className="space-y-8 animate-fadeIn">
-              <div className="pb-4 border-b border-[#e0e8e4]">
-                <h2 className="font-sora text-[22px] font-bold text-gray-900">Suppliers Marketplace</h2>
-                <p className="text-gray-500 text-[13px] mt-1">Browse renewable energy suppliers and their generation plants</p>
-              </div>
-              
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-4 bg-white p-5 rounded-[var(--radius-md)] border border-[#e0e8e4] shadow-sm">
-                <div className="relative">
-                  <Search className="absolute left-3.5 top-[13px] text-gray-400 w-[18px] h-[18px]" />
-                  <input type="text" placeholder="Search supplier..." value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)} className="form-control pl-10" />
-                </div>
-                <select value={renewableTypeFilter} onChange={(e) => setRenewableTypeFilter(e.target.value)} className="form-control">
-                  <option value="All">All Renewable Types</option>
-                  <option value="Solar">Solar</option>
-                  <option value="Wind">Wind</option>
-                  <option value="Hydro">Hydro</option>
-                  <option value="Biomass">Biomass</option>
-                </select>
-              </div>
+{activeTab === 'open-access' && (
+  <>
+    {consumerView === 'marketplace' ? (
+      <div className="space-y-8 animate-fadeIn">
+        <div className="pb-4 border-b border-[#e0e8e4]">
+          <h2 className="font-sora text-[22px] font-bold text-gray-900">Suppliers Marketplace</h2>
+          <p className="text-gray-500 text-[13px] mt-1">Browse renewable energy plants and their generation details</p>
+        </div>
 
-              <div className="bg-white rounded-[var(--radius-md)] border border-[#e0e8e4] overflow-hidden">
-                <table className="w-full text-left border-collapse">
-                  <thead>
-                    <tr>
-                      {['Supplier Name', 'DISCOM', 'Total Capacity (MW)', 'Available Capacity (MW)', 'Actions'].map(h => (
-                        <th key={h} className="bg-green-dark text-white text-[12px] font-semibold px-5 py-3 uppercase whitespace-nowrap">{h}</th>
-                      ))}
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-[#f0f4f2] text-[13px]">
-                    {filteredSuppliers.length > 0 ? (
-                      filteredSuppliers.map((s, i) => (
-                        <tr key={s.id} className={`hover:bg-gray-50 transition-colors ${i % 2 !== 0 ? 'bg-[#f9fcfa]' : ''}`}>
-                          <td className="py-3.5 px-5 font-semibold text-gray-900">{s.name}</td>
-                          <td className="py-3.5 px-5 text-gray-700">{s.discom || '—'}</td>
-                          <td className="py-3.5 px-5 font-bold text-gray-900">{s.totalCapacity || '—'} MW</td>
-                          <td className="py-3.5 px-5 font-bold text-green-dark">{s.availableCapacity || '—'} MW</td>
-                          <td className="py-3.5 px-5">
-                            <button
-                              type="button"
-                              onClick={() => {
-                                setViewingSupplierId(s.id);
-                                setConsumerView('supplier-detail');
-                                setSelectedSupplierForModal(s);
-                              }}
-                              className="px-4 py-1.5 rounded-md bg-green-dark text-white text-[12px] font-semibold hover:bg-green-mid"
-                            >
-                              View Profile
-                            </button>
-                          </td>
-                        </tr>
-                      ))
-                    ) : (
-                      <tr>
-                        <td colSpan={5} className="text-center py-10 text-gray-500">No approved suppliers available.</td>
-                      </tr>
-                    )}
-                  </tbody>
-                </table>
-              </div>
-            </div>
-          ) : (
-            <>
-              <button onClick={goBackToMarketplace} className="flex items-center gap-2 text-gray-600 hover:text-green-dark transition-colors mb-4">
-                <ArrowLeft className="w-5 h-5" />
-                <span>Back to Marketplace</span>
-              </button>
-              <SupplierDetailContent
-                supplierId={viewingSupplierId!}
-                onBack={goBackToMarketplace}
-                onRaiseBid={(plant) => {
-                  setSelectedBidSupplier({
-                    id: plant.supplierId,
-                    name: selectedSupplierForModal?.name || plant.supplierName,
-                    price: plant.price
+        {/* Search and Filter */}
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 bg-white p-5 rounded-[var(--radius-md)] border border-[#e0e8e4] shadow-sm">
+          <div className="relative">
+            <Search className="absolute left-3.5 top-[13px] text-gray-400 w-[18px] h-[18px]" />
+            <input 
+              type="text" 
+              placeholder="Search by supplier or plant name..." 
+              value={searchQuery} 
+              onChange={(e) => setSearchQuery(e.target.value)} 
+              className="form-control pl-10" 
+            />
+          </div>
+          <select value={renewableTypeFilter} onChange={(e) => setRenewableTypeFilter(e.target.value)} className="form-control">
+            <option value="All">All Renewable Types</option>
+            <option value="Solar">Solar</option>
+            <option value="Wind">Wind</option>
+            <option value="Hydro">Hydro</option>
+            <option value="Biomass">Biomass</option>
+          </select>
+        </div>
+
+        {/* Plants Table - Read Only, No Actions */}
+        <div className="bg-white rounded-[var(--radius-md)] border border-[#e0e8e4] overflow-x-auto">
+          <table className="w-full text-left border-collapse min-w-[1200px]">
+            <thead>
+              <tr className="bg-green-dark">
+                <th className="text-white text-[12px] font-semibold px-4 py-3 uppercase whitespace-nowrap">Supplier Name</th>
+                <th className="text-white text-[12px] font-semibold px-4 py-3 uppercase whitespace-nowrap">Plant Name</th>
+                <th className="text-white text-[12px] font-semibold px-4 py-3 uppercase whitespace-nowrap">Type</th>
+                <th className="text-white text-[12px] font-semibold px-4 py-3 uppercase whitespace-nowrap">DISCOM</th>
+                {/* <th className="text-white text-[12px] font-semibold px-4 py-3 uppercase whitespace-nowrap">Total MW</th> */}
+                <th className="text-white text-[12px] font-semibold px-4 py-3 uppercase whitespace-nowrap">Available MW</th>
+                <th className="text-white text-[12px] font-semibold px-4 py-3 uppercase whitespace-nowrap">Base Price (₹)</th>
+                <th className="text-white text-[12px] font-semibold px-4 py-3 uppercase whitespace-nowrap">Delivered Price (₹)</th>
+                <th className="text-white text-[12px] font-semibold px-4 py-3 uppercase whitespace-nowrap">Injection Point</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-[#f0f4f2] text-[13px]">
+              {(() => {
+                // Flatten all plants from all suppliers
+                const allPlants: any[] = [];
+                suppliers.forEach((supplier: any) => {
+                  const isApproved = supplier.status === 'VERIFIED' || supplier.oaStatus === 'APPROVED';
+                  if (!isApproved) return;
+                  
+                  // Check if supplier has plants array or create a default plant
+                  const plants = supplier.plants && supplier.plants.length > 0 
+                    ? supplier.plants 
+                    : [{
+                        id: supplier.id,
+                        name: `${supplier.name} - Main Plant`,
+                        type: supplier.renewableType || 'Solar',
+                        // total: supplier.totalCapacity || supplier.generationCapacity || 0,
+                        available: supplier.availableCapacity || supplier.available || supplier.totalCapacity || 0,
+                        price: supplier.price || 4.2,
+                        injectionPoint: supplier.injectionPoint || 'Bhadla Pool (765kV)'
+                      }];
+                  
+                  plants.forEach((plant: any) => {
+                    allPlants.push({
+                      ...plant,
+                      supplierId: supplier.id,
+                      supplierName: supplier.name,
+                      discom: supplier.discom || supplier.profile?.discom || 'Not Specified',
+                      state: supplier.state,
+                      status: supplier.status,
+                      renewableType: plant.type || supplier.renewableType || 'Solar'
+                    });
                   });
-                  setBidMw(plant.available || 10);
-                  setBidPrice(plant.price);
-                  setShowBidModal(true);
-                }}
-                onApplyOA={(plant) => {
-                  setSelectedSupplierId(plant.supplierId);
-                  setRequestMw(plant.available || 10);
-                  setRequestedPrice(plant.price);
-                  setIsRequestFormOpen(true);
-                }}
-              />
-            </>
-          )}
-        </>
-      )}
+                });
+
+                // Apply filters
+                let filteredPlants = allPlants;
+                
+                // Search filter
+                if (searchQuery) {
+                  filteredPlants = filteredPlants.filter(plant => 
+                    plant.supplierName?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+                    plant.name?.toLowerCase().includes(searchQuery.toLowerCase())
+                  );
+                }
+                
+                // Type filter
+                if (renewableTypeFilter !== 'All') {
+                  filteredPlants = filteredPlants.filter(plant => 
+                    plant.renewableType === renewableTypeFilter || plant.type === renewableTypeFilter
+                  );
+                }
+
+                return filteredPlants.length > 0 ? (
+                  filteredPlants.map((plant, idx) => (
+                    <tr key={`${plant.supplierId}-${plant.id}`} className={`hover:bg-gray-50 transition-colors ${idx % 2 !== 0 ? 'bg-[#f9fcfa]' : ''}`}>
+                      <td className="py-3.5 px-4 font-semibold text-gray-900">{plant.supplierName}</td>
+                      <td className="py-3.5 px-4 font-medium text-gray-800">{plant.name}</td>
+                      <td className="py-3.5 px-4">
+                        <span className="px-2 py-1 rounded-full text-[11px] font-semibold bg-green-100 text-green-800">
+                          {plant.type || plant.renewableType || 'Solar'}
+                        </span>
+                      </td>
+                      <td className="py-3.5 px-4 text-gray-600">{plant.discom || '—'}</td>
+                      {/* <td className="py-3.5 px-4 font-bold text-gray-900">{plant.total || 0} MW</td> */}
+                      <td className="py-3.5 px-4 font-bold text-green-dark">{plant.available || 0} MW</td>
+                      <td className="py-3.5 px-4 font-semibold text-gray-900">₹{Number(plant.price || 4.2).toFixed(2)}</td>
+                      <td className="py-3.5 px-4 font-bold text-[#1b4d3e]">
+                        ₹{(() => {
+                          const plantWithState = { ...plant, state: plant.state || 'Rajasthan', price: plant.price || 4.2, type: plant.type || 'Solar' };
+                          return getFinalDeliveredPriceForPlant(plantWithState).toFixed(2);
+                        })()}
+                      </td>
+                      <td className="py-3.5 px-4 text-gray-600 text-[12px] max-w-[180px] truncate">{plant.injectionPoint || '—'}</td>
+                    </tr>
+                  ))
+                ) : (
+                  <tr>
+                    <td colSpan={9} className="text-center py-12 text-gray-500">
+                      <div className="flex flex-col items-center gap-2">
+                        <Zap className="w-12 h-12 text-gray-300" />
+                        <p className="text-[15px] font-medium">No plants found</p>
+                        <p className="text-[13px]">Try adjusting your search or filter criteria</p>
+                      </div>
+                    </td>
+                  </tr>
+                );
+              })()}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    ) : (
+      // Supplier Detail View - You can keep or remove this section
+      // Since you want all data on main page, you might want to remove this completely
+      // For now, keeping it but you can delete if not needed
+      <>
+        <button onClick={goBackToMarketplace} className="flex items-center gap-2 text-gray-600 hover:text-green-dark transition-colors mb-4">
+          <ArrowLeft className="w-5 h-5" />
+          <span>Back to Marketplace</span>
+        </button>
+        <div className="text-center py-12 bg-white rounded-lg border border-[#e0e8e4]">
+          <p className="text-gray-500">Supplier detail view is disabled. All plant information is available in the main marketplace table.</p>
+        </div>
+      </>
+    )}
+  </>
+)}
 
       {/* MY-APPLICATIONS TAB */}
       {activeTab === 'my-applications' && (
@@ -837,7 +1262,9 @@ export const ConsumerDashboard: React.FC<ConsumerDashboardProps> = ({ activeTab,
           <div className="space-y-8 animate-fadeIn">
             <div className="pb-4 border-b border-[#e0e8e4] flex items-center justify-between">
               <div>
-                <h2 className="font-sora text-[22px] font-bold text-gray-900">My Applications</h2>
+                <h2 className="font-sora text-[22px] font-bold text-gray-900">
+                  
+                </h2>
                 <p className="text-gray-500 text-[13px] mt-1">Track Open Access and GEOA requests status updates automatically.</p>
               </div>
               <button onClick={refreshApplications} className="btn-outline flex items-center gap-2 text-[12px] px-4 py-2">
@@ -869,8 +1296,8 @@ export const ConsumerDashboard: React.FC<ConsumerDashboardProps> = ({ activeTab,
                           app.requestStatus === 'REJECTED' ? 'badge-red' :
                             app.requestStatus === 'ADMIN_PENDING' ? 'badge-amber' : 'badge-blue'
                         }`}>
-                          {app.requestStatus === 'APPROVED' || app.requestStatus === 'SUPPLIER_APPROVED' ? '✓ Approved' :
-                            app.requestStatus === 'REJECTED' ? '✗ Rejected' :
+                          {app.requestStatus === 'APPROVED' || app.requestStatus === 'SUPPLIER_APPROVED' ? 'Approved' :
+                            app.requestStatus === 'REJECTED' ? 'Rejected' :
                               app.requestStatus === 'ADMIN_PENDING' ? 'Under Review' :
                                 app.requestStatus || 'Submitted'}
                         </span>
@@ -889,6 +1316,7 @@ export const ConsumerDashboard: React.FC<ConsumerDashboardProps> = ({ activeTab,
           {showSupplierModal && selectedSupplierForModal && <SupplierDetailsModal />}
         </>
       )}
+
 
       {/* SUPPLIER PROFILE TAB */}
       {activeTab === 'supplier-profile' && (supplierDetails || currentSupplier) && (
@@ -1013,6 +1441,860 @@ export const ConsumerDashboard: React.FC<ConsumerDashboardProps> = ({ activeTab,
           </div>
         </div>
       )}
+
+
+
+
+{/* BID SECTION - Conditional rendering (Either show Bids OR Show Offers, never both) */}
+{activeTab === 'bids' && (
+  <>
+    {showBidOffersView && selectedBidForOffers ? (
+      /* ========== BID OFFERS VIEW - Show when viewing offers ========== */
+      <div className="space-y-6 animate-fadeIn">
+        {/* Header with Back Button */}
+        <div className="flex items-center gap-4 pb-4 border-b border-[#e0e8e4]">
+          <button
+            onClick={backToBids}
+            className="p-2 hover:bg-gray-100 rounded-full transition-colors"
+          >
+            <ArrowLeft className="w-5 h-5 text-gray-600" />
+          </button>
+          <div>
+            <h2 className="font-sora text-[22px] font-bold text-gray-900">Bid Offers</h2>
+            <p className="text-gray-500 text-[13px] mt-0.5">
+              Review supplier offers for your bid
+            </p>
+          </div>
+        </div>
+
+        {/* Original Bid Summary Card */}
+        <div className="bg-gradient-to-r from-green-50 to-white rounded-xl border border-green-100 p-5">
+          <div className="flex flex-wrap items-center justify-between gap-4">
+            <div>
+              <p className="text-[11px] text-gray-500 uppercase tracking-wider">Original Bid Requirements</p>
+              <h3 className="font-sora text-[18px] font-bold text-gray-900 mt-1">
+                {selectedBidForOffers.drawalPoint || 'Bid Request'}
+              </h3>
+              <div className="flex flex-wrap gap-4 mt-2">
+                <span className="text-[13px] text-gray-600">📦 {selectedBidForOffers.mw} MW</span>
+                <span className="text-[13px] text-gray-600">💰 ₹{selectedBidForOffers.price}/unit (Target)</span>
+                <span className="text-[13px] text-gray-600">⏱️ {selectedBidForOffers.duration} months</span>
+                <span className="text-[13px] text-gray-600">
+                  📅 Valid till: {new Date(new Date(selectedBidForOffers.createdAt).setDate(new Date(selectedBidForOffers.createdAt).getDate() + (selectedBidForOffers.validityDays || 30))).toLocaleDateString()}
+                </span>
+              </div>
+            </div>
+            {selectedBidForOffers.message && (
+              <div className="max-w-md bg-blue-50 rounded-lg p-3 border border-blue-100">
+                <p className="text-[10px] text-blue-600 uppercase">Your Message</p>
+                <p className="text-[12px] text-gray-700 italic">"{selectedBidForOffers.message}"</p>
+              </div>
+            )}
+          </div>
+        </div>
+
+        {/* Best Offer Highlight */}
+        {bidOffersList.length > 0 && (
+          <div className="bg-gradient-to-r from-amber-50 to-orange-50 rounded-xl p-5 border border-amber-200">
+            <div className="flex items-center justify-between flex-wrap gap-4">
+              <div className="flex items-center gap-4">
+                <div className="w-12 h-12 bg-amber-100 rounded-full flex items-center justify-center">
+                  <Award className="w-6 h-6 text-amber-600" />
+                </div>
+                <div>
+                  <p className="text-[11px] text-amber-700 font-semibold uppercase">Best Offer</p>
+                  <p className="text-[20px] font-bold text-gray-900">
+                    {getBestOfferFromList(bidOffersList)?.supplierName}
+                  </p>
+                  <p className="text-[13px] text-gray-600">
+                    ₹{getBestOfferFromList(bidOffersList)?.offeredPrice}/unit 
+                    <span className="text-green-600 ml-2">
+                      ↓ Saving ₹{(selectedBidForOffers.price - getBestOfferFromList(bidOffersList)?.offeredPrice).toFixed(2)}/unit
+                    </span>
+                  </p>
+                </div>
+              </div>
+              <div className="text-right">
+                <p className="text-[11px] text-gray-500">Total Offers Received</p>
+                <p className="text-[28px] font-bold text-gray-900">{bidOffersList.length}</p>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Offers Table */}
+        <div className="bg-white rounded-xl border border-[#e0e8e4] overflow-hidden">
+          <div className="overflow-x-auto">
+            <table className="w-full">
+              <thead className="bg-gray-50">
+                <tr>
+                  <th className="px-5 py-3 text-left text-[11px] font-semibold text-gray-600 uppercase tracking-wider">SUPPLIER</th>
+                  <th className="px-5 py-3 text-left text-[11px] font-semibold text-gray-600 uppercase tracking-wider">OFFERED MW</th>
+                  <th className="px-5 py-3 text-left text-[11px] font-semibold text-gray-600 uppercase tracking-wider">OFFERED PRICE</th>
+                  <th className="px-5 py-3 text-left text-[11px] font-semibold text-gray-600 uppercase tracking-wider">VS TARGET</th>
+                  <th className="px-5 py-3 text-left text-[11px] font-semibold text-gray-600 uppercase tracking-wider">ANNUAL VALUE</th>
+                  <th className="px-5 py-3 text-left text-[11px] font-semibold text-gray-600 uppercase tracking-wider">MESSAGE</th>
+                  <th className="px-5 py-3 text-left text-[11px] font-semibold text-gray-600 uppercase tracking-wider">SUBMITTED</th>
+                  <th className="px-5 py-3 text-left text-[11px] font-semibold text-gray-600 uppercase tracking-wider">STATUS</th>
+                  <th className="px-5 py-3 text-left text-[11px] font-semibold text-gray-600 uppercase tracking-wider">ACTION</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-[#f0f4f2]">
+                {bidOffersList.length === 0 ? (
+                  <tr>
+                    <td colSpan={9} className="px-5 py-12 text-center text-gray-500">
+                      <div className="flex flex-col items-center gap-2">
+                        <Clock className="w-8 h-8 text-gray-300" />
+                        <p className="text-[14px] font-medium">No offers received yet</p>
+                        <p className="text-[11px]">Suppliers will submit offers here when they respond to your bid</p>
+                      </div>
+                    </td>
+                  </tr>
+                ) : (
+                  bidOffersList.map((offer) => {
+                    const isBetter = offer.offeredPrice <= selectedBidForOffers.price;
+                    const annualValue = (offer.offeredMw * 1000 * 24 * 365 * offer.offeredPrice) / 10000000;
+                    
+                    return (
+                      <tr key={offer.id} className="hover:bg-gray-50 transition-colors">
+                        <td className="px-5 py-3">
+                          <div className="flex items-center gap-2">
+                            <div className="w-8 h-8 bg-gray-100 rounded-full flex items-center justify-center">
+                              <Building className="w-4 h-4 text-gray-500" />
+                            </div>
+                            <div>
+                              <p className="font-semibold text-gray-900 text-[13px]">{offer.supplierName}</p>
+                              <p className="text-[10px] text-gray-400">ID: {offer.supplierId?.slice(-8)}</p>
+                            </div>
+                          </div>
+                        </td>
+                        <td className="px-5 py-3">
+                          <p className="font-bold text-[15px] text-gray-900">{offer.offeredMw} <span className="text-[11px]">MW</span></p>
+                        </td>
+                        <td className="px-5 py-3">
+                          <p className={`font-bold text-[16px] ${isBetter ? 'text-green-600' : 'text-red-600'}`}>
+                            ₹{offer.offeredPrice}
+                          </p>
+                          <p className="text-[10px] text-gray-400">/unit</p>
+                        </td>
+                        <td className="px-5 py-3">
+                          <span className={`inline-flex items-center gap-1 px-2 py-1 rounded-full text-[10px] font-semibold ${
+                            isBetter ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'
+                          }`}>
+                            {isBetter ? 'Better' : 'Higher'}
+                            <span className="text-[9px]">
+                              (₹{Math.abs(offer.offeredPrice - selectedBidForOffers.price).toFixed(2)})
+                            </span>
+                          </span>
+                        </td>
+                        <td className="px-5 py-3">
+                          <p className="font-semibold text-gray-600">₹{annualValue.toFixed(2)} Cr</p>
+                          <p className="text-[9px] text-gray-400">per year</p>
+                        </td>
+                        <td className="px-5 py-3">
+                          <p className="text-[12px] text-gray-500 max-w-[200px] truncate">
+                            {offer.message || '—'}
+                          </p>
+                        </td>
+                        <td className="px-5 py-3 text-gray-500 text-[12px]">
+                          {new Date(offer.createdAt).toLocaleDateString()}
+                        </td>
+                        <td className="px-5 py-3">
+                          <span className={`inline-flex px-2 py-1 rounded-full text-[10px] font-semibold ${
+                            offer.status === 'ACCEPTED' ? 'bg-green-100 text-green-700' :
+                            offer.status === 'REJECTED' ? 'bg-red-100 text-red-700' :
+                            'bg-yellow-100 text-yellow-700'
+                          }`}>
+                            {offer.status === 'ACCEPTED' ? 'Accepted' :
+                             offer.status === 'REJECTED' ? 'Rejected' : 'Pending'}
+                          </span>
+                        </td>
+                        <td className="px-5 py-3">
+                          {offer.status === 'PENDING' && (
+                            <div className="flex gap-2">
+                              <button
+                                onClick={() => acceptBidOffer(offer.id, selectedBidForOffers.id)}
+                                className="px-3 py-1.5 rounded-lg bg-green-600 text-white text-[11px] font-semibold hover:bg-green-700 transition-colors"
+                              >
+                                Accept
+                              </button>
+                              <button
+                                onClick={() => rejectBidOffer(offer.id)}
+                                className="px-3 py-1.5 rounded-lg bg-white border border-red-200 text-red-600 text-[11px] font-semibold hover:bg-red-50 transition-colors"
+                              >
+                                Reject
+                              </button>
+                            </div>
+                          )}
+                          {offer.status === 'ACCEPTED' && (
+                            <button
+                              onClick={() => proceedToContract(offer)}
+                              className="px-3 py-1.5 rounded-lg bg-blue-600 text-white text-[11px] font-semibold hover:bg-blue-700 transition-colors"
+                            >
+                              Create Contract
+                            </button>
+                          )}
+                        </td>
+                      </tr>
+                    );
+                  })
+                )}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+    ) : (
+      /* ========== BID MANAGEMENT TAB - Show when not viewing offers ========== */
+      <div className="space-y-6 animate-fadeIn">
+        {/* Header */}
+        <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4 pb-4 border-b border-[#e0e8e4]">
+          <div>
+            <h2 className="font-sora text-[22px] font-bold text-gray-900">Bid Management</h2>
+            <p className="text-gray-500 text-[13px] mt-1">
+              Create and manage your energy procurement bids
+            </p>
+          </div>
+          <button
+            onClick={() => setIsCreateBidModalOpen(true)}
+            className="bg-green-dark text-white px-5 py-2.5 rounded-lg text-[13px] font-bold hover:bg-green-mid transition-colors flex items-center gap-2"
+          >
+            <Plus className="w-4 h-4" />
+            Create New Bid
+          </button>
+        </div>
+
+        {/* Tabs */}
+        <div className="flex ">
+          <button
+            onClick={() => setBidTab('active')}
+            className={`px-6 py-3 text-[14px] font-semibold transition-all ${
+              bidTab === 'active'
+                ? 'text-green-dark border-b-2 border-green-dark bg-green-pale/20'
+                : 'text-gray-500 hover:text-gray-700'
+            }`}
+          >
+            Active Bids
+            {bidsList.filter(b => b.status === 'ACTIVE' || b.status === 'PENDING').length > 0 && (
+              <span className="ml-2 bg-red-500 text-white text-[10px] px-1.5 py-0.5 rounded-full">
+                {bidsList.filter(b => b.status === 'ACTIVE' || b.status === 'PENDING').length}
+              </span>
+            )}
+          </button>
+          <button
+            onClick={() => setBidTab('accepted')}
+            className={`px-6 py-3 text-[14px] font-semibold transition-all ${
+              bidTab === 'accepted'
+                ? 'text-green-dark border-b-2 border-green-dark bg-green-pale/20'
+                : 'text-gray-500 hover:text-gray-700'
+            }`}
+          >
+            Accepted
+            {bidsList.filter(b => b.status === 'ACCEPTED').length > 0 && (
+              <span className="ml-2 bg-green-500 text-white text-[10px] px-1.5 py-0.5 rounded-full">
+                {bidsList.filter(b => b.status === 'ACCEPTED').length}
+              </span>
+            )}
+          </button>
+          <button
+            onClick={() => setBidTab('history')}
+            className={`px-6 py-3 text-[14px] font-semibold transition-all ${
+              bidTab === 'history'
+                ? 'text-green-dark border-b-2 border-green-dark bg-green-pale/20'
+                : 'text-gray-500 hover:text-gray-700'
+            }`}
+          >
+            History
+          </button>
+        </div>
+
+        {/* Active Bids Table */}
+        {bidTab === 'active' && (
+          <>
+            {bidsList.filter(b => b.status === 'ACTIVE' || b.status === 'PENDING').length === 0 ? (
+              <div className="bg-white rounded-xl border border-[#e0e8e4] p-12 text-center">
+                <div className="w-20 h-20 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                  <Gavel className="w-10 h-10 text-gray-400" />
+                </div>
+                <p className="text-gray-500 text-[16px] font-medium">No Active Bids</p>
+                <p className="text-gray-400 text-[13px] mt-1">Create a new bid to start procurement</p>
+                <button
+                  onClick={() => setIsCreateBidModalOpen(true)}
+                  className="mt-4 bg-green-dark text-white px-5 py-2 rounded-lg text-[13px] font-bold hover:bg-green-mid"
+                >
+                  + Create New Bid
+                </button>
+              </div>
+            ) : (
+              <div className="bg-white rounded-xl border border-[#e0e8e4] overflow-hidden">
+                <div className="overflow-x-auto">
+                  <table className="w-full">
+                    <thead className="bg-gray-50">
+                      <tr>
+                        <th className="px-4 py-3 text-left text-[11px] font-semibold text-gray-600 uppercase tracking-wider">DRAWAL POINT</th>
+                        <th className="px-4 py-3 text-left text-[11px] font-semibold text-gray-600 uppercase tracking-wider">MW</th>
+                        <th className="px-4 py-3 text-left text-[11px] font-semibold text-gray-600 uppercase tracking-wider">PRICE (₹)</th>
+                        <th className="px-4 py-3 text-left text-[11px] font-semibold text-gray-600 uppercase tracking-wider">DURATION</th>
+                        <th className="px-4 py-3 text-left text-[11px] font-semibold text-gray-600 uppercase tracking-wider">SCHEDULE</th>
+                        <th className="px-4 py-3 text-left text-[11px] font-semibold text-gray-600 uppercase tracking-wider">STATUS</th>
+                        <th className="px-4 py-3 text-left text-[11px] font-semibold text-gray-600 uppercase tracking-wider">VALID TILL</th>
+                        <th className="px-4 py-3 text-left text-[11px] font-semibold text-gray-600 uppercase tracking-wider">ACTIONS</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-[#f0f4f2]">
+                      {bidsList.filter(b => b.status === 'ACTIVE' || b.status === 'PENDING').map((bid) => {
+                        const createdAt = new Date(bid.createdAt);
+                        const expiryDate = new Date(createdAt);
+                        expiryDate.setDate(expiryDate.getDate() + (bid.validityDays || 30));
+                        const daysLeft = Math.ceil((expiryDate.getTime() - new Date().getTime()) / (1000 * 3600 * 24));
+                        
+                        return (
+                          <tr key={bid.id} className="hover:bg-gray-50 transition-colors">
+                            <td className="px-4 py-3">
+                              <span className="flex items-center gap-1.5 text-[13px] text-gray-900">
+                                <MapPin className="w-3.5 h-3.5 text-gray-400" />
+                                {bid.drawalPoint || 'Not specified'}
+                              </span>
+                            </td>
+                            <td className="px-4 py-3 font-semibold text-[14px] text-gray-900">{bid.mw} MW</td>
+                            <td className="px-4 py-3 font-semibold text-[14px] text-green-600">₹{bid.price}</td>
+                            <td className="px-4 py-3 text-[13px] text-gray-600">{bid.duration} months</td>
+                            <td className="px-4 py-3">
+                              <span className={`inline-flex px-2 py-0.5 rounded-full text-[10px] font-semibold ${
+                                bid.scheduleType === 'RTC' ? 'bg-purple-100 text-purple-700' :
+                                bid.scheduleType === 'Peak' ? 'bg-orange-100 text-orange-700' :
+                                'bg-blue-100 text-blue-700'
+                              }`}>
+                                {bid.scheduleType === 'RTC' ? 'RTC' : 
+                                 bid.scheduleType === 'Peak' ? 'Peak' : 'Off-Peak'}
+                              </span>
+                             </td>
+                            <td className="px-4 py-3">
+                              <span className={`inline-flex px-2 py-0.5 rounded-full text-[10px] font-semibold ${
+                                bid.status === 'ACTIVE' ? 'bg-green-100 text-green-700' :
+                                'bg-yellow-100 text-yellow-700'
+                              }`}>
+                                {bid.status === 'ACTIVE' ? 'Active' : 'Pending'}
+                              </span>
+                             </td>
+                            <td className="px-4 py-3">
+                              <span className={`text-[12px] font-medium ${daysLeft < 7 ? 'text-red-500' : daysLeft < 15 ? 'text-amber-500' : 'text-green-600'}`}>
+                                {daysLeft} days
+                              </span>
+                             </td>
+                            <td className="px-4 py-3">
+                              <div className="flex gap-2">
+                                <button
+                                  onClick={() => cancelBid(bid.id)}
+                                  className="px-2.5 py-1 rounded-md bg-red-50 border border-red-200 text-red-600 text-[11px] font-semibold hover:bg-red-100 transition-colors"
+                                >
+                                  Cancel
+                                </button>
+                                <button
+                                  onClick={() => viewBidOffers(bid)}
+                                  className="px-2.5 py-1 rounded-md bg-blue-50 border border-blue-200 text-blue-600 text-[11px] font-semibold hover:bg-blue-100 transition-colors"
+                                >
+                                  View Offers
+                                </button>
+                              </div>
+                             </td>
+                           </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            )}
+          </>
+        )}
+
+        {/* Accepted Bids Table */}
+        {bidTab === 'accepted' && (
+          <>
+            {bidsList.filter(b => b.status === 'ACCEPTED').length === 0 ? (
+              <div className="bg-white rounded-xl border border-[#e0e8e4] p-12 text-center">
+                <div className="w-20 h-20 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                  <CheckCircle className="w-10 h-10 text-gray-400" />
+                </div>
+                <p className="text-gray-500 text-[16px] font-medium">No Accepted Bids</p>
+                <p className="text-gray-400 text-[13px] mt-1">When suppliers accept your bids, they will appear here</p>
+              </div>
+            ) : (
+              <div className="bg-white rounded-xl border border-[#e0e8e4] overflow-hidden">
+                <div className="overflow-x-auto">
+                  <table className="w-full">
+                    <thead className="bg-gray-50">
+                      <tr>
+                        <th className="px-4 py-3 text-left text-[11px] font-semibold text-gray-600 uppercase tracking-wider">DRAWAL POINT</th>
+                        <th className="px-4 py-3 text-left text-[11px] font-semibold text-gray-600 uppercase tracking-wider">MW</th>
+                        <th className="px-4 py-3 text-left text-[11px] font-semibold text-gray-600 uppercase tracking-wider">PRICE (₹)</th>
+                        <th className="px-4 py-3 text-left text-[11px] font-semibold text-gray-600 uppercase tracking-wider">DURATION</th>
+                        <th className="px-4 py-3 text-left text-[11px] font-semibold text-gray-600 uppercase tracking-wider">SUPPLIER</th>
+                        <th className="px-4 py-3 text-left text-[11px] font-semibold text-gray-600 uppercase tracking-wider">ACCEPTED ON</th>
+                        <th className="px-4 py-3 text-left text-[11px] font-semibold text-gray-600 uppercase tracking-wider">ACTION</th>
+                      <tr>
+                    </tr>
+                    <tbody className="divide-y divide-[#f0f4f2]">
+                      {bidsList.filter(b => b.status === 'ACCEPTED').map((bid) => (
+                        <tr key={bid.id} className="hover:bg-gray-50 transition-colors">
+                          <td className="px-4 py-3 text-[13px] text-gray-900">{bid.drawalPoint || 'Not specified'}</td>
+                          <td className="px-4 py-3 font-semibold text-[14px] text-gray-900">{bid.mw} MW</td>
+                          <td className="px-4 py-3 font-semibold text-[14px] text-green-600">₹{bid.price}</td>
+                          <td className="px-4 py-3 text-[13px] text-gray-600">{bid.duration} months</td>
+                          <td className="px-4 py-3 text-[13px] font-medium text-gray-900">{bid.supplierName || 'Supplier'}</td>
+                          <td className="px-4 py-3 text-[13px] text-gray-500">
+                            {bid.acceptedAt ? new Date(bid.acceptedAt).toLocaleDateString() : '—'}
+                          </td>
+                          <td className="px-4 py-3">
+                            <button
+                              onClick={() => proceedToContract(bid)}
+                              className="px-3 py-1.5 rounded-lg bg-green-dark text-white text-[11px] font-semibold hover:bg-green-mid transition-colors"
+                            >
+                              Create Contract
+                            </button>
+                          </td>
+                         </tr>
+                      ))}
+                    </tbody>
+                  </tr>
+                </thead>
+              </table>
+              </div></div>
+            )}
+
+          </>
+        )}
+
+        {/* History Table */}
+        {bidTab === 'history' && (
+          <>
+            {bidsList.filter(b => ['CANCELLED', 'EXPIRED', 'COMPLETED', 'WITHDRAWN'].includes(b.status)).length === 0 ? (
+              <div className="bg-white rounded-xl border border-[#e0e8e4] p-12 text-center">
+                <div className="w-20 h-20 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                  <Clock className="w-10 h-10 text-gray-400" />
+                </div>
+                <p className="text-gray-500 text-[16px] font-medium">No History Found</p>
+              </div>
+            ) : (
+              <div className="bg-white rounded-xl border border-[#e0e8e4] overflow-hidden">
+                <div className="overflow-x-auto">
+                  <table className="w-full">
+                    <thead className="bg-gray-50">
+                      <tr>
+                        <th className="px-4 py-3 text-left text-[11px] font-semibold text-gray-600 uppercase tracking-wider">DRAWAL POINT</th>
+                        <th className="px-4 py-3 text-left text-[11px] font-semibold text-gray-600 uppercase tracking-wider">MW</th>
+                        <th className="px-4 py-3 text-left text-[11px] font-semibold text-gray-600 uppercase tracking-wider">PRICE (₹)</th>
+                        <th className="px-4 py-3 text-left text-[11px] font-semibold text-gray-600 uppercase tracking-wider">DURATION</th>
+                        <th className="px-4 py-3 text-left text-[11px] font-semibold text-gray-600 uppercase tracking-wider">STATUS</th>
+                        <th className="px-4 py-3 text-left text-[11px] font-semibold text-gray-600 uppercase tracking-wider">CLOSED ON</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-[#f0f4f2]">
+                      {bidsList.filter(b => ['CANCELLED', 'EXPIRED', 'COMPLETED', 'WITHDRAWN'].includes(b.status)).map((bid) => (
+                        <tr key={bid.id} className="hover:bg-gray-50 transition-colors">
+                          <td className="px-4 py-3 text-[13px] text-gray-900">{bid.drawalPoint || 'Not specified'}</td>
+                          <td className="px-4 py-3 font-semibold text-[14px] text-gray-900">{bid.mw} MW</td>
+                          <td className="px-4 py-3 font-semibold text-[14px] text-green-600">₹{bid.price}</td>
+                          <td className="px-4 py-3 text-[13px] text-gray-600">{bid.duration} months</td>
+                          <td className="px-4 py-3">
+                            <span className={`inline-flex px-2 py-0.5 rounded-full text-[10px] font-semibold ${
+                              bid.status === 'CANCELLED' ? 'bg-red-100 text-red-700' :
+                              bid.status === 'EXPIRED' ? 'bg-gray-100 text-gray-600' :
+                              bid.status === 'COMPLETED' ? 'bg-green-100 text-green-700' :
+                              'bg-yellow-100 text-yellow-700'
+                            }`}>
+                              {bid.status === 'CANCELLED' ? 'Cancelled' :
+                               bid.status === 'EXPIRED' ? 'Expired' :
+                               bid.status === 'COMPLETED' ? 'Completed' : 'Withdrawn'}
+                            </span>
+                          </td>
+                          <td className="px-4 py-3 text-[13px] text-gray-500">
+                            {bid.updatedAt ? new Date(bid.updatedAt).toLocaleDateString() : '—'}
+                          </td>
+                         </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            )}
+          </>
+        )}
+      </div>
+    )}
+  </>
+)}
+
+{/* CREATE BID MODAL */}
+{isCreateBidModalOpen && (
+  <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4 overflow-y-auto" onClick={() => setIsCreateBidModalOpen(false)}>
+    <div className="bg-white rounded-2xl max-w-2xl w-full max-h-[90vh] overflow-y-auto shadow-2xl" onClick={(e) => e.stopPropagation()}>
+      <div className="sticky top-0 bg-white border-b border-[#e0e8e4] px-6 py-4 flex items-center justify-between">
+        <div>
+          <h3 className="font-sora text-xl font-bold text-gray-900">Create New Bid</h3>
+          <p className="text-[13px] text-gray-500">Submit a bid request to renewable energy suppliers</p>
+        </div>
+        <button onClick={() => setIsCreateBidModalOpen(false)} className="p-2 hover:bg-gray-100 rounded-full">
+          <X className="w-5 h-5 text-gray-500" />
+        </button>
+      </div>
+
+      <form onSubmit={handleCreateBid} className="p-6 space-y-5">
+        {/* Drawal Point - Where consumer needs power */}
+        <div>
+          <label className="block text-sm font-semibold text-gray-700 mb-1">
+            Drawal Point <span className="text-red-500">*</span>
+          </label>
+          <select
+            value={bidFormData.drawalPoint}
+            onChange={(e) => setBidFormData({...bidFormData, drawalPoint: e.target.value})}
+            className="form-control"
+            required
+          >
+            <option value="Bhadla Pooling Station">Bhadla Pooling Station (765kV)</option>
+            <option value="Jaipur Substation">Jaipur Substation (400kV)</option>
+            <option value="Jodhpur Substation">Jodhpur Substation (400kV)</option>
+            <option value="Kota Substation">Kota Substation (400kV)</option>
+            <option value="Ajmer Substation">Ajmer Substation (220kV)</option>
+            <option value="Udaipur Substation">Udaipur Substation (220kV)</option>
+            <option value="Bikaner Substation">Bikaner Substation (220kV)</option>
+            <option value="Alwar Substation">Alwar Substation (132kV)</option>
+            <option value="Bharatpur Substation">Bharatpur Substation (132kV)</option>
+            <option value="Sikar Substation">Sikar Substation (132kV)</option>
+            <option value="Other">Other (Please specify)</option>
+          </select>
+          {bidFormData.drawalPoint === 'Other' && (
+            <input
+              type="text"
+              placeholder="Enter drawal point name"
+              className="form-control mt-2"
+              onChange={(e) => setBidFormData({...bidFormData, drawalPoint: e.target.value})}
+            />
+          )}
+          <p className="text-[11px] text-gray-400 mt-1">Grid substation where your facility is connected</p>
+        </div>
+
+        {/* Quantity Required */}
+        <div>
+          <label className="block text-sm font-semibold text-gray-700 mb-1">
+            Quantity Required (MW) <span className="text-red-500">*</span>
+          </label>
+          <input
+            type="number"
+            value={bidFormData.mw}
+            onChange={(e) => setBidFormData({...bidFormData, mw: Number(e.target.value)})}
+            min={1}
+            max={500}
+            step={1}
+            className="form-control"
+            required
+          />
+          <p className="text-[11px] text-gray-400 mt-1">Minimum 1 MW, Maximum 500 MW</p>
+        </div>
+
+        {/* Offered Price */}
+        <div>
+          <label className="block text-sm font-semibold text-gray-700 mb-1">
+            Offered Price (₹/unit) <span className="text-red-500">*</span>
+          </label>
+          <input
+            type="number"
+            value={bidFormData.price}
+            onChange={(e) => setBidFormData({...bidFormData, price: Number(e.target.value)})}
+            min={0.01}
+            step={0.01}
+            className="form-control"
+            required
+          />
+        </div>
+
+        {/* Duration */}
+        <div>
+          <label className="block text-sm font-semibold text-gray-700 mb-1">
+            Contract Duration (months) <span className="text-red-500">*</span>
+          </label>
+          <select
+            value={bidFormData.duration}
+            onChange={(e) => setBidFormData({...bidFormData, duration: Number(e.target.value)})}
+            className="form-control"
+            required
+          >
+            <option value={12}>12 months (1 year)</option>
+            <option value={24}>24 months (2 years)</option>
+            <option value={36}>36 months (3 years)</option>
+            <option value={48}>48 months (4 years)</option>
+            <option value={60}>60 months (5 years)</option>
+            <option value={120}>120 months (10 years)</option>
+          </select>
+        </div>
+
+        {/* Schedule Type */}
+        <div>
+          <label className="block text-sm font-semibold text-gray-700 mb-1">
+            Schedule Type <span className="text-red-500">*</span>
+          </label>
+          <div className="grid grid-cols-3 gap-3">
+            <button
+              type="button"
+              onClick={() => setBidFormData({...bidFormData, scheduleType: 'RTC'})}
+              className={`px-4 py-2 rounded-lg text-[13px] font-semibold transition-colors ${
+                bidFormData.scheduleType === 'RTC'
+                  ? 'bg-green-dark text-white'
+                  : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+              }`}
+            >
+              Round The Clock
+            </button>
+            <button
+              type="button"
+              onClick={() => setBidFormData({...bidFormData, scheduleType: 'Peak'})}
+              className={`px-4 py-2 rounded-lg text-[13px] font-semibold transition-colors ${
+                bidFormData.scheduleType === 'Peak'
+                  ? 'bg-green-dark text-white'
+                  : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+              }`}
+            >
+              Peak Hours
+            </button>
+            <button
+              type="button"
+              onClick={() => setBidFormData({...bidFormData, scheduleType: 'Off-Peak'})}
+              className={`px-4 py-2 rounded-lg text-[13px] font-semibold transition-colors ${
+                bidFormData.scheduleType === 'Off-Peak'
+                  ? 'bg-green-dark text-white'
+                  : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+              }`}
+            >
+              Off-Peak Hours
+            </button>
+          </div>
+        </div>
+
+        {/* Message */}
+        <div>
+          <label className="block text-sm font-semibold text-gray-700 mb-1">
+            Additional Message (Optional)
+          </label>
+          <textarea
+            value={bidFormData.message}
+            onChange={(e) => setBidFormData({...bidFormData, message: e.target.value})}
+            rows={3}
+            placeholder="Add any specific requirements or notes for suppliers..."
+            className="form-control"
+          />
+        </div>
+
+        {/* Bid Validity */}
+        <div>
+          <label className="block text-sm font-semibold text-gray-700 mb-1">
+            Bid Validity (days) <span className="text-red-500">*</span>
+          </label>
+          <select
+            value={bidFormData.validityDays}
+            onChange={(e) => setBidFormData({...bidFormData, validityDays: Number(e.target.value)})}
+            className="form-control"
+            required
+          >
+            <option value={7}>7 days</option>
+            <option value={14}>14 days</option>
+            <option value={30}>30 days</option>
+            <option value={45}>45 days</option>
+            <option value={60}>60 days</option>
+          </select>
+          <p className="text-[11px] text-gray-400 mt-1">Bid will expire after selected days if no response</p>
+        </div>
+
+        {/* Summary Card */}
+        <div className="bg-green-pale rounded-xl p-4 border border-[#9fe1cb]">
+          <p className="text-[12px] font-semibold text-gray-700 mb-2">Bid Summary</p>
+          <div className="space-y-1 text-[13px]">
+            <div className="flex justify-between">
+              <span className="text-gray-600">Drawal Point:</span>
+              <span className="font-semibold">{bidFormData.drawalPoint}</span>
+            </div>
+            <div className="flex justify-between">
+              <span className="text-gray-600">Total Volume:</span>
+              <span className="font-semibold">{bidFormData.mw} MW</span>
+            </div>
+            <div className="flex justify-between">
+              <span className="text-gray-600">Offered Price:</span>
+              <span className="font-semibold text-green-dark">₹{bidFormData.price}/unit</span>
+            </div>
+            <div className="flex justify-between">
+              <span className="text-gray-600">Contract Duration:</span>
+              <span className="font-semibold">{bidFormData.duration} months</span>
+            </div>
+            <div className="flex justify-between pt-2 border-t border-[#9fe1cb]">
+              <span className="font-bold text-gray-900">Estimated Annual Value:</span>
+              <span className="font-bold text-green-dark">
+                ₹{(bidFormData.mw * 1000 * 24 * 365 * bidFormData.price / 10000000).toFixed(2)} Cr
+              </span>
+            </div>
+          </div>
+        </div>
+
+        <div className="flex gap-3 pt-4">
+          <button
+            type="submit"
+            disabled={isSubmittingBid}
+            className="flex-1 bg-green-dark text-white py-2.5 rounded-lg text-[13px] font-bold hover:bg-green-mid transition-colors flex items-center justify-center gap-2"
+          >
+            {isSubmittingBid ? (
+              <>
+                <RefreshCw className="w-4 h-4 animate-spin" />
+                Submitting...
+              </>
+            ) : (
+              <>
+                <Gavel className="w-4 h-4" />
+                Submit Bid
+              </>
+            )}
+          </button>
+          <button
+            type="button"
+            onClick={() => setIsCreateBidModalOpen(false)}
+            className="flex-1 btn-outline py-2.5"
+          >
+            Cancel
+          </button>
+        </div>
+      </form>
+    </div>
+  </div>
+)}
+
+
+{/* VIEW OFFERS MODAL - Shows all supplier offers for a specific bid */}
+{/* {showViewOffersModal && selectedBidForView && (
+  <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4 overflow-y-auto" onClick={() => setShowViewOffersModal(false)}>
+    <div className="bg-white rounded-2xl max-w-5xl w-full max-h-[85vh] overflow-y-auto shadow-2xl animate-fadeIn" onClick={(e) => e.stopPropagation()}>
+      <div className="sticky top-0 bg-white border-b border-[#e0e8e4] px-6 py-4 flex items-center justify-between">
+        <div>
+          <h3 className="font-sora text-xl font-bold text-gray-900">Supplier Offers</h3>
+          <p className="text-[13px] text-gray-500">
+            {selectedBidForView.drawalPoint || 'Bid'} - {selectedBidForView.mw} MW @ ₹{selectedBidForView.price}/unit
+          </p>
+        </div>
+        <button onClick={() => setShowViewOffersModal(false)} className="p-2 hover:bg-gray-100 rounded-full transition-colors">
+          <X className="w-5 h-5 text-gray-500" />
+        </button>
+      </div>
+
+      <div className="p-6">
+        {bidOffers.length > 0 && (
+          <div className="mb-6 p-4 bg-gradient-to-r from-green-50 to-emerald-50 rounded-xl border border-green-200">
+            <div className="flex items-center justify-between flex-wrap gap-3">
+              <div className="flex items-center gap-3">
+                <Award className="w-8 h-8 text-green-600" />
+                <div>
+                  <p className="text-[11px] font-semibold text-green-700 uppercase">Best Offer</p>
+                  <p className="text-[18px] font-bold text-gray-900">
+                    {getBestOffer(bidOffers)?.supplierName} - ₹{getBestOffer(bidOffers)?.offeredPrice}/unit
+                  </p>
+                </div>
+              </div>
+              <div className="text-right">
+                <p className="text-[11px] text-gray-500">Savings vs Target</p>
+                <p className="text-[16px] font-bold text-green-600">
+                  ₹{(selectedBidForView.price - getBestOffer(bidOffers)?.offeredPrice).toFixed(2)}/unit
+                </p>
+              </div>
+            </div>
+          </div>
+        )}
+
+        <div className="overflow-x-auto">
+          <table className="w-full">
+            <thead className="bg-gray-50">
+              <tr>
+                <th className="px-4 py-3 text-left text-[11px] font-semibold text-gray-600 uppercase">Supplier</th>
+                <th className="px-4 py-3 text-left text-[11px] font-semibold text-gray-600 uppercase">Offered MW</th>
+                <th className="px-4 py-3 text-left text-[11px] font-semibold text-gray-600 uppercase">Offered Price</th>
+                <th className="px-4 py-3 text-left text-[11px] font-semibold text-gray-600 uppercase">vs Target</th>
+                <th className="px-4 py-3 text-left text-[11px] font-semibold text-gray-600 uppercase">Message</th>
+                <th className="px-4 py-3 text-left text-[11px] font-semibold text-gray-600 uppercase">Submitted</th>
+                <th className="px-4 py-3 text-left text-[11px] font-semibold text-gray-600 uppercase">Status</th>
+                <th className="px-4 py-3 text-left text-[11px] font-semibold text-gray-600 uppercase">Action</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-[#f0f4f2]">
+              {bidOffers.map((offer) => (
+                <tr key={offer.id} className="hover:bg-gray-50 transition-colors">
+                  <td className="px-4 py-3 font-semibold text-gray-900">
+                    <div className="flex items-center gap-2">
+                      <Building className="w-4 h-4 text-gray-400" />
+                      {offer.supplierName}
+                    </div>
+                  </td>
+                  <td className="px-4 py-3 font-semibold text-gray-900">{offer.offeredMw} MW</td>
+                  <td className="px-4 py-3 font-bold text-green-600">₹{offer.offeredPrice}</td>
+                  <td className="px-4 py-3">
+                    <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-semibold ${
+                      offer.offeredPrice <= selectedBidForView.price 
+                        ? 'bg-green-100 text-green-700' 
+                        : 'bg-red-100 text-red-700'
+                    }`}>
+                      {offer.offeredPrice <= selectedBidForView.price ? '↓ Better' : '↑ Higher'}
+                      <span className="text-[9px]">
+                        (₹{Math.abs(offer.offeredPrice - selectedBidForView.price).toFixed(2)})
+                      </span>
+                    </span>
+                  </td>
+                  <td className="px-4 py-3 text-gray-500 max-w-[200px] truncate">
+                    {offer.message || '—'}
+                  </td>
+                  <td className="px-4 py-3 text-gray-500 text-[12px]">
+                    {new Date(offer.createdAt).toLocaleDateString()}
+                  </td>
+                  <td className="px-4 py-3">
+                    <span className={`inline-flex px-2 py-0.5 rounded-full text-[10px] font-semibold ${
+                      offer.status === 'ACCEPTED' ? 'bg-green-100 text-green-700' :
+                      offer.status === 'REJECTED' ? 'bg-red-100 text-red-700' :
+                      'bg-yellow-100 text-yellow-700'
+                    }`}>
+                      {offer.status === 'ACCEPTED' ? 'Accepted' :
+                       offer.status === 'REJECTED' ? 'Rejected' : 'Pending'}
+                    </span>
+                  </td>
+                  <td className="px-4 py-3">
+                    {offer.status === 'PENDING' && (
+                      <div className="flex gap-2">
+                        <button
+                          onClick={() => acceptOffer(offer.id, selectedBidForView.id)}
+                          className="px-3 py-1.5 rounded-lg bg-green-dark text-white text-[11px] font-semibold hover:bg-green-mid"
+                        >
+                          Accept
+                        </button>
+                        <button
+                          onClick={() => rejectOffer(offer.id)}
+                          className="px-3 py-1.5 rounded-lg bg-white border border-red-200 text-red-600 text-[11px] font-semibold hover:bg-red-50"
+                        >
+                          Reject
+                        </button>
+                      </div>
+                    )}
+                    {offer.status === 'ACCEPTED' && (
+                      <button
+                        onClick={() => proceedToContract(offer)}
+                        className="px-3 py-1.5 rounded-lg bg-blue-600 text-white text-[11px] font-semibold hover:bg-blue-700"
+                      >
+                        Create Contract
+                      </button>
+                    )}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  </div>
+)} */}
+
+
 
       {/* CONTRACTS TAB */}
       {activeTab === 'contracts' && (
@@ -1145,11 +2427,432 @@ export const ConsumerDashboard: React.FC<ConsumerDashboardProps> = ({ activeTab,
             <div>Document Upload Content</div>
           )}
 
-          {/* GEOA FORM */}
-          {docView === 'geoa-form' && (
-            // Add your GEOA form content here
-            <div>GEOA Form Content</div>
-          )}
+          
+
+{/* GEOA FORM - Full Application Form */}
+{docView === 'geoa-form' && (
+  <div className="space-y-8 animate-fadeIn">
+    {/* Header */}
+    <div className="pb-4 border-b border-[#e0e8e4] flex items-center justify-between">
+      <div>
+        <h2 className="font-sora text-[22px] font-bold text-gray-900">Apply for Green Energy Open Access</h2>
+        <p className="text-gray-500 text-[13px] mt-1">RERC GEOA Regulation 2022 — Fields marked <span className="text-red font-semibold">*</span> are mandatory.</p>
+      </div>
+      <div className="flex items-center gap-3">
+        {geoaDraftSaved && <span className="text-[12px] text-green-dark font-semibold bg-green-pale px-3 py-1.5 rounded-lg border border-[#9fe1cb]">✓ Draft Saved</span>}
+        <button onClick={() => setDocView('landing')} className="btn-outline flex items-center gap-2"><X className="w-4 h-4" /><span>Cancel</span></button>
+      </div>
+    </div>
+
+    {/* Step indicator */}
+    <div className="bg-white rounded-[var(--radius-md)] border border-[#e0e8e4] p-5">
+      <div className="flex items-center gap-0">
+        {GEOA_STEPS.map((step, idx) => (
+          <React.Fragment key={step.num}>
+            <div className="flex flex-col items-center gap-1.5 flex-1">
+              <div className={`w-9 h-9 rounded-full flex items-center justify-center text-[13px] font-bold border-2 transition-all ${geoaStep > step.num ? 'bg-green-dark border-green-dark text-white' : geoaStep === step.num ? 'bg-white border-green-dark text-green-dark' : 'bg-white border-[#dde5e1] text-gray-400'}`}>
+                {geoaStep > step.num ? <CheckCircle className="w-5 h-5" /> : step.num}
+              </div>
+              <span className={`text-[11px] font-semibold text-center leading-tight ${geoaStep >= step.num ? 'text-gray-900' : 'text-gray-400'}`}>{step.label}</span>
+            </div>
+            {idx < GEOA_STEPS.length - 1 && <div className={`h-[2px] flex-1 mb-5 transition-all ${geoaStep > step.num ? 'bg-green-dark' : 'bg-[#e0e8e4]'}`} />}
+          </React.Fragment>
+        ))}
+      </div>
+    </div>
+
+    <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+      <div className="lg:col-span-2 space-y-6">
+
+        {/* STEP 1: Applicant Details */}
+        {geoaStep === 1 && (
+          <div className="form-card space-y-5">
+            <div className="pb-4 border-b border-[#f0f4f2]">
+              <h3 className="font-sora text-[16px] font-bold text-gray-900">Step 1: Applicant Details</h3>
+              <p className="text-gray-500 text-[13px] mt-1">All fields are mandatory unless noted otherwise.</p>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+              <div className="form-group">
+                <label className="required">Applicant / Company Name</label>
+                <input type="text" value={geoaApplicantName} onChange={e => setGeoaApplicantName(e.target.value)} placeholder="e.g. Bharat Industries Pvt Ltd" className={`form-control ${step1Errors.applicantName ? 'border-red-500' : ''}`} />
+                {step1Errors.applicantName && <p className="text-red-500 text-[11px] mt-1">{step1Errors.applicantName}</p>}
+              </div>
+              <div className="form-group">
+                <label className="required">Entity Type</label>
+                <select value={geoaEntityType} onChange={e => setGeoaEntityType(e.target.value)} className="form-control">
+                  <option value="Industrial">Industrial Consumer</option>
+                  <option value="Commercial">Commercial Consumer</option>
+                  <option value="Municipal">Municipal / Government</option>
+                  <option value="SEZ">SEZ Unit</option>
+                </select>
+              </div>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+              <div className="form-group">
+                <label className="required">CIN / GSTIN / Registration No.</label>
+                <input type="text" value={geoaCin} onChange={e => setGeoaCin(e.target.value.toUpperCase())} placeholder="e.g. U40100RJ2020PTC012345" className={`form-control ${step1Errors.cin ? 'border-red-500' : ''}`} />
+                {step1Errors.cin ? <p className="text-red-500 text-[11px] mt-1">{step1Errors.cin}</p> : <p className="text-[11px] text-gray-400 mt-1">CIN (21 chars) or GSTIN (15 chars) or Reg No. (min 10 chars)</p>}
+              </div>
+              <div className="form-group">
+                <label className="required">DISCOM Consumer No.</label>
+                <input type="text" value={geoaConsumerNo} onChange={e => setGeoaConsumerNo(e.target.value.replace(/\D/g,'').slice(0,10))} placeholder="1234567890" maxLength={10} className={`form-control ${step1Errors.consumerNo ? 'border-red-500' : ''}`} />
+                {step1Errors.consumerNo ? <p className="text-red-500 text-[11px] mt-1">{step1Errors.consumerNo}</p> : <p className="text-[11px] text-gray-400 mt-1">Exactly 10 digits (numbers only)</p>}
+              </div>
+            </div>
+
+            <div className="form-group">
+              <label className="required">Registered Address</label>
+              <textarea value={geoaAddress} onChange={e => setGeoaAddress(e.target.value)} rows={2} placeholder="Plot No., Industrial Area, City, State, PIN" className={`form-control ${step1Errors.address ? 'border-red-500' : ''}`} />
+              {step1Errors.address && <p className="text-red-500 text-[11px] mt-1">{step1Errors.address}</p>}
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+              <div className="form-group">
+                <label className="required">State</label>
+                <select value={geoaState} onChange={e => setGeoaState(e.target.value)} className="form-control">
+                  {['Rajasthan','Gujarat','Maharashtra','Madhya Pradesh','Uttar Pradesh','Tamil Nadu','Karnataka','Haryana','Punjab','Telangana'].map(s => <option key={s} value={s}>{s}</option>)}
+                </select>
+              </div>
+              <div className="form-group">
+                <label className="required">DISCOM / Utility</label>
+                <select value={geoaDiscom} onChange={e => setGeoaDiscom(e.target.value)} className="form-control">
+                  {['JVVNL','AVVNL','DVVNL','MSEDCL','PGVCL','TNEB','BESCOM'].map(d => <option key={d} value={d}>{d}</option>)}
+                </select>
+              </div>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
+              <div className="form-group">
+                <label className="required">Contact Person</label>
+                <input type="text" value={geoaContactPerson} onChange={e => setGeoaContactPerson(e.target.value)} placeholder="Full name" className={`form-control ${step1Errors.contactPerson ? 'border-red-500' : ''}`} />
+                {step1Errors.contactPerson && <p className="text-red-500 text-[11px] mt-1">{step1Errors.contactPerson}</p>}
+              </div>
+              <div className="form-group">
+                <label className="required">Email Address</label>
+                <input type="email" value={geoaEmail} onChange={e => setGeoaEmail(e.target.value)} placeholder="company@example.com" className={`form-control ${step1Errors.email ? 'border-red-500' : ''}`} />
+                {step1Errors.email && <p className="text-red-500 text-[11px] mt-1">{step1Errors.email}</p>}
+              </div>
+              <div className="form-group">
+                <label className="required">Mobile No. <span className="text-gray-400 font-normal">(digits only)</span></label>
+                <input type="text" value={geoaMobile} onChange={e => setGeoaMobile(e.target.value.replace(/\D/g,'').slice(0,10))} placeholder="9876543210" maxLength={10} className={`form-control ${step1Errors.mobile ? 'border-red-500' : ''}`} />
+                {step1Errors.mobile ? <p className="text-red-500 text-[11px] mt-1">{step1Errors.mobile}</p> : <p className="text-[11px] text-gray-400 mt-1">10 digits, no +91 or spaces</p>}
+              </div>
+            </div>
+
+            <div className="flex items-center justify-between pt-2">
+              <button type="button" onClick={saveGeoaDraft} className="btn-outline flex items-center gap-2 text-[13px] px-5">
+                <Save className="w-4 h-4" /><span>Save Draft</span>
+              </button>
+              <button type="button" onClick={() => { if (validateStep1()) setGeoaStep(2); }} className="btn-green flex items-center gap-2 px-8">
+                <span>Next: Technical Details</span><ChevronRight className="w-4 h-4" />
+              </button>
+            </div>
+          </div>
+        )}
+
+        {/* STEP 2: Technical & Supply Details */}
+        {geoaStep === 2 && (
+          <div className="form-card space-y-5">
+            <div className="pb-4 border-b border-[#f0f4f2]">
+              <h3 className="font-sora text-[16px] font-bold text-gray-900">Step 2: Technical & Supply Details</h3>
+              <p className="text-gray-500 text-[13px] mt-1">Select a registered supplier and specify grid parameters.</p>
+            </div>
+
+            {/* Supplier dropdown */}
+            <div className="form-group">
+              <label className="required">Select Renewable Supplier</label>
+              <select value={geoaSelectedSupplierId} onChange={e => setGeoaSelectedSupplierId(e.target.value)} className={`form-control ${step2Errors.supplier ? 'border-red-500' : ''}`}>
+                <option value="">— Choose a verified supplier —</option>
+                {suppliers.filter(s => s.status === 'VERIFIED').map(s => (
+                  <option key={s.id} value={s.id}>{s.name} ({s.renewableType || 'Renewable'}) — {s.state}</option>
+                ))}
+              </select>
+              {step2Errors.supplier && <p className="text-red-500 text-[11px] mt-1">{step2Errors.supplier}</p>}
+              {geoaSelectedSupplierId && (() => {
+                const sup = suppliers.find(s => s.id === geoaSelectedSupplierId);
+                return sup ? (
+                  <div className="mt-2 bg-green-pale border border-[#9fe1cb] rounded-lg p-3 text-[12px] text-green-dark">
+                    <span className="font-semibold">{sup.name}</span> · {sup.state} · Capacity: {sup.generationCapacity || '—'} MW · Base Price: ₹{Number(sup.price || 4.2).toFixed(2)}/unit
+                  </div>
+                ) : null;
+              })()}
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
+              <div className="form-group">
+                <label className="required">Connected Load (MW)</label>
+                <input type="number" value={geoaLoadMw} onChange={e => setGeoaLoadMw(Number(e.target.value))} min={1} max={500} className={`form-control ${step2Errors.loadMw ? 'border-red-500' : ''}`} />
+                {step2Errors.loadMw && <p className="text-red-500 text-[11px] mt-1">{step2Errors.loadMw}</p>}
+              </div>
+              <div className="form-group">
+                <label className="required">Voltage Level</label>
+                <select value={geoaVoltageLevel} onChange={e => setGeoaVoltageLevel(e.target.value)} className="form-control">
+                  {['11kV','33kV','66kV','110kV','220kV','400kV','765kV'].map(v => <option key={v} value={v}>{v}</option>)}
+                </select>
+              </div>
+              <div className="form-group">
+                <label className="required">Renewable Source</label>
+                <select value={geoaRenewableType} onChange={e => setGeoaRenewableType(e.target.value)} className="form-control">
+                  {['Solar','Wind','Solar-Wind Hybrid','Small Hydro','Biomass'].map(v => <option key={v} value={v}>{v}</option>)}
+                </select>
+              </div>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+              <div className="form-group">
+                <label className="required">Injection Point</label>
+                <input type="text" value={geoaInjectionPoint} onChange={e => setGeoaInjectionPoint(e.target.value)} placeholder="Select a supplier above to auto-fill" className="form-control" />
+              </div>
+              <div className="form-group">
+                <label className="required">Drawal Point</label>
+                <input type="text" value={geoaDrawalPoint} onChange={e => setGeoaDrawalPoint(e.target.value)} placeholder="e.g. 400kV Jajpur Substation" className={`form-control ${step2Errors.drawalPoint ? 'border-red-500' : ''}`} />
+                {step2Errors.drawalPoint && <p className="text-red-500 text-[11px] mt-1">{step2Errors.drawalPoint}</p>}
+              </div>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
+              <div className="form-group">
+                <label className="required">Schedule Type</label>
+                <select value={geoaScheduleType} onChange={e => setGeoaScheduleType(e.target.value)} className="form-control">
+                  <option value="RTC">Round The Clock (RTC)</option>
+                  <option value="Peak">Peak Hours</option>
+                  <option value="Off-Peak">Off-Peak Hours</option>
+                  <option value="Custom">Custom Time Block</option>
+                </select>
+              </div>
+              <div className="form-group">
+                <label className="required">Duration (Days)</label>
+                <input type="number" value={geoaDurationDays} onChange={e => setGeoaDurationDays(Number(e.target.value))} min={30} className={`form-control ${step2Errors.duration ? 'border-red-500' : ''}`} />
+                {step2Errors.duration && <p className="text-red-500 text-[11px] mt-1">{step2Errors.duration}</p>}
+              </div>
+              <div className="form-group">
+                <label className="required">Proposed Start Date</label>
+                <input type="date" value={geoaStartDate} onChange={e => setGeoaStartDate(e.target.value)} className={`form-control ${step2Errors.startDate ? 'border-red-500' : ''}`} />
+                {step2Errors.startDate && <p className="text-red-500 text-[11px] mt-1">{step2Errors.startDate}</p>}
+              </div>
+            </div>
+
+            {geoaScheduleType === 'Custom' && (
+              <div className="form-group">
+                <label className="required">Custom Time Blocks</label>
+                <input type="text" value={geoaTimeBlocks} onChange={e => setGeoaTimeBlocks(e.target.value)} placeholder="e.g. 06:00-10:00, 18:00-22:00" className="form-control" />
+                <p className="text-[11px] text-gray-400 mt-1">Format: HH:MM-HH:MM, comma-separated</p>
+              </div>
+            )}
+
+            <div className="flex items-center justify-between pt-2">
+              <div className="flex items-center gap-3">
+                <button type="button" onClick={() => setGeoaStep(1)} className="btn-outline flex items-center gap-2"><ArrowRight className="w-4 h-4 rotate-180" /><span>Back</span></button>
+                <button type="button" onClick={saveGeoaDraft} className="btn-outline flex items-center gap-2 text-[13px]"><Save className="w-4 h-4" /><span>Save Draft</span></button>
+              </div>
+              <button type="button" onClick={() => { if (validateStep2()) setGeoaStep(3); }} className="btn-green flex items-center gap-2 px-8">
+                <span>Next: Review & Submit</span><ChevronRight className="w-4 h-4" />
+              </button>
+            </div>
+          </div>
+        )}
+
+        {/* STEP 3: Review & Submit */}
+        {geoaStep === 3 && (
+          <div className="form-card space-y-6">
+            <div className="pb-4 border-b border-[#f0f4f2]">
+              <h3 className="font-sora text-[16px] font-bold text-gray-900">Step 3: Review & Submit Application</h3>
+              <p className="text-gray-500 text-[13px] mt-1">Verify all details before final submission to RERC / Nodal Agency.</p>
+            </div>
+
+            {/* Review – Applicant */}
+            <div>
+              <h4 className="text-[12px] font-bold text-gray-500 uppercase tracking-wider mb-3 flex items-center gap-2">
+                <span className="w-5 h-5 rounded-full bg-green-pale text-green-dark text-[10px] font-bold flex items-center justify-center">1</span>Applicant Details
+              </h4>
+              <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
+                {[
+                  { l: 'Company Name', v: geoaApplicantName },
+                  { l: 'Entity Type', v: geoaEntityType },
+                  { l: 'State', v: geoaState },
+                  { l: 'DISCOM', v: geoaDiscom },
+                  { l: 'Contact Person', v: geoaContactPerson },
+                  { l: 'Email', v: geoaEmail },
+                  { l: 'Mobile', v: geoaMobile },
+                  { l: 'CIN/GSTIN', v: geoaCin },
+                  { l: 'Address', v: geoaAddress },
+                  { l: 'DISCOM No.', v: geoaConsumerNo },
+                ].map(item => (
+                  <div key={item.l} className="bg-gray-50 rounded-lg p-3 border border-[#e0e8e4]">
+                    <p className="text-[10px] text-gray-400 uppercase font-semibold">{item.l}</p>
+                    <p className="text-[13px] font-semibold text-gray-900 mt-0.5 truncate">{item.v || '—'}</p>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            {/* Review – Technical */}
+            <div>
+              <h4 className="text-[12px] font-bold text-gray-500 uppercase tracking-wider mb-3 flex items-center gap-2">
+                <span className="w-5 h-5 rounded-full bg-green-pale text-green-dark text-[10px] font-bold flex items-center justify-center">2</span>Technical Details
+              </h4>
+              <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
+                {[
+                  { l: 'Supplier', v: suppliers.find(s => s.id === geoaSelectedSupplierId)?.name || '—' },
+                  { l: 'Load (MW)', v: `${geoaLoadMw} MW` },
+                  { l: 'Voltage Level', v: geoaVoltageLevel },
+                  { l: 'Renewable Source', v: geoaRenewableType },
+                  { l: 'Schedule Type', v: geoaScheduleType },
+                  { l: 'Duration', v: `${geoaDurationDays} Days` },
+                  { l: 'Start Date', v: geoaStartDate },
+                  { l: 'Injection Point', v: geoaInjectionPoint },
+                  { l: 'Drawal Point', v: geoaDrawalPoint },
+                ].map(item => (
+                  <div key={item.l} className="bg-gray-50 rounded-lg p-3 border border-[#e0e8e4]">
+                    <p className="text-[10px] text-gray-400 uppercase font-semibold">{item.l}</p>
+                    <p className="text-[13px] font-semibold text-gray-900 mt-0.5 truncate">{item.v}</p>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            {/* Declaration */}
+            <div className="bg-green-pale border border-[#9fe1cb] rounded-lg p-4">
+              <p className="text-[12px] text-green-dark leading-relaxed">
+                <span className="font-bold">Declaration:</span> I hereby declare that the information provided is true and correct. 
+                I understand that any false information may result in rejection or cancellation of Open Access permission.
+              </p>
+            </div>
+
+            <div className="flex items-center justify-between pt-2">
+              <button type="button" onClick={() => setGeoaStep(2)} className="btn-outline flex items-center gap-2">
+                <ArrowRight className="w-4 h-4 rotate-180" /><span>Back</span>
+              </button>
+              <button type="button" onClick={submitGeoaApplication} className="btn-green flex items-center gap-2 px-10 py-3 text-[15px]">
+                <CheckCircle className="w-5 h-5" /><span>Submit GEOA Application</span>
+              </button>
+            </div>
+          </div>
+        )}
+      </div>
+
+      {/* Right sidebar - Checklist */}
+      <div className="space-y-4">
+        <div className="tracker-card p-5 !mb-0">
+          <h4 className="font-sora font-bold text-[14px] text-gray-900 mb-4 flex items-center gap-2">
+            <Eye className="w-4 h-4 text-green-dark" />Application Checklist
+          </h4>
+          <div className="space-y-2.5">
+            {[
+              { label: 'Applicant Details', done: step1Valid, step: 1 },
+              { label: 'Technical Parameters', done: step2Valid, step: 2 },
+              { label: 'Review Complete', done: geoaStep === 3, step: 3 },
+            ].map(item => (
+              <div key={item.label} className="flex items-center justify-between text-[13px]">
+                <div className="flex items-center gap-2">
+                  <div className={`w-5 h-5 rounded-full flex items-center justify-center ${item.done ? 'bg-green-dark' : 'bg-gray-100 border border-[#dde5e1]'}`}>
+                    {item.done && <CheckCircle className="w-3.5 h-3.5 text-white" />}
+                  </div>
+                  <span className={item.done ? 'text-gray-900 font-medium' : 'text-gray-400'}>{item.label}</span>
+                </div>
+                {!item.done && geoaStep !== item.step && (
+                  <button onClick={() => setGeoaStep(item.step)} className="text-[11px] text-green-dark font-semibold hover:underline">Edit</button>
+                )}
+              </div>
+            ))}
+          </div>
+        </div>
+
+        <div className="bg-blue-light border border-[#b5d4f4] rounded-[var(--radius-md)] p-4">
+          <p className="text-[12px] text-blue-dark font-semibold mb-1">RERC Helpdesk</p>
+          <p className="text-[12px] text-blue-dark">Contact: <span className="font-semibold">geoa@rerc.rajasthan.gov.in</span> or <span className="font-semibold">0141-2740011</span></p>
+        </div>
+      </div>
+    </div>
+  </div>
+)}
+
+{/* DOCUMENT UPLOAD CONTENT */}
+{docView === 'doc-upload' && (
+  <div className="space-y-8 animate-fadeIn">
+    <div className="pb-4 border-b border-[#e0e8e4] flex items-center justify-between">
+      <div>
+        <h2 className="font-sora text-[22px] font-bold text-gray-900">Upload Regulatory Documents</h2>
+        <p className="text-gray-500 text-[13px] mt-1">Submit compliance files to the Nodal Agency verification vault.</p>
+      </div>
+      <button onClick={() => setDocView('landing')} className="btn-outline flex items-center gap-2">
+        <X className="w-4 h-4" /><span>Back</span>
+      </button>
+    </div>
+    <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+      <div className="form-card lg:col-span-2">
+        <form onSubmit={handleDocUpload} className="space-y-5">
+          <div className="form-group">
+            <label className="required">Document Title</label>
+            <input type="text" placeholder="e.g. Trilateral Connection Agreement..." value={docName} onChange={(e) => setDocName(e.target.value)} required className="form-control" />
+          </div>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+            <div className="form-group">
+              <label className="required">Category</label>
+              <select value={docCat} onChange={(e) => setDocCat(e.target.value)} className="form-control">
+                <option value="PPA">Power Purchase Agreement (PPA)</option>
+                <option value="OA_APP">Open Access Registration Request</option>
+                <option value="BG">Bank Guarantee Security Record</option>
+                <option value="AUTH_LETTER">Board Authorization Clearance</option>
+                <option value="REC">Renewable Energy Certificate</option>
+                <option value="ANNEXURE">Annexure Documents</option>
+              </select>
+            </div>
+            <div className="flex items-end">
+              <button type="submit" className="btn-outline w-full flex items-center justify-center space-x-2 h-[42px]">
+                <Upload className="w-4 h-4" /><span>Upload & File Metadata</span>
+              </button>
+            </div>
+          </div>
+        </form>
+      </div>
+      <div className="tracker-card flex flex-col justify-between !mb-0">
+        <div>
+          <h3 className="font-sora font-bold text-[16px] text-gray-900 mb-2">Grid Compliance Vault</h3>
+          <div className="mt-4 space-y-2">
+            {[
+              { label: 'RLDC NOC', status: 'VERIFIED' },
+              { label: 'SLDC Approval', status: 'PENDING' },
+              { label: 'DISCOM Consent', status: 'VERIFIED' }
+            ].map(item => (
+              <div key={item.label} className="flex items-center justify-between py-2 border-b border-[#f0f4f2]">
+                <span className="text-[13px] text-gray-600">{item.label}</span>
+                <span className={`badge ${item.status === 'VERIFIED' ? 'badge-green' : 'badge-amber'}`}>{item.status}</span>
+              </div>
+            ))}
+          </div>
+        </div>
+        <div className="bg-blue-light p-4 rounded-lg border border-[#b5d4f4] mt-6">
+          <p className="text-[12px] text-blue-dark">★ Uploaded files visible to NLDC administrators immediately. PENDING → VERIFIED after audit.</p>
+        </div>
+      </div>
+    </div>
+    <div className="space-y-4">
+      <h3 className="font-sora text-[16px] font-bold text-gray-900">Document Registry</h3>
+      <div className="bg-white rounded-[var(--radius-md)] border border-[#e0e8e4] overflow-hidden">
+        <table className="w-full text-left border-collapse">
+          <thead>
+            <tr>{['Document Name', 'Category', 'Uploaded On', 'Status'].map(h => <th key={h} className="bg-green-dark text-white text-[12px] font-semibold px-5 py-3 uppercase">{h}</th>)}</tr>
+          </thead>
+          <tbody className="divide-y divide-[#f0f4f2] text-[13px]">
+            {uploadedDocs.map((doc, i) => (
+              <tr key={doc.id} className={`hover:bg-gray-50 ${i % 2 !== 0 ? 'bg-[#f9fcfa]' : ''}`}>
+                <td className="py-3.5 px-5 font-semibold text-gray-900 flex items-center gap-2">
+                  <div className="w-8 h-8 rounded bg-gray-100 flex items-center justify-center shrink-0"><FileText className="w-4 h-4 text-gray-500" /></div>{doc.name}
+                </td>
+                <td className="py-3.5 px-5 text-gray-600">{doc.category}</td>
+                <td className="py-3.5 px-5 text-gray-500">{doc.date}</td>
+                <td className="py-3.5 px-5"><span className={`badge ${doc.status === 'VERIFIED' ? 'badge-green' : 'badge-amber'}`}>{doc.status}</span></td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+)}
         </div>
       )}
 
