@@ -354,6 +354,7 @@ async addBid(bidData: any) {
         duration: Number(bidData.duration),
         drawalPoint: cleanString(bidData.drawalPoint),
         scheduleType: bidData.scheduleType,
+        renewableType: bidData.renewableType || null,
         message: cleanString(bidData.message),
         status: bidData.status || "ACTIVE",
         validityDays: Number(bidData.validityDays) || 30,

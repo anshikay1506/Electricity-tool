@@ -179,7 +179,8 @@ const [bidFormData, setBidFormData] = useState({
   drawalPoint: '',
   scheduleType: 'RTC',
   message: '',
-  validityDays: 30
+  validityDays: 30,
+  renewableType: ''
 });
 
 
@@ -201,7 +202,6 @@ const handleCreateBid = async (e: React.FormEvent) => {
   
   setIsSubmittingBid(true);
   try {
-    // Super clean function for frontend
     const superClean = (str: string) => {
       if (!str) return '';
       return str.replace(/[\x00-\x1F\x7F]/g, '').trim();
@@ -212,7 +212,7 @@ const handleCreateBid = async (e: React.FormEvent) => {
       mw: Number(bidFormData.mw),
       price: Number(bidFormData.price),
       duration: Number(bidFormData.duration),
-      deliveryState: bidFormData.deliveryState,
+      renewableType: bidFormData.renewableType,
       scheduleType: bidFormData.scheduleType,
       message: superClean(bidFormData.message),
       validityDays: Number(bidFormData.validityDays),
@@ -271,8 +271,11 @@ const loadBids = async () => {
     });
     if (response.ok) {
       const data = await response.json();
+      if (data.length > 0) {
+        console.log('First bid renewableType:', data[0].renewableType);
+        console.log('First bid full data:', data[0]);
+      }
       setBidsList(data);
-      console.log('Bids refreshed:', data.length);
     }
   } catch (error) {
     console.error('Error loading bids:', error);
@@ -715,13 +718,55 @@ const rejectBidOffer = async (offerId: string) => {
 
 
 
-  // Open Access Application Form Component for Raise Bid Section
+// Open Access Application Form Component for Raise Bid Section
 const OpenAccessApplicationForm = () => {
   if (!showOpenAccessForm || !selectedBidForOA || !selectedOfferForOA) {
     return null;
   }
 
+  // Add state for editable consumer details
+  const [editableMobile, setEditableMobile] = useState(profile?.mobile || '');
+  const [editableEntityType, setEditableEntityType] = useState(profile?.entityType || 'Industrial');
+  const [editableDiscom, setEditableDiscom] = useState(profile?.discom || 'JVVNL');
+  const [editableContactPerson, setEditableContactPerson] = useState(profile?.contactPerson || '');
+  
+  // Add state for terms acceptance
+  const [termsAccepted, setTermsAccepted] = useState({
+    accuracy: false,
+    agreement: false,
+    approval: false
+  });
+
+  const handleTermsChange = (field: keyof typeof termsAccepted) => {
+    setTermsAccepted(prev => ({ ...prev, [field]: !prev[field] }));
+  };
+
+  const allTermsAccepted = termsAccepted.accuracy && termsAccepted.agreement && termsAccepted.approval;
+
   const handleSubmitOA = async () => {
+    // Validate mandatory fields
+    if (!editableMobile || editableMobile.trim() === '') {
+      alert('Please enter your mobile number.');
+      return;
+    }
+    if (!editableEntityType || editableEntityType.trim() === '') {
+      alert('Please select Entity Type.');
+      return;
+    }
+    if (!editableDiscom || editableDiscom.trim() === '') {
+      alert('Please select DISCOM.');
+      return;
+    }
+    if (!editableContactPerson || editableContactPerson.trim() === '') {
+      alert('Please enter Contact Person name.');
+      return;
+    }
+    
+    if (!allTermsAccepted) {
+      alert('Please accept all terms and conditions to proceed.');
+      return;
+    }
+    
     setIsSubmittingOA(true);
     
     try {
@@ -738,11 +783,12 @@ const OpenAccessApplicationForm = () => {
         throw new Error('Failed to accept offer');
       }
       
-      // 2. Create Open Access Application
+      // 2. Create Open Access Application with editable fields
       const applicationData = {
         supplierId: selectedOfferForOA.supplierId,
         supplierName: selectedOfferForOA.supplierName,
         mw: selectedOfferForOA.offeredMw,
+        durationMonths: selectedBidForOA.duration,
         durationDays: selectedBidForOA.duration * 30,
         requestedPrice: selectedOfferForOA.offeredPrice,
         finalPrice: selectedOfferForOA.offeredPrice,
@@ -754,7 +800,10 @@ const OpenAccessApplicationForm = () => {
         consumerName: profile?.name || user?.name || 'Consumer',
         consumerId: user?.id,
         state: profile?.state || 'Rajasthan',
-        voltageLevel: selectedBidForOA.voltageLevel || '33kV',
+        entityType: editableEntityType,
+        discom: editableDiscom,
+        contactPerson: editableContactPerson,
+        mobile: editableMobile,
         bidId: selectedBidForOA.id,
         offerId: selectedOfferForOA.id,
         status: 'PENDING_ADMIN_APPROVAL'
@@ -816,42 +865,19 @@ const OpenAccessApplicationForm = () => {
                 <p className="text-[13px] font-semibold text-blue-800">Application from Accepted Bid</p>
                 <p className="text-[12px] text-blue-700 mt-1">
                   This application has been pre-filled with details from the accepted bid from <strong>{selectedOfferForOA.supplierName}</strong>. 
-                  All fields are read-only based on the agreed terms.
+                  Please fill in all mandatory fields marked with <span className="text-red-500">*</span>
                 </p>
               </div>
             </div>
           </div>
 
-          {/* Bid Summary Card */}
-          <div className="bg-gradient-to-r from-green-50 to-white rounded-xl border border-green-100 p-5">
-            <p className="text-[11px] text-gray-500 uppercase tracking-wider mb-2">Accepted Bid Summary</p>
-            <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-              <div>
-                <p className="text-[10px] text-gray-400">Supplier</p>
-                <p className="text-[14px] font-semibold text-gray-900">{selectedOfferForOA.supplierName}</p>
-              </div>
-              <div>
-                <p className="text-[10px] text-gray-400">Capacity</p>
-                <p className="text-[14px] font-bold text-gray-900">{selectedOfferForOA.offeredMw} MW</p>
-              </div>
-              <div>
-                <p className="text-[10px] text-gray-400">Agreed Price</p>
-                <p className="text-[14px] font-bold text-green-600">₹{selectedOfferForOA.offeredPrice}/unit</p>
-              </div>
-              <div>
-                <p className="text-[10px] text-gray-400">Duration</p>
-                <p className="text-[14px] font-semibold text-gray-900">{selectedBidForOA.duration} months</p>
-              </div>
-            </div>
-          </div>
-
-          {/* Open Access Application Form - Read Only */}
+          {/* Open Access Application Form */}
           <div className="space-y-5">
-            {/* Section 1: Consumer Details */}
+            {/* Section 1: Consumer Details with Mandatory Fields */}
             <div className="bg-gray-50 rounded-xl p-5 border border-[#e0e8e4]">
               <h4 className="font-semibold text-gray-900 mb-4 flex items-center gap-2">
                 <Building className="w-4 h-4 text-blue-600" />
-                Consumer Details
+                Consumer Details 
               </h4>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div className="bg-white rounded-lg p-3 border border-[#e0e8e4]">
@@ -867,8 +893,65 @@ const OpenAccessApplicationForm = () => {
                   <p className="text-[13px] text-gray-600">{profile?.email || user?.email || '—'}</p>
                 </div>
                 <div className="bg-white rounded-lg p-3 border border-[#e0e8e4]">
-                  <p className="text-[10px] text-gray-400 uppercase">Mobile</p>
-                  <p className="text-[13px] text-gray-600">{profile?.mobile || '—'}</p>
+                  <p className="text-[10px] text-gray-400 uppercase">
+                    Mobile <span className="text-red-500">*</span>
+                  </p>
+                  <input 
+                    type="tel" 
+                    value={editableMobile} 
+                    onChange={(e) => setEditableMobile(e.target.value)}
+                    className="text-[13px] font-semibold text-gray-900 w-full border border-gray-200 rounded-md px-2 py-1 focus:outline-none focus:border-green-400"
+                    placeholder="Enter mobile number (required)"
+                    required
+                  />
+                </div>
+                <div className="bg-white rounded-lg p-3 border border-[#e0e8e4]">
+                  <p className="text-[10px] text-gray-400 uppercase">
+                    Entity Type <span className="text-red-500">*</span>
+                  </p>
+                  <select 
+                    value={editableEntityType} 
+                    onChange={(e) => setEditableEntityType(e.target.value)}
+                    className="text-[13px] font-semibold text-gray-900 w-full border border-gray-200 rounded-md px-2 py-1 focus:outline-none focus:border-green-400"
+                    required
+                  >
+                    <option value="Industrial">Industrial Consumer</option>
+                    <option value="Commercial">Commercial Consumer</option>
+                    <option value="Municipal">Municipal / Government</option>
+                    <option value="SEZ">SEZ Unit</option>
+                  </select>
+                </div>
+                <div className="bg-white rounded-lg p-3 border border-[#e0e8e4]">
+                  <p className="text-[10px] text-gray-400 uppercase">
+                    DISCOM <span className="text-red-500">*</span>
+                  </p>
+                  <select 
+                    value={editableDiscom} 
+                    onChange={(e) => setEditableDiscom(e.target.value)}
+                    className="text-[13px] font-semibold text-gray-900 w-full border border-gray-200 rounded-md px-2 py-1 focus:outline-none focus:border-green-400"
+                    required
+                  >
+                    <option value="JVVNL">JVVNL</option>
+                    <option value="AVVNL">AVVNL</option>
+                    <option value="DVVNL">DVVNL</option>
+                    <option value="MSEDCL">MSEDCL</option>
+                    <option value="PGVCL">PGVCL</option>
+                    <option value="TNEB">TNEB</option>
+                    <option value="BESCOM">BESCOM</option>
+                  </select>
+                </div>
+                <div className="bg-white rounded-lg p-3 border border-[#e0e8e4]">
+                  <p className="text-[10px] text-gray-400 uppercase">
+                    Contact Person <span className="text-red-500">*</span>
+                  </p>
+                  <input 
+                    type="text" 
+                    value={editableContactPerson} 
+                    onChange={(e) => setEditableContactPerson(e.target.value)}
+                    className="text-[13px] font-semibold text-gray-900 w-full border border-gray-200 rounded-md px-2 py-1 focus:outline-none focus:border-green-400"
+                    placeholder="Enter contact person name (required)"
+                    required
+                  />
                 </div>
               </div>
             </div>
@@ -880,6 +963,22 @@ const OpenAccessApplicationForm = () => {
                 Technical Details
               </h4>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="bg-white rounded-lg p-3 border border-[#e0e8e4]">
+                  <p className="text-[10px] text-gray-400 uppercase">Supplier Name</p>
+                  <p className="text-[13px] font-semibold text-gray-900">{selectedOfferForOA.supplierName}</p>
+                </div>
+                <div className="bg-white rounded-lg p-3 border border-[#e0e8e4]">
+                  <p className="text-[10px] text-gray-400 uppercase">Contract Capacity</p>
+                  <p className="text-[13px] font-bold text-gray-900">{selectedOfferForOA.offeredMw} MW</p>
+                </div>
+                <div className="bg-white rounded-lg p-3 border border-[#e0e8e4]">
+                  <p className="text-[10px] text-gray-400 uppercase">Agreed Price</p>
+                  <p className="text-[13px] font-bold text-green-600">₹{selectedOfferForOA.offeredPrice}/unit</p>
+                </div>
+                <div className="bg-white rounded-lg p-3 border border-[#e0e8e4]">
+                  <p className="text-[10px] text-gray-400 uppercase">Duration</p>
+                  <p className="text-[13px] font-semibold text-gray-900">{selectedBidForOA.duration} months</p>
+                </div>
                 <div className="bg-white rounded-lg p-3 border border-[#e0e8e4]">
                   <p className="text-[10px] text-gray-400 uppercase">Drawal Point</p>
                   <p className="text-[13px] font-semibold text-gray-900">{selectedBidForOA.drawalPoint || 'Not specified'}</p>
@@ -893,45 +992,13 @@ const OpenAccessApplicationForm = () => {
                   <p className="text-[13px] font-semibold text-gray-900">{selectedBidForOA.scheduleType || 'RTC'}</p>
                 </div>
                 <div className="bg-white rounded-lg p-3 border border-[#e0e8e4]">
-                  <p className="text-[10px] text-gray-400 uppercase">Voltage Level</p>
-                  <p className="text-[13px] font-semibold text-gray-900">33kV</p>
-                </div>
-                <div className="bg-white rounded-lg p-3 border border-[#e0e8e4]">
                   <p className="text-[10px] text-gray-400 uppercase">Start Date</p>
                   <p className="text-[13px] font-semibold text-gray-900">{new Date().toLocaleDateString()}</p>
                 </div>
-                <div className="bg-white rounded-lg p-3 border border-[#e0e8e4]">
-                  <p className="text-[10px] text-gray-400 uppercase">Duration (Days)</p>
-                  <p className="text-[13px] font-semibold text-gray-900">{selectedBidForOA.duration * 30} days</p>
-                </div>
               </div>
             </div>
 
-            {/* Section 3: Financial Summary */}
-            <div className="bg-gray-50 rounded-xl p-5 border border-[#e0e8e4]">
-              <h4 className="font-semibold text-gray-900 mb-4 flex items-center gap-2">
-                <DollarSign className="w-4 h-4 text-green-600" />
-                Financial Summary
-              </h4>
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                <div className="bg-white rounded-lg p-3 border border-[#e0e8e4]">
-                  <p className="text-[10px] text-gray-400 uppercase">Agreed Rate</p>
-                  <p className="text-[18px] font-bold text-green-600">₹{selectedOfferForOA.offeredPrice}<span className="text-[12px]">/unit</span></p>
-                </div>
-                <div className="bg-white rounded-lg p-3 border border-[#e0e8e4]">
-                  <p className="text-[10px] text-gray-400 uppercase">Monthly Energy</p>
-                  <p className="text-[16px] font-bold text-gray-900">{selectedOfferForOA.offeredMw * 24 * 30} MWh</p>
-                </div>
-                <div className="bg-white rounded-lg p-3 border border-[#e0e8e4]">
-                  <p className="text-[10px] text-gray-400 uppercase">Annual Value</p>
-                  <p className="text-[16px] font-bold text-green-600">
-                    ₹{((selectedOfferForOA.offeredMw * 1000 * 24 * 365 * selectedOfferForOA.offeredPrice) / 10000000).toFixed(2)} Cr
-                  </p>
-                </div>
-              </div>
-            </div>
-
-            {/* Section 4: Terms & Conditions */}
+            {/* Section 3: Terms & Conditions */}
             <div className="bg-gray-50 rounded-xl p-5 border border-[#e0e8e4]">
               <h4 className="font-semibold text-gray-900 mb-3 flex items-center gap-2">
                 <FileText className="w-4 h-4 text-purple-600" />
@@ -939,15 +1006,30 @@ const OpenAccessApplicationForm = () => {
               </h4>
               <div className="space-y-2 text-[12px] text-gray-600">
                 <label className="flex items-start gap-3 cursor-pointer">
-                  <input type="checkbox" className="mt-0.5" required />
+                  <input 
+                    type="checkbox" 
+                    className="mt-0.5" 
+                    checked={termsAccepted.accuracy}
+                    onChange={() => handleTermsChange('accuracy')}
+                  />
                   <span>I confirm that all information provided is accurate and complete.</span>
                 </label>
                 <label className="flex items-start gap-3 cursor-pointer">
-                  <input type="checkbox" className="mt-0.5" required />
+                  <input 
+                    type="checkbox" 
+                    className="mt-0.5" 
+                    checked={termsAccepted.agreement}
+                    onChange={() => handleTermsChange('agreement')}
+                  />
                   <span>I agree to the terms of the Open Access agreement and applicable regulations.</span>
                 </label>
                 <label className="flex items-start gap-3 cursor-pointer">
-                  <input type="checkbox" className="mt-0.5" required />
+                  <input 
+                    type="checkbox" 
+                    className="mt-0.5" 
+                    checked={termsAccepted.approval}
+                    onChange={() => handleTermsChange('approval')}
+                  />
                   <span>I understand that this application requires admin approval before contract activation.</span>
                 </label>
               </div>
@@ -957,6 +1039,7 @@ const OpenAccessApplicationForm = () => {
           {/* Action Buttons */}
           <div className="flex gap-3 pt-4 border-t border-[#e0e8e4]">
             <button
+              type="button"
               onClick={handleSubmitOA}
               disabled={isSubmittingOA}
               className="flex-1 bg-green-dark text-white py-3 rounded-lg text-[14px] font-bold hover:bg-green-mid transition-colors flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
@@ -974,6 +1057,7 @@ const OpenAccessApplicationForm = () => {
               )}
             </button>
             <button
+              type="button"
               onClick={() => setShowOpenAccessForm(false)}
               className="flex-1 btn-outline py-3"
               disabled={isSubmittingOA}
@@ -993,6 +1077,9 @@ const OpenAccessApplicationForm = () => {
     </div>
   );
 };
+
+
+
 
   const filteredSuppliers = suppliers.filter((s: any) => {
     const matchesSearch = s.name?.toLowerCase().includes(searchQuery.toLowerCase()) || s.state?.toLowerCase().includes(searchQuery.toLowerCase());
@@ -2018,6 +2105,7 @@ useEffect(() => {
                     <thead className="bg-gray-50">
                       <tr>
                         <th className="px-4 py-3 text-left text-[11px] font-semibold text-gray-600 uppercase tracking-wider">DRAWAL POINT</th>
+                        <th className="px-4 py-3 text-left text-[11px] font-semibold text-gray-600 uppercase tracking-wider">TYPE</th>
                         <th className="px-4 py-3 text-left text-[11px] font-semibold text-gray-600 uppercase tracking-wider">MW</th>
                         <th className="px-4 py-3 text-left text-[11px] font-semibold text-gray-600 uppercase tracking-wider">PRICE (₹)</th>
                         <th className="px-4 py-3 text-left text-[11px] font-semibold text-gray-600 uppercase tracking-wider">DURATION</th>
@@ -2042,6 +2130,7 @@ useEffect(() => {
                                 {bid.drawalPoint || 'Not specified'}
                               </span>
                             </td>
+                            <td className="px-4 py-3 font-semibold text-[14px] text-gray-900">{bid.renewableType}</td>
                             <td className="px-4 py-3 font-semibold text-[14px] text-gray-900">{bid.mw} MW</td>
                             <td className="px-4 py-3 font-semibold text-[14px] text-green-600">₹{bid.price}</td>
                             <td className="px-4 py-3 text-[13px] text-gray-600">{bid.duration} months</td>
@@ -2257,6 +2346,26 @@ useEffect(() => {
             />
           )}
           <p className="text-[11px] text-gray-400 mt-1">Grid substation where your facility is connected</p>
+        </div>
+
+
+        <div>
+          <label className="block text-sm font-semibold text-gray-700 mb-1">
+            Renewable Energy Type <span className="text-red-500">*</span>
+          </label>
+          <select
+            value={bidFormData.renewableType}
+            onChange={(e) => setBidFormData({...bidFormData, renewableType: e.target.value})}
+            className="form-control"
+            required
+          >
+            <option value="Solar">Solar</option>
+            <option value="Wind">Wind</option>
+            <option value="Solar-Wind Hybrid">Solar-Wind Hybrid</option>
+            <option value="Hydro">Hydro</option>
+            <option value="Biomass">Biomass</option>
+          </select>
+          <p className="text-[11px] text-gray-400 mt-1">Select the type of renewable energy you want to procure</p>
         </div>
 
         {/* Quantity Required */}

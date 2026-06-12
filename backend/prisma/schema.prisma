@@ -63,6 +63,7 @@ model Bid {
   duration     Int
   drawalPoint  String?
   scheduleType  String?
+  renewableType String?
   message      String?
   status       String   @default("ACTIVE")
   validityDays Int      @default(30)
@@ -81,6 +82,7 @@ model BidOffer {
   supplierName String
   offeredPrice Float
   offeredMw    Float
+  renewableType String?
   message      String?
   status       String   @default("PENDING")
   createdAt    DateTime @default(now())

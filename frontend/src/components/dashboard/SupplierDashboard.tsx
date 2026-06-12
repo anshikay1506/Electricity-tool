@@ -93,7 +93,8 @@ export const SupplierDashboard: React.FC<SupplierDashboardProps> = ({ activeTab 
   const [offerFormData, setOfferFormData] = useState({
   offeredPrice: 0,
   offeredMw: 0,
-  message: ''
+  message: '',
+  renewableType: 'Solar'
 });
 const [submittingOffer, setSubmittingOffer] = useState(false);
 const [myOffers, setMyOffers] = useState<any[]>([]);
@@ -587,7 +588,7 @@ const loadMyOffers = async () => {
   }
 };
 
-// Submit an offer on a bid
+
 const submitOffer = async (e: React.FormEvent) => {
   e.preventDefault();
   if (!token || !selectedBidForOffer) return;
@@ -606,7 +607,8 @@ const submitOffer = async (e: React.FormEvent) => {
         supplierName: profile?.name || user?.name || 'Supplier',
         offeredPrice: offerFormData.offeredPrice,
         offeredMw: offerFormData.offeredMw,
-        message: offerFormData.message
+        message: offerFormData.message,
+        renewableType: offerFormData.renewableType  // Add this line
       })
     });
     
@@ -615,7 +617,12 @@ const submitOffer = async (e: React.FormEvent) => {
     alert('Offer submitted successfully!');
     setShowOfferModal(false);
     setSelectedBidForOffer(null);
-    setOfferFormData({ offeredPrice: 0, offeredMw: 0, message: '' });
+    setOfferFormData({ 
+      offeredPrice: 0, 
+      offeredMw: 0, 
+      message: '',
+      renewableType: 'Solar' 
+    });
     
     // Refresh data
     await loadMarketBids();
@@ -627,6 +634,7 @@ const submitOffer = async (e: React.FormEvent) => {
     setSubmittingOffer(false);
   }
 };
+
 
 // Check if supplier has already made an offer on a bid
 const hasMadeOffer = (bidId: string) => {
@@ -1161,7 +1169,8 @@ if (activeTab === 'market-bids') {
                                   setOfferFormData({
                                     offeredPrice: bid.price,
                                     offeredMw: bid.mw,
-                                    message: ''
+                                    message: '',
+                                    renewableType: bid.renewableType || 'Solar'
                                   });
                                   setShowOfferModal(true);
                                 }}
@@ -1176,7 +1185,8 @@ if (activeTab === 'market-bids') {
                                   setOfferFormData({
                                     offeredPrice: bid.price,
                                     offeredMw: bid.mw,
-                                    message: ''
+                                    message: '',
+                                    renewableType: ''
                                   });
                                   setShowOfferModal(true);
                                 }}
@@ -1221,6 +1231,7 @@ if (activeTab === 'market-bids') {
                     <tr>
                       <th className="px-3 py-2 text-left text-[12px] font-bold text-gray-700">BID DETAILS</th>
                       <th className="px-3 py-2 text-left text-[12px] font-bold text-gray-700">CONSUMER</th>
+                      <th className="px-3 py-2 text-left text-[12px] font-bold text-gray-700">RENEWABLE TYPE</th>
                       <th className="px-3 py-2 text-left text-[12px] font-bold text-gray-700">MY OFFER</th>
                       <th className="px-3 py-2 text-left text-[12px] font-bold text-gray-700">OFFER PRICE</th>
                       <th className="px-3 py-2 text-left text-[12px] font-bold text-gray-700">vs TARGET</th>
@@ -1244,11 +1255,16 @@ if (activeTab === 'market-bids') {
                                 {offer.bid?.drawalPoint || 'Not specified'}
                               </p>
                               <p className="text-[10px] text-gray-400">
-                                {offer.bid?.mw} MW • {offer.bid?.duration} months
+                                {offer.bid?.duration} months
                               </p>
                             </div>
                           </td>
                           <td className="px-3 py-2 text-gray-600 text-[12px]">{offer.bid?.consumerName || '—'}</td>
+                          <td className="px-3 py-2">
+          <span className="inline-flex px-1.5 py-0.5 rounded-full text-[9px] font-semibold bg-blue-100 text-blue-700">
+            {offer.renewableType || offer.bid?.renewableType || 'Solar'}
+          </span>
+        </td>
                           <td className="px-3 py-2 font-semibold text-gray-900 text-[12px]">{offer.offeredMw} MW</td>
                           <td className="px-3 py-2">
                             <span className="font-semibold text-[13px] text-green-600">₹{offer.offeredPrice}</span>
@@ -1371,6 +1387,14 @@ if (activeTab === 'market-bids') {
                     <p className="text-[10px] text-gray-400">Duration</p>
                     <p className="text-[12px] text-gray-600">{selectedBidForOffer.duration} months</p>
                   </div>
+
+                  <div>
+                <p className="text-[10px] text-gray-400">Renewable Type Required</p>
+                <p className="text-[12px] font-semibold text-blue-600 flex items-center gap-1">
+                  <Zap className="w-3 h-3" />
+                  {selectedBidForOffer.renewableType || 'Solar'}
+                </p>
+              </div>
                 </div>
                 {selectedBidForOffer.message && (
                   <div className="mt-3 pt-3 border-t border-[#e0e8e4]">
@@ -1383,6 +1407,27 @@ if (activeTab === 'market-bids') {
               {/* Your Offer Section */}
               <div className="border-t border-[#e0e8e4] pt-4">
                 <p className="text-[12px] font-semibold text-gray-700 mb-4">Your Offer</p>
+
+                <div className="mb-4">
+            <label className="block text-[12px] font-semibold text-gray-700 mb-1">
+              Renewable Type You Offer <span className="text-red-500">*</span>
+            </label>
+            <select
+              value={offerFormData.renewableType}
+              onChange={(e) => setOfferFormData({...offerFormData, renewableType: e.target.value})}
+              className="form-control"
+              required
+            >
+              <option value="Solar">Solar</option>
+              <option value="Wind">Wind</option>
+              <option value="Solar-Wind Hybrid">Solar-Wind Hybrid</option>
+              <option value="Hydro">Hydro</option>
+              <option value="Biomass">Biomass</option>
+            </select>
+            <p className="text-[10px] text-gray-400 mt-1">
+              Consumer requires: {selectedBidForOffer.renewableType || 'Solar'}
+            </p>
+          </div>
                 
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
                   <div>
@@ -1458,6 +1503,10 @@ if (activeTab === 'market-bids') {
                 </p>
                 <div className="space-y-1 text-[12px]">
                   <div className="flex justify-between">
+                    <div className="flex justify-between">
+              <span className="text-gray-600">Renewable Type:</span>
+              <span className="font-semibold">{offerFormData.renewableType}</span>
+            </div>
                     <span className="text-gray-600">Your Offer:</span>
                     <span className="font-semibold">{offerFormData.offeredMw} MW @ ₹{offerFormData.offeredPrice}/unit</span>
                   </div>

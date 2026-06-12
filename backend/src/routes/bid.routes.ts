@@ -7,7 +7,7 @@ const router = Router();
 // Create a new bid request
 router.post('/', authenticateToken, async (req: any, res: any) => {
   try {
-    const { mw, price, duration, message, consumerName, consumerId, scheduleType,drawalPoint, validityDays } = req.body;
+    const { mw, price, duration, message, consumerName, consumerId, scheduleType,renewableType, drawalPoint, validityDays } = req.body;
     
     // Validate required fields
     if (!mw || !price || !duration) {
@@ -22,6 +22,7 @@ router.post('/', authenticateToken, async (req: any, res: any) => {
       duration: Number(duration),
       drawalPoint: drawalPoint || 'Not specified',
       scheduleType: scheduleType || 'RTC',
+      renewableType,
       validityDays: Number(validityDays) || 30,
       message: message || '',
       status: 'ACTIVE'
@@ -117,6 +118,7 @@ router.get('/active', authenticateToken, async (req: any, res: any) => {
 });
 
 
+
 // Get all offers by a supplier
 router.get('/offers/supplier/:supplierId', authenticateToken, async (req: any, res: any) => {
   try {
@@ -132,7 +134,7 @@ router.get('/offers/supplier/:supplierId', authenticateToken, async (req: any, r
 
 router.post('/offers', authenticateToken, async (req: any, res: any) => {
   try {
-    const { bidId, supplierId, supplierName, offeredPrice, offeredMw, message } = req.body;
+    const { bidId, supplierId, supplierName, offeredPrice, renewableType, offeredMw, message } = req.body;
     
     // Check if supplier already made an offer on this bid
     const existingOffers = await db.getOffersByBid(bidId);
@@ -147,6 +149,7 @@ router.post('/offers', authenticateToken, async (req: any, res: any) => {
       supplierId,
       supplierName,
       offeredPrice,
+      renewableType,
       offeredMw,
       message: message || ''
     });
