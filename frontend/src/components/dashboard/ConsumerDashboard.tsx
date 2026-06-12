@@ -61,6 +61,10 @@ interface GeoaApplication {
 
 const GEOA_DRAFT_KEY = 'geoa_form_draft';
 
+
+
+
+
 export const ConsumerDashboard: React.FC<ConsumerDashboardProps> = ({ activeTab, setTab, onNavigateToHome, onOpenSupplierDetail }) => {
   const { user, token } = useAuth();
   const [profile, setProfile] = useState<any>(null);
@@ -190,6 +194,7 @@ const [bidOffersList, setBidOffersList] = useState<any[]>([]);
 
 
 
+
 const handleCreateBid = async (e: React.FormEvent) => {
   e.preventDefault();
   if (!token) return;
@@ -266,8 +271,8 @@ const loadBids = async () => {
     });
     if (response.ok) {
       const data = await response.json();
-      console.log('Bids loaded:', data.map(b => ({ id: b.id, status: b.status })));
       setBidsList(data);
+      console.log('Bids refreshed:', data.length);
     }
   } catch (error) {
     console.error('Error loading bids:', error);
@@ -312,11 +317,23 @@ const proceedToContract = (bid: any) => {
   const [selectedSupplierPlants, setSelectedSupplierPlants] = useState<any[]>([]);
   const [showSupplierPlantsModal, setShowSupplierPlantsModal] = useState(false);
 
+const [isLoadingOffersPage, setIsLoadingOffersPage] = useState(false);
+
   const GEOA_STEPS = [
     { num: 1, label: 'Applicant Details' },
     { num: 2, label: 'Technical Details' },
     { num: 3, label: 'Review & Submit' },
   ];
+
+const [isLoadingOffers, setIsLoadingOffers] = useState(false);
+const [offersData, setOffersData] = useState<any[]>([]);
+
+
+const [showOpenAccessForm, setShowOpenAccessForm] = useState(false);
+const [selectedBidForOA, setSelectedBidForOA] = useState<any>(null);
+const [selectedOfferForOA, setSelectedOfferForOA] = useState<any>(null);
+const [isSubmittingOA, setIsSubmittingOA] = useState(false);
+
 
   const API_BASE = (import.meta as any)?.env?.VITE_API_URL || 'http://localhost:5000';
   const currentSupplier = suppliers.find((item) => item.id === selectedSupplierId) || null;
@@ -523,32 +540,24 @@ const getFinalDeliveredPriceForPlant = (plant: any) => {
 
 
 
-// Load offers for a specific bid
-// const loadBidOffers = async (bidId: string) => {
-//   if (!token) return;
-//   try {
-//     const response = await fetch(`${API_BASE}/api/bids/offers/bid/${bidId}`, {
-//       headers: { Authorization: `Bearer ${token}` }
-//     });
-//     if (response.ok) {
-//       const data = await response.json();
-//       setBidOffers(data);
-//     }
-//   } catch (error) {
-//     console.error('Error loading bid offers:', error);
-//   }
-// };
-
-
-
 const viewBidOffers = async (bid: any) => {
   console.log('Viewing offers for bid:', bid);
+  setIsLoadingOffersPage(true); 
   setSelectedBidForOffers(bid);
-  await loadBidOffersForView(bid.id);
-  setShowBidOffersView(true);
+  setShowBidOffersView(true); 
+  
+  try {
+    await loadBidOffersForView(bid.id);
+  } catch (error) {
+    console.error('Error loading offers:', error);
+    alert('Failed to load offers. Please try again.');
+  } finally {
+    setIsLoadingOffersPage(false);
+  }
 };
 
-// View offers for a bid
+
+
 const loadBidOffersForView = async (bidId: string) => {
   if (!token) return;
   try {
@@ -585,38 +594,16 @@ const getBestOfferFromList = (offers: any[]) => {
 };
 
 
-const acceptBidOffer = async (offerId: string, bidId: string) => {
-  if (!confirm('Accept this offer? This will reject all other offers for this bid.')) return;
-  
-  try {
-    const response = await fetch(`${API_BASE}/api/bids/offers/${offerId}/accept`, {
-      method: 'PATCH',
-      headers: { 
-        'Content-Type': 'application/json',
-        Authorization: `Bearer ${token}` 
-      }
-    });
-    
-    if (!response.ok) {
-      const errorData = await response.json();
-      throw new Error(errorData.error || 'Failed to accept offer');
-    }
-    
-    const result = await response.json();
-    console.log('Offer accepted successfully:', result);
-    
-    alert('Offer accepted successfully!');
-    await loadBids();
-    backToBids();
-    
-  } catch (error) {
-    console.error('Error accepting offer:', error);
-    alert(error instanceof Error ? error.message : 'Failed to accept offer. Please try again.');
-  }
+const acceptBidOffer = (offer: any, bid: any) => {
+  console.log('Opening Open Access form for bid:', { offer, bid });
+  setSelectedOfferForOA(offer);
+  setSelectedBidForOA(bid);
+  setShowOpenAccessForm(true);
 };
 
+  
 
-// Reject an offer
+
 const rejectBidOffer = async (offerId: string) => {
   if (!confirm('Reject this offer?')) return;
   
@@ -725,6 +712,287 @@ const rejectBidOffer = async (offerId: string) => {
       </div>
     );
   };
+
+
+
+  // Open Access Application Form Component for Raise Bid Section
+const OpenAccessApplicationForm = () => {
+  if (!showOpenAccessForm || !selectedBidForOA || !selectedOfferForOA) {
+    return null;
+  }
+
+  const handleSubmitOA = async () => {
+    setIsSubmittingOA(true);
+    
+    try {
+      // 1. Accept the offer
+      const acceptResponse = await fetch(`${API_BASE}/api/bids/offers/${selectedOfferForOA.id}/accept`, {
+        method: 'PATCH',
+        headers: { 
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}` 
+        }
+      });
+      
+      if (!acceptResponse.ok) {
+        throw new Error('Failed to accept offer');
+      }
+      
+      // 2. Create Open Access Application
+      const applicationData = {
+        supplierId: selectedOfferForOA.supplierId,
+        supplierName: selectedOfferForOA.supplierName,
+        mw: selectedOfferForOA.offeredMw,
+        durationDays: selectedBidForOA.duration * 30,
+        requestedPrice: selectedOfferForOA.offeredPrice,
+        finalPrice: selectedOfferForOA.offeredPrice,
+        drawalPoint: selectedBidForOA.drawalPoint,
+        injectionPoint: selectedBidForOA.injectionPoint || 'Bhadla Pool (765kV)',
+        proposedStartDate: new Date().toISOString().split('T')[0],
+        scheduleType: selectedBidForOA.scheduleType || 'RTC',
+        timeBlocks: selectedBidForOA.timeBlocks || '00:00-24:00',
+        consumerName: profile?.name || user?.name || 'Consumer',
+        consumerId: user?.id,
+        state: profile?.state || 'Rajasthan',
+        voltageLevel: selectedBidForOA.voltageLevel || '33kV',
+        bidId: selectedBidForOA.id,
+        offerId: selectedOfferForOA.id,
+        status: 'PENDING_ADMIN_APPROVAL'
+      };
+      
+      const applicationResponse = await fetch(`${API_BASE}/api/applications`, {
+        method: 'POST',
+        headers: { 
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}` 
+        },
+        body: JSON.stringify(applicationData)
+      });
+      
+      if (!applicationResponse.ok) {
+        throw new Error('Failed to create Open Access application');
+      }
+      
+      alert('Open Access application submitted successfully!');
+      setShowOpenAccessForm(false);
+      setSelectedBidForOA(null);
+      setSelectedOfferForOA(null);
+      
+      // Refresh data
+      await loadBids();
+      await loadApplications();
+      
+      // Navigate to applications
+      setTab('my-applications');
+      
+    } catch (error) {
+      console.error('Error submitting Open Access application:', error);
+      alert('Failed to submit application. Please try again.');
+    } finally {
+      setIsSubmittingOA(false);
+    }
+  };
+
+  return (
+    <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4 overflow-y-auto" onClick={() => setShowOpenAccessForm(false)}>
+      <div className="bg-white rounded-2xl max-w-4xl w-full max-h-[90vh] overflow-y-auto shadow-2xl animate-fadeIn" onClick={(e) => e.stopPropagation()}>
+        {/* Header */}
+        <div className="sticky top-0 bg-white border-b border-[#e0e8e4] px-6 py-4 flex items-center justify-between">
+          <div>
+            <h3 className="font-sora text-xl font-bold text-gray-900">Open Access Application</h3>
+            <p className="text-[13px] text-gray-500">Review and submit your Open Access application</p>
+          </div>
+          <button onClick={() => setShowOpenAccessForm(false)} className="p-2 hover:bg-gray-100 rounded-full transition-colors">
+            <X className="w-5 h-5 text-gray-500" />
+          </button>
+        </div>
+
+        <div className="p-6 space-y-6">
+          {/* Info Banner */}
+          <div className="bg-blue-50 border border-blue-200 rounded-xl p-4">
+            <div className="flex items-start gap-3">
+              <AlertCircle className="w-5 h-5 text-blue-600 mt-0.5" />
+              <div>
+                <p className="text-[13px] font-semibold text-blue-800">Application from Accepted Bid</p>
+                <p className="text-[12px] text-blue-700 mt-1">
+                  This application has been pre-filled with details from the accepted bid from <strong>{selectedOfferForOA.supplierName}</strong>. 
+                  All fields are read-only based on the agreed terms.
+                </p>
+              </div>
+            </div>
+          </div>
+
+          {/* Bid Summary Card */}
+          <div className="bg-gradient-to-r from-green-50 to-white rounded-xl border border-green-100 p-5">
+            <p className="text-[11px] text-gray-500 uppercase tracking-wider mb-2">Accepted Bid Summary</p>
+            <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+              <div>
+                <p className="text-[10px] text-gray-400">Supplier</p>
+                <p className="text-[14px] font-semibold text-gray-900">{selectedOfferForOA.supplierName}</p>
+              </div>
+              <div>
+                <p className="text-[10px] text-gray-400">Capacity</p>
+                <p className="text-[14px] font-bold text-gray-900">{selectedOfferForOA.offeredMw} MW</p>
+              </div>
+              <div>
+                <p className="text-[10px] text-gray-400">Agreed Price</p>
+                <p className="text-[14px] font-bold text-green-600">₹{selectedOfferForOA.offeredPrice}/unit</p>
+              </div>
+              <div>
+                <p className="text-[10px] text-gray-400">Duration</p>
+                <p className="text-[14px] font-semibold text-gray-900">{selectedBidForOA.duration} months</p>
+              </div>
+            </div>
+          </div>
+
+          {/* Open Access Application Form - Read Only */}
+          <div className="space-y-5">
+            {/* Section 1: Consumer Details */}
+            <div className="bg-gray-50 rounded-xl p-5 border border-[#e0e8e4]">
+              <h4 className="font-semibold text-gray-900 mb-4 flex items-center gap-2">
+                <Building className="w-4 h-4 text-blue-600" />
+                Consumer Details
+              </h4>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="bg-white rounded-lg p-3 border border-[#e0e8e4]">
+                  <p className="text-[10px] text-gray-400 uppercase">Consumer Name</p>
+                  <p className="text-[14px] font-semibold text-gray-900">{profile?.name || user?.name || 'Consumer'}</p>
+                </div>
+                <div className="bg-white rounded-lg p-3 border border-[#e0e8e4]">
+                  <p className="text-[10px] text-gray-400 uppercase">State</p>
+                  <p className="text-[14px] text-gray-700">{profile?.state || 'Rajasthan'}</p>
+                </div>
+                <div className="bg-white rounded-lg p-3 border border-[#e0e8e4]">
+                  <p className="text-[10px] text-gray-400 uppercase">Email</p>
+                  <p className="text-[13px] text-gray-600">{profile?.email || user?.email || '—'}</p>
+                </div>
+                <div className="bg-white rounded-lg p-3 border border-[#e0e8e4]">
+                  <p className="text-[10px] text-gray-400 uppercase">Mobile</p>
+                  <p className="text-[13px] text-gray-600">{profile?.mobile || '—'}</p>
+                </div>
+              </div>
+            </div>
+
+            {/* Section 2: Technical Details */}
+            <div className="bg-gray-50 rounded-xl p-5 border border-[#e0e8e4]">
+              <h4 className="font-semibold text-gray-900 mb-4 flex items-center gap-2">
+                <Zap className="w-4 h-4 text-amber-600" />
+                Technical Details
+              </h4>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="bg-white rounded-lg p-3 border border-[#e0e8e4]">
+                  <p className="text-[10px] text-gray-400 uppercase">Drawal Point</p>
+                  <p className="text-[13px] font-semibold text-gray-900">{selectedBidForOA.drawalPoint || 'Not specified'}</p>
+                </div>
+                <div className="bg-white rounded-lg p-3 border border-[#e0e8e4]">
+                  <p className="text-[10px] text-gray-400 uppercase">Injection Point</p>
+                  <p className="text-[13px] font-semibold text-gray-900">Bhadla Pool (765kV)</p>
+                </div>
+                <div className="bg-white rounded-lg p-3 border border-[#e0e8e4]">
+                  <p className="text-[10px] text-gray-400 uppercase">Schedule Type</p>
+                  <p className="text-[13px] font-semibold text-gray-900">{selectedBidForOA.scheduleType || 'RTC'}</p>
+                </div>
+                <div className="bg-white rounded-lg p-3 border border-[#e0e8e4]">
+                  <p className="text-[10px] text-gray-400 uppercase">Voltage Level</p>
+                  <p className="text-[13px] font-semibold text-gray-900">33kV</p>
+                </div>
+                <div className="bg-white rounded-lg p-3 border border-[#e0e8e4]">
+                  <p className="text-[10px] text-gray-400 uppercase">Start Date</p>
+                  <p className="text-[13px] font-semibold text-gray-900">{new Date().toLocaleDateString()}</p>
+                </div>
+                <div className="bg-white rounded-lg p-3 border border-[#e0e8e4]">
+                  <p className="text-[10px] text-gray-400 uppercase">Duration (Days)</p>
+                  <p className="text-[13px] font-semibold text-gray-900">{selectedBidForOA.duration * 30} days</p>
+                </div>
+              </div>
+            </div>
+
+            {/* Section 3: Financial Summary */}
+            <div className="bg-gray-50 rounded-xl p-5 border border-[#e0e8e4]">
+              <h4 className="font-semibold text-gray-900 mb-4 flex items-center gap-2">
+                <DollarSign className="w-4 h-4 text-green-600" />
+                Financial Summary
+              </h4>
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <div className="bg-white rounded-lg p-3 border border-[#e0e8e4]">
+                  <p className="text-[10px] text-gray-400 uppercase">Agreed Rate</p>
+                  <p className="text-[18px] font-bold text-green-600">₹{selectedOfferForOA.offeredPrice}<span className="text-[12px]">/unit</span></p>
+                </div>
+                <div className="bg-white rounded-lg p-3 border border-[#e0e8e4]">
+                  <p className="text-[10px] text-gray-400 uppercase">Monthly Energy</p>
+                  <p className="text-[16px] font-bold text-gray-900">{selectedOfferForOA.offeredMw * 24 * 30} MWh</p>
+                </div>
+                <div className="bg-white rounded-lg p-3 border border-[#e0e8e4]">
+                  <p className="text-[10px] text-gray-400 uppercase">Annual Value</p>
+                  <p className="text-[16px] font-bold text-green-600">
+                    ₹{((selectedOfferForOA.offeredMw * 1000 * 24 * 365 * selectedOfferForOA.offeredPrice) / 10000000).toFixed(2)} Cr
+                  </p>
+                </div>
+              </div>
+            </div>
+
+            {/* Section 4: Terms & Conditions */}
+            <div className="bg-gray-50 rounded-xl p-5 border border-[#e0e8e4]">
+              <h4 className="font-semibold text-gray-900 mb-3 flex items-center gap-2">
+                <FileText className="w-4 h-4 text-purple-600" />
+                Terms & Conditions
+              </h4>
+              <div className="space-y-2 text-[12px] text-gray-600">
+                <label className="flex items-start gap-3 cursor-pointer">
+                  <input type="checkbox" className="mt-0.5" required />
+                  <span>I confirm that all information provided is accurate and complete.</span>
+                </label>
+                <label className="flex items-start gap-3 cursor-pointer">
+                  <input type="checkbox" className="mt-0.5" required />
+                  <span>I agree to the terms of the Open Access agreement and applicable regulations.</span>
+                </label>
+                <label className="flex items-start gap-3 cursor-pointer">
+                  <input type="checkbox" className="mt-0.5" required />
+                  <span>I understand that this application requires admin approval before contract activation.</span>
+                </label>
+              </div>
+            </div>
+          </div>
+
+          {/* Action Buttons */}
+          <div className="flex gap-3 pt-4 border-t border-[#e0e8e4]">
+            <button
+              onClick={handleSubmitOA}
+              disabled={isSubmittingOA}
+              className="flex-1 bg-green-dark text-white py-3 rounded-lg text-[14px] font-bold hover:bg-green-mid transition-colors flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              {isSubmittingOA ? (
+                <>
+                  <RefreshCw className="w-4 h-4 animate-spin" />
+                  Submitting Application...
+                </>
+              ) : (
+                <>
+                  <CheckCircle className="w-5 h-5" />
+                  Submit Open Access Application
+                </>
+              )}
+            </button>
+            <button
+              onClick={() => setShowOpenAccessForm(false)}
+              className="flex-1 btn-outline py-3"
+              disabled={isSubmittingOA}
+            >
+              Cancel
+            </button>
+          </div>
+
+          {/* Note */}
+          <div className="bg-amber-50 border border-amber-200 rounded-lg p-3">
+            <p className="text-[11px] text-amber-800">
+              ⓘ Once submitted, the application will be reviewed by the admin. You will be notified once approved.
+            </p>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+};
 
   const filteredSuppliers = suppliers.filter((s: any) => {
     const matchesSearch = s.name?.toLowerCase().includes(searchQuery.toLowerCase()) || s.state?.toLowerCase().includes(searchQuery.toLowerCase());
@@ -1467,6 +1735,22 @@ useEffect(() => {
           </div>
         </div>
 
+        {isLoadingOffersPage ? (
+      <div className="flex flex-col items-center justify-center py-20">
+        <div className="relative">
+          <div className="w-16 h-16 border-4 border-green-200 rounded-full animate-spin border-t-green-600"></div>
+          <div className="absolute inset-0 flex items-center justify-center">
+            <Zap className="w-6 h-6 text-green-600 animate-pulse" />
+          </div>
+        </div>
+        <div className="mt-6 text-center">
+          <p className="text-gray-700 font-semibold text-[15px]">Loading supplier offers...</p>
+          <p className="text-gray-400 text-[12px] mt-1">Fetching responses from suppliers</p>
+        </div>
+      </div>
+    ) : (
+      /* Content - Shows only after data is loaded */
+      <>
         {/* Original Bid Summary Card */}
         <div className="bg-gradient-to-r from-green-50 to-white rounded-xl border border-green-100 p-5">
           <div className="flex flex-wrap items-center justify-between gap-4">
@@ -1522,36 +1806,36 @@ useEffect(() => {
           </div>
         )}
 
-        {/* Offers Table */}
-        <div className="bg-white rounded-xl border border-[#e0e8e4] overflow-hidden">
-          <div className="overflow-x-auto">
-            <table className="w-full">
-              <thead className="bg-gray-50">
-                <tr>
-                  <th className="px-5 py-3 text-left text-[11px] font-semibold text-gray-600 uppercase tracking-wider">SUPPLIER</th>
-                  <th className="px-5 py-3 text-left text-[11px] font-semibold text-gray-600 uppercase tracking-wider">OFFERED MW</th>
-                  <th className="px-5 py-3 text-left text-[11px] font-semibold text-gray-600 uppercase tracking-wider">OFFERED PRICE</th>
-                  <th className="px-5 py-3 text-left text-[11px] font-semibold text-gray-600 uppercase tracking-wider">VS TARGET</th>
-                  <th className="px-5 py-3 text-left text-[11px] font-semibold text-gray-600 uppercase tracking-wider">ANNUAL VALUE</th>
-                  <th className="px-5 py-3 text-left text-[11px] font-semibold text-gray-600 uppercase tracking-wider">MESSAGE</th>
-                  <th className="px-5 py-3 text-left text-[11px] font-semibold text-gray-600 uppercase tracking-wider">SUBMITTED</th>
-                  <th className="px-5 py-3 text-left text-[11px] font-semibold text-gray-600 uppercase tracking-wider">STATUS</th>
-                  <th className="px-5 py-3 text-left text-[11px] font-semibold text-gray-600 uppercase tracking-wider">ACTION</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-[#f0f4f2]">
-                {bidOffersList.length === 0 ? (
+        
+          <div className="bg-white rounded-xl border border-[#e0e8e4] overflow-hidden">
+          {bidOffersList.length === 0 ? (
+            /* No Offers State */
+            <div className="text-center py-12">
+              <div className="w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                <Clock className="w-8 h-8 text-gray-400" />
+              </div>
+              <p className="text-gray-500 text-[14px] font-medium">No offers received yet</p>
+              <p className="text-gray-400 text-[11px] mt-1">Suppliers will submit offers here when they respond to your bid</p>
+            </div>
+          ) : (
+            /* Offers Table */
+            <div className="overflow-x-auto">
+              <table className="w-full">
+                <thead className="bg-gray-50">
                   <tr>
-                    <td colSpan={9} className="px-5 py-12 text-center text-gray-500">
-                      <div className="flex flex-col items-center gap-2">
-                        <Clock className="w-8 h-8 text-gray-300" />
-                        <p className="text-[14px] font-medium">No offers received yet</p>
-                        <p className="text-[11px]">Suppliers will submit offers here when they respond to your bid</p>
-                      </div>
-                    </td>
+                    <th className="px-5 py-3 text-left text-[11px] font-semibold text-gray-600 uppercase tracking-wider">SUPPLIER</th>
+                    <th className="px-5 py-3 text-left text-[11px] font-semibold text-gray-600 uppercase tracking-wider">OFFERED MW</th>
+                    <th className="px-5 py-3 text-left text-[11px] font-semibold text-gray-600 uppercase tracking-wider">OFFERED PRICE</th>
+                    <th className="px-5 py-3 text-left text-[11px] font-semibold text-gray-600 uppercase tracking-wider">VS TARGET</th>
+                    <th className="px-5 py-3 text-left text-[11px] font-semibold text-gray-600 uppercase tracking-wider">ANNUAL VALUE</th>
+                    <th className="px-5 py-3 text-left text-[11px] font-semibold text-gray-600 uppercase tracking-wider">MESSAGE</th>
+                    <th className="px-5 py-3 text-left text-[11px] font-semibold text-gray-600 uppercase tracking-wider">SUBMITTED</th>
+                    <th className="px-5 py-3 text-left text-[11px] font-semibold text-gray-600 uppercase tracking-wider">STATUS</th>
+                    <th className="px-5 py-3 text-left text-[11px] font-semibold text-gray-600 uppercase tracking-wider">ACTION</th>
                   </tr>
-                ) : (
-                  bidOffersList.map((offer) => {
+                </thead>
+                <tbody className="divide-y divide-[#f0f4f2]">
+                  {bidOffersList.map((offer) => {
                     const isBetter = offer.offeredPrice <= selectedBidForOffers.price;
                     const annualValue = (offer.offeredMw * 1000 * 24 * 365 * offer.offeredPrice) / 10000000;
                     
@@ -1613,10 +1897,10 @@ useEffect(() => {
                           {offer.status === 'PENDING' && (
                             <div className="flex gap-2">
                               <button
-                                onClick={() => acceptBidOffer(offer.id, selectedBidForOffers.id)}
+                                onClick={() => acceptBidOffer(offer, selectedBidForOffers)}
                                 className="px-3 py-1.5 rounded-lg bg-green-600 text-white text-[11px] font-semibold hover:bg-green-700 transition-colors"
                               >
-                                Accept
+                                Accept & Apply
                               </button>
                               <button
                                 onClick={() => rejectBidOffer(offer.id)}
@@ -1637,14 +1921,16 @@ useEffect(() => {
                         </td>
                       </tr>
                     );
-                  })
-                )}
-              </tbody>
-            </table>
-          </div>
+                  })}
+                </tbody>
+              </table>
+            </div>
+          )}
         </div>
-      </div>
-    ) : (
+      </>
+    )}
+  </div>
+) : (
       /* ========== BID MANAGEMENT TAB - Show when not viewing offers ========== */
       <div className="space-y-6 animate-fadeIn">
         {/* Header */}
@@ -1665,7 +1951,7 @@ useEffect(() => {
         </div>
 
         {/* Tabs */}
-        <div className="flex ">
+        <div className="flex">
           <button
             onClick={() => setBidTab('active')}
             className={`px-6 py-3 text-[14px] font-semibold transition-all ${
@@ -1768,7 +2054,7 @@ useEffect(() => {
                                 {bid.scheduleType === 'RTC' ? 'RTC' : 
                                  bid.scheduleType === 'Peak' ? 'Peak' : 'Off-Peak'}
                               </span>
-                             </td>
+                            </td>
                             <td className="px-4 py-3">
                               <span className={`inline-flex px-2 py-0.5 rounded-full text-[10px] font-semibold ${
                                 bid.status === 'ACTIVE' ? 'bg-green-100 text-green-700' :
@@ -1776,12 +2062,12 @@ useEffect(() => {
                               }`}>
                                 {bid.status === 'ACTIVE' ? 'Active' : 'Pending'}
                               </span>
-                             </td>
+                            </td>
                             <td className="px-4 py-3">
                               <span className={`text-[12px] font-medium ${daysLeft < 7 ? 'text-red-500' : daysLeft < 15 ? 'text-amber-500' : 'text-green-600'}`}>
                                 {daysLeft} days
                               </span>
-                             </td>
+                            </td>
                             <td className="px-4 py-3">
                               <div className="flex gap-2">
                                 <button
@@ -1790,15 +2076,15 @@ useEffect(() => {
                                 >
                                   Cancel
                                 </button>
-                                <button
-                                  onClick={() => viewBidOffers(bid)}
-                                  className="px-2.5 py-1 rounded-md bg-blue-50 border border-blue-200 text-blue-600 text-[11px] font-semibold hover:bg-blue-100 transition-colors"
-                                >
-                                  View Offers
-                                </button>
+                                <button 
+  onClick={() => viewBidOffers(bid)} 
+  className="px-2.5 py-1 rounded-md bg-blue-50 border border-blue-200 text-blue-600 text-[11px] font-semibold hover:bg-blue-100 transition-colors"
+>
+  View Offers
+</button>
                               </div>
-                             </td>
-                           </tr>
+                            </td>
+                          </tr>
                         );
                       })}
                     </tbody>
@@ -1833,8 +2119,8 @@ useEffect(() => {
                         <th className="px-4 py-3 text-left text-[11px] font-semibold text-gray-600 uppercase tracking-wider">SUPPLIER</th>
                         <th className="px-4 py-3 text-left text-[11px] font-semibold text-gray-600 uppercase tracking-wider">ACCEPTED ON</th>
                         <th className="px-4 py-3 text-left text-[11px] font-semibold text-gray-600 uppercase tracking-wider">ACTION</th>
-                      <tr>
-                    </tr>
+                      </tr>
+                    </thead>
                     <tbody className="divide-y divide-[#f0f4f2]">
                       {bidsList.filter(b => b.status === 'ACCEPTED').map((bid) => (
                         <tr key={bid.id} className="hover:bg-gray-50 transition-colors">
@@ -1854,15 +2140,13 @@ useEffect(() => {
                               Create Contract
                             </button>
                           </td>
-                         </tr>
+                        </tr>
                       ))}
                     </tbody>
-                  </tr>
-                </thead>
-              </table>
-              </div></div>
+                  </table>
+                </div>
+              </div>
             )}
-
           </>
         )}
 
@@ -1912,7 +2196,7 @@ useEffect(() => {
                           <td className="px-4 py-3 text-[13px] text-gray-500">
                             {bid.updatedAt ? new Date(bid.updatedAt).toLocaleDateString() : '—'}
                           </td>
-                         </tr>
+                        </tr>
                       ))}
                     </tbody>
                   </table>
@@ -3146,6 +3430,9 @@ useEffect(() => {
 
       {/* Supplier Details Modal */}
       {showSupplierModal && selectedSupplierForModal && <SupplierDetailsModal />}
+
+      <OpenAccessApplicationForm />
+
     </>
   );
 };
