@@ -1912,12 +1912,12 @@ useEffect(() => {
                   <tr>
                     <th className="px-5 py-3 text-left text-[11px] font-semibold text-gray-600 uppercase tracking-wider">SUPPLIER</th>
                     <th className="px-5 py-3 text-left text-[11px] font-semibold text-gray-600 uppercase tracking-wider">OFFERED MW</th>
+                    <th className="px-5 py-3 text-left text-[11px] font-semibold text-gray-600 uppercase tracking-wider">TYPE</th>
                     <th className="px-5 py-3 text-left text-[11px] font-semibold text-gray-600 uppercase tracking-wider">OFFERED PRICE</th>
                     <th className="px-5 py-3 text-left text-[11px] font-semibold text-gray-600 uppercase tracking-wider">VS TARGET</th>
                     <th className="px-5 py-3 text-left text-[11px] font-semibold text-gray-600 uppercase tracking-wider">ANNUAL VALUE</th>
                     <th className="px-5 py-3 text-left text-[11px] font-semibold text-gray-600 uppercase tracking-wider">MESSAGE</th>
                     <th className="px-5 py-3 text-left text-[11px] font-semibold text-gray-600 uppercase tracking-wider">SUBMITTED</th>
-                    <th className="px-5 py-3 text-left text-[11px] font-semibold text-gray-600 uppercase tracking-wider">STATUS</th>
                     <th className="px-5 py-3 text-left text-[11px] font-semibold text-gray-600 uppercase tracking-wider">ACTION</th>
                   </tr>
                 </thead>
@@ -1941,6 +1941,9 @@ useEffect(() => {
                         </td>
                         <td className="px-5 py-3">
                           <p className="font-bold text-[15px] text-gray-900">{offer.offeredMw} <span className="text-[11px]">MW</span></p>
+                        </td>
+                        <td className="px-5 py-3">
+                          <p className="font-bold text-[15px] text-gray-900">{offer.renewableType}</p>
                         </td>
                         <td className="px-5 py-3">
                           <p className={`font-bold text-[16px] ${isBetter ? 'text-green-600' : 'text-red-600'}`}>
@@ -1969,16 +1972,6 @@ useEffect(() => {
                         </td>
                         <td className="px-5 py-3 text-gray-500 text-[12px]">
                           {new Date(offer.createdAt).toLocaleDateString()}
-                        </td>
-                        <td className="px-5 py-3">
-                          <span className={`inline-flex px-2 py-1 rounded-full text-[10px] font-semibold ${
-                            offer.status === 'ACCEPTED' ? 'bg-green-100 text-green-700' :
-                            offer.status === 'REJECTED' ? 'bg-red-100 text-red-700' :
-                            'bg-yellow-100 text-yellow-700'
-                          }`}>
-                            {offer.status === 'ACCEPTED' ? 'Accepted' :
-                             offer.status === 'REJECTED' ? 'Rejected' : 'Pending'}
-                          </span>
                         </td>
                         <td className="px-5 py-3">
                           {offer.status === 'PENDING' && (

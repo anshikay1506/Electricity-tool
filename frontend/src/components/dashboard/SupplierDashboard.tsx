@@ -660,9 +660,6 @@ useEffect(() => {
 
 
 
-  // ══════════════════════════════════════════════════════════════════════════
-  // DASHBOARD TAB
-  // ══════════════════════════════════════════════════════════════════════════
   if (normalizedTab === 'dashboard') {
     return (
       <div className="space-y-8">
@@ -1103,12 +1100,12 @@ if (activeTab === 'market-bids') {
                     <tr>
                       <th className="px-3 py-2 text-left text-[12px] font-bold text-gray-600">CONSUMER</th>
                       <th className="px-3 py-2 text-left text-[12px] font-bold text-gray-600">MW</th>
+                      <th className="px-3 py-2 text-left text-[12px] font-bold text-gray-600">TYPE</th>
                       <th className="px-3 py-2 text-left text-[12px] font-bold text-gray-600">TARGET PRICE</th>
                       <th className="px-3 py-2 text-left text-[12px] font-bold text-gray-600">DURATION</th>
                       <th className="px-3 py-2 text-left text-[12px] font-bold text-gray-600">SCHEDULE</th>
                       <th className="px-3 py-2 text-left text-[12px] font-bold text-gray-600">DRAWAL POINT</th>
                       <th className="px-3 py-2 text-left text-[12px] font-bold text-gray-600">VALID TILL</th>
-                      <th className="px-3 py-2 text-left text-[12px] font-bold text-gray-600">MY OFFER</th>
                       <th className="px-3 py-2 text-left text-[12px] font-bold text-gray-600">ACTION</th>
                     </tr>
                   </thead>
@@ -1126,7 +1123,13 @@ if (activeTab === 'market-bids') {
                         <tr key={bid.id} className="hover:bg-gray-50 transition-colors">
                           <td className="px-3 py-2 text-gray-600 text-[12px]">{bid.consumerName}</td>
                           <td className="px-3 py-2 font-semibold text-gray-900 text-[12px]">{bid.mw} MW</td>
+                          <td className="px-3 py-2">
+                      <span className="inline-flex px-1.5 py-0.5 rounded-full text-[9px] font-semibold bg-blue-100 text-blue-700">
+                        {bid.renewableType || 'Solar'}
+                      </span>
+                    </td>
                           <td className="px-3 py-2 font-semibold text-green-600 text-[12px]">₹{bid.price}</td>
+                          
                           <td className="px-3 py-2 text-gray-600 text-[12px]">{bid.duration}m</td>
                           <td className="px-3 py-2">
                             <span className={`px-1.5 py-0.5 rounded-full text-[9px] font-semibold ${
@@ -1148,18 +1151,6 @@ if (activeTab === 'market-bids') {
                             <span className={`text-[11px] font-medium ${daysLeft < 7 ? 'text-red-500' : daysLeft < 15 ? 'text-amber-500' : 'text-green-600'}`}>
                               {daysLeft}d
                             </span>
-                          </td>
-                          <td className="px-3 py-2">
-                            {hasOffer && (
-                              <span className={`px-1.5 py-0.5 rounded-full text-[9px] font-semibold ${
-                                myOffer?.status === 'ACCEPTED' ? 'bg-green-100 text-green-700' :
-                                myOffer?.status === 'REJECTED' ? 'bg-red-100 text-red-700' :
-                                'bg-amber-100 text-amber-700'
-                              }`}>
-                                {myOffer?.status === 'ACCEPTED' ? 'Accepted' :
-                                 myOffer?.status === 'REJECTED' ? 'Rejected' : 'Pending'}
-                              </span>
-                            )}
                           </td>
                           <td className="px-3 py-2">
                             {!hasOffer ? (
@@ -1196,9 +1187,9 @@ if (activeTab === 'market-bids') {
                               </button>
                             ) : myOffer?.status === 'PENDING' && (
                               <span className="text-amber-600 text-[10px] flex items-center gap-0.5">
-                                <Clock className="w-2.5 h-2.5" />
-                                Awaiting
-                              </span>
+                          <Clock className="w-2.5 h-2.5" />
+                          Pending
+                        </span>
                             )}
                           </td>
                         </tr>
@@ -1231,7 +1222,7 @@ if (activeTab === 'market-bids') {
                     <tr>
                       <th className="px-3 py-2 text-left text-[12px] font-bold text-gray-700">BID DETAILS</th>
                       <th className="px-3 py-2 text-left text-[12px] font-bold text-gray-700">CONSUMER</th>
-                      <th className="px-3 py-2 text-left text-[12px] font-bold text-gray-700">RENEWABLE TYPE</th>
+                      <th className="px-3 py-2 text-left text-[12px] font-bold text-gray-700">TYPE</th>
                       <th className="px-3 py-2 text-left text-[12px] font-bold text-gray-700">MY OFFER</th>
                       <th className="px-3 py-2 text-left text-[12px] font-bold text-gray-700">OFFER PRICE</th>
                       <th className="px-3 py-2 text-left text-[12px] font-bold text-gray-700">vs TARGET</th>
@@ -1288,17 +1279,15 @@ if (activeTab === 'market-bids') {
                               offer.status === 'REJECTED' ? 'bg-red-100 text-red-700' :
                               'bg-amber-100 text-amber-700'
                             }`}>
-                              {offer.status === 'ACCEPTED' ? '✓ Accepted' :
-                               offer.status === 'REJECTED' ? '✗ Rejected' : '⏳ Pending'}
+                              {offer.status === 'ACCEPTED' ? 'Accepted' :
+                               offer.status === 'REJECTED' ? 'Rejected' : 'Pending'}
                             </span>
                           </td>
                           <td className="px-3 py-2">
                             {offer.status === 'PENDING' && (
                               <button
                                 onClick={() => {
-                                  // Option to withdraw offer
                                   if (confirm('Withdraw this offer?')) {
-                                    // Call withdraw API
                                   }
                                 }}
                                 className="px-2 py-1 rounded bg-red-50 border border-red-200 text-red-600 text-[10px] font-semibold hover:bg-red-100"
@@ -1308,13 +1297,9 @@ if (activeTab === 'market-bids') {
                             )}
                             {offer.status === 'ACCEPTED' && (
                               <button
-                                onClick={() => {
-                                  // Proceed to contract
-                                  setTab('contracts');
-                                }}
                                 className="px-2 py-1 rounded bg-green-600 text-white text-[10px] font-semibold hover:bg-green-700"
                               >
-                                Create Contract
+                                Accepted
                               </button>
                             )}
                             {offer.status === 'REJECTED' && (
@@ -1326,7 +1311,9 @@ if (activeTab === 'market-bids') {
                                     setOfferFormData({
                                       offeredPrice: originalBid.price,
                                       offeredMw: originalBid.mw,
-                                      message: ''
+                                      message: '',
+                                      renewableType:''
+
                                     });
                                     setShowOfferModal(true);
                                   }
